@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 现代化终端滚动条样式 */
+.terminal-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-track {
+  background: #21262d;
+  border-radius: 4px;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-thumb {
+  background: #58a6ff;
+  border-radius: 4px;
+  border: 1px solid #21262d;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #79c0ff;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-corner {
+  background: #21262d;
+}
+
+/* 终端字体优化 */
+.terminal-font {
+  font-family: "JetBrains Mono", "Fira Code", Monaco, Menlo, "Ubuntu Mono", "Cascadia Code", "SF Mono", Consolas, monospace;
+  font-feature-settings: "liga" 1, "calt" 1;
+  font-variant-ligatures: contextual;
+}
+
+/* 终端动画效果 */
+.terminal-glow {
+  box-shadow: 
+    0 0 20px rgba(88, 166, 255, 0.1),
+    0 4px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: box-shadow 0.3s ease;
+}
+
+.terminal-glow:hover {
+  box-shadow: 
+    0 0 30px rgba(88, 166, 255, 0.15),
+    0 8px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* 终端命令提示符和输出文本样式 */
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+}
+
+.xterm .xterm-screen {
+  background-color: transparent !important;
+}
+
+/* 优化终端文本渲染 */
+.xterm-helper-textarea {
+  position: absolute !important;
+  left: -9999em !important;
+}
+
+/* 终端光标动画 */
+@keyframes terminal-cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.xterm .xterm-cursor {
+  animation: terminal-cursor-blink 1.2s infinite;
+}
+
+/* 终端选择文本样式 */
+.xterm .xterm-selection {
+  background-color: rgba(88, 166, 255, 0.3) !important;
+  border-radius: 2px;
+}
+
+/* 终端链接样式 */
+.xterm .xterm-link {
+  color: #58a6ff !important;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.xterm .xterm-link:hover {
+  color: #79c0ff !important;
+  text-decoration: none;
+}
+
+/* 现代终端界面设计标准 */
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .terminal-font {
+    font-size: 12px;
+  }
+  
+  .terminal-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .terminal-font {
+    font-size: 11px;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .xterm .xterm-cursor {
+    background-color: #ffffff !important;
+  }
+  
+  .terminal-scrollbar::-webkit-scrollbar-thumb {
+    background: #ffffff;
+  }
+}
+
+/* 减少动画偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .terminal-glow {
+    transition: none;
+  }
+  
+  .xterm .xterm-cursor {
+    animation: none;
+  }
+}
+
+/* 深色模式优化 */
+@media (prefers-color-scheme: dark) {
+  .terminal-glow {
+    box-shadow: 
+      0 0 25px rgba(88, 166, 255, 0.12),
+      0 4px 32px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* 焦点状态优化 */
+.xterm:focus-within {
+  outline: 2px solid #58a6ff;
+  outline-offset: 2px;
+}
+
+/* 终端性能优化 */
+.xterm {
+  will-change: transform;
+  contain: layout style paint;
+}
+
+/* 文本选择优化 */
+.xterm .xterm-selection {
+  transition: background-color 0.1s ease;
+}
+
+/* 终端加载状态 */
+.terminal-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #58a6ff, transparent);
+  animation: terminal-loading 2s infinite;
+}
+
+@keyframes terminal-loading {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}

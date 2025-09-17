@@ -1,0 +1,21 @@
+title: 快速开始
+description: 欢迎来到 KWDB 课程，本场景将引导您快速开始使用 KWDB。
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: Install
+      text: step1.md
+    - title: Exec
+      text: step2.md
+  finish:
+    text: finish.md
+backend:
+  imageid: kwdb/kwdb
+  workspace: /kaiwudb/bin
+estimatedMinutes: 10
+difficulty: beginner
+# slqTerminal: true
+tags:
+  - quick-start
+  - 快速开始

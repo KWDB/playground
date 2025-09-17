@@ -1,0 +1,21 @@
+title: 测试 3
+description: 欢迎来到 KWDB 课程，本场景将引导您快速开始使用 KWDB。
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: Install
+      text: step1.md
+    - title: Exec
+      text: step2.md
+    - title: Test
+      text: step3.md
+  finish:
+    text: finish.md
+backend:
+  imageid: kwdb/kwdb
+estimatedMinutes: 10
+difficulty: intermediate
+# slqTerminal: true
+tags:
+  - 测试
