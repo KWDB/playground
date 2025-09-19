@@ -66,6 +66,7 @@ func main() {
 
 	// 初始化WebSocket终端管理器 - 简化版本，专注于docker exec -it /bin/bash
 	terminalManager := websocket.NewTerminalManager()
+	terminalManager.SetLogger(appLogger) // 设置统一的logger实例
 	appLogger.Info("WebSocket终端管理器初始化完成")
 
 	// 设置Gin为发布模式以提高性能并减少日志输出

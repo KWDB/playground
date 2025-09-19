@@ -4,22 +4,23 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"sync"
+
+	"kwdb-playground/internal/logger"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
 )
 
-// Message WebSocket消息结构 - 最小化设计
+// Message WebSocket消息结构
 type Message struct {
 	Type string `json:"type"` // 消息类型: input, output, error
 	Data string `json:"data"` // 消息数据
 }
 
-// TerminalSession 终端会话 - 专注于docker exec -it /bin/bash
+// TerminalSession 终端会话
 type TerminalSession struct {
 	sessionID   string
 	containerID string
@@ -28,19 +29,28 @@ type TerminalSession struct {
 	pty         *os.File
 	ctx         context.Context
 	cancel      context.CancelFunc
+	logger      *logger.Logger // 日志记录器实例
 }
 
 // TerminalManager 终端管理器
 type TerminalManager struct {
 	sessions map[string]*TerminalSession
 	mu       sync.RWMutex
+	logger   *logger.Logger // 日志记录器实例
 }
 
 // NewTerminalManager 创建终端管理器
 func NewTerminalManager() *TerminalManager {
 	return &TerminalManager{
 		sessions: make(map[string]*TerminalSession),
+		logger:   logger.NewLogger(logger.INFO), // 默认INFO级别
 	}
+}
+
+// SetLogger 设置日志记录器实例
+// 允许外部配置logger，使其与配置系统兼容
+func (tm *TerminalManager) SetLogger(loggerInstance *logger.Logger) {
+	tm.logger = loggerInstance
 }
 
 // CreateSession 创建新的终端会话
@@ -61,6 +71,7 @@ func (tm *TerminalManager) CreateSession(sessionID, containerID string, conn *we
 		conn:        conn,
 		ctx:         ctx,
 		cancel:      cancel,
+		logger:      tm.logger, // 传递logger实例
 	}
 
 	tm.sessions[sessionID] = session
@@ -81,6 +92,17 @@ func (ts *TerminalSession) StartInteractiveSession() error {
 	ts.cmd = cmd
 	ts.pty = ptyFile
 
+	// 发送连接成功消息给客户端
+	connectedMsg := Message{
+		Type: "connected",
+		Data: "Terminal session started",
+	}
+	if err := ts.conn.WriteJSON(connectedMsg); err != nil {
+		ts.logger.Error("发送连接确认消息失败: %v", err)
+		// 不返回错误，继续执行
+	}
+	ts.logger.Debug("终端会话已启动，会话ID: %s", ts.sessionID)
+
 	// 启动双向通信处理
 	go ts.handleWebSocketInput() // 处理前端输入
 	go ts.handleTerminalOutput() // 处理终端输出
@@ -98,15 +120,15 @@ func (ts *TerminalSession) handleWebSocketInput() {
 		default:
 			var msg Message
 			if err := ts.conn.ReadJSON(&msg); err != nil {
-				log.Printf("读取WebSocket消息失败: %v", err)
+				ts.logger.Error("读取WebSocket消息失败: %v", err)
 				return
 			}
-
+			ts.logger.Debug("收到前端输入消息: %s", msg.Data)
 			// 只处理输入类型的消息
 			if msg.Type == "input" && ts.pty != nil {
 				_, err := ts.pty.Write([]byte(msg.Data))
 				if err != nil {
-					log.Printf("写入终端失败: %v", err)
+					ts.logger.Error("写入终端失败: %v", err)
 					return
 				}
 			}
@@ -125,10 +147,11 @@ func (ts *TerminalSession) handleTerminalOutput() {
 			n, err := ts.pty.Read(buf)
 			if err != nil {
 				if err != io.EOF {
-					log.Printf("读取终端输出失败: %v", err)
+					ts.logger.Error("读取终端输出失败: %v", err)
 				}
 				return
 			}
+			ts.logger.Debug("读取终端输出: %s", string(buf[:n]))
 
 			if n > 0 {
 				msg := Message{
@@ -136,7 +159,7 @@ func (ts *TerminalSession) handleTerminalOutput() {
 					Data: string(buf[:n]),
 				}
 				if err := ts.conn.WriteJSON(msg); err != nil {
-					log.Printf("发送输出到前端失败: %v", err)
+					ts.logger.Error("发送输出到前端失败: %v", err)
 					return
 				}
 			}
@@ -149,7 +172,7 @@ func (ts *TerminalSession) waitForTerminalExit() {
 	if ts.cmd != nil {
 		err := ts.cmd.Wait()
 		if err != nil {
-			log.Printf("终端命令退出: %v", err)
+			ts.logger.Info("终端命令退出: %v", err)
 			msg := Message{
 				Type: "error",
 				Data: fmt.Sprintf("终端会话结束: %v", err),

@@ -23,9 +23,5 @@ export default defineConfig({
     },
     // 调整chunk大小警告限制
     chunkSizeWarningLimit: 1000
-  },
-  server: {
-    port: 5173,
-    host: true
   }
 })

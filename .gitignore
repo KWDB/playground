@@ -25,7 +25,15 @@ dist-ssr
 .vite
 .trae
 .env
+.pytest_cache
 
 tmp
 node_modules
 bin
+e2e_test_env
+e2e_testdata
+
+tests/reports
+tests/screenshots
+tests/__pycache__
+__pycache__
