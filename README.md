@@ -69,8 +69,6 @@ COURSES_USE_EMBED=1 ./kwdb-playground
 访问地址：
 - 本地页面：http://localhost:3006
 
----
-
 ## 编译指南
 
 ### 1. 编译所需工具与环境
@@ -104,8 +102,6 @@ make build
   - 解决：修改 `SERVER_PORT` 或释放占用进程。
 - Docker 功能不可用
   - 解决：确保本机 Docker 服务已启动；如不需要容器功能，可忽略相关警告。
-
----
 
 ## 发布流程
 
@@ -154,8 +150,6 @@ git push origin v1.0.0
   - 检查课程是否加载成功（前端课程列表与阅读流程可用）
   - 若使用容器功能，验证 Docker 环境及交互式终端（WebSocket）是否正常
 
----
-
 ## 守护进程模式
 
 项目支持通过 `--daemon` 或 `-d` 以守护进程模式运行，自动 fork + detach、管理 PID 文件，标准输出与错误重定向到守护日志文件。
@@ -184,8 +178,6 @@ kill -INT $(cat tmp/kwdb-playground.pid)
 说明：
 - 守护模式当前针对类 Unix 系统（macOS/Linux）设计；Windows 下建议以服务方式运行或使用任务计划实现后台运行。
 - 若存在陈旧 PID 文件或端口占用，将拒绝重复启动并给出提示。
-
----
 
 ## 常见问题与故障排除
 

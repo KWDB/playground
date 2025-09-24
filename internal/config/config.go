@@ -8,6 +8,10 @@ import (
 	"kwdb-playground/internal/logger"
 )
 
+// BuildDefaultUseEmbed 用于通过 -ldflags 注入发布版本的默认嵌入开关（建议为"true"或"false"，也可为"1"或"0"）
+// 在未设置环境变量 COURSES_USE_EMBED 时，此值作为默认值生效
+var BuildDefaultUseEmbed = ""
+
 // Config 应用程序配置结构
 // 包含服务器和课程相关的所有配置项
 type Config struct {
@@ -58,13 +62,16 @@ type LogConfig struct {
 //   - SERVER_PORT: 服务器监听端口 (默认: 8080)
 //   - COURSE_DIR: 课程文件目录 (默认: ./courses)
 //   - COURSES_RELOAD: 是否启用课程热重载 (默认: true)
-//   - COURSES_USE_EMBED: 是否使用嵌入式FS作为课程数据来源 (默认: false)
+//   - COURSES_USE_EMBED: 是否使用嵌入式FS作为课程数据来源 (默认: false 或由 BuildDefaultUseEmbed 指定)
 //
 // 返回完整的配置对象，如果配置验证失败会记录警告但不会中断程序
 func Load() *Config {
 	// 创建临时logger实例用于配置加载过程
 	tempLogger := logger.NewLogger(logger.DEBUG)
 	tempLogger.Debug("Loading application configuration...")
+
+	// 计算嵌入模式的默认值：优先环境变量，若未设置则使用编译期注入的 BuildDefaultUseEmbed
+	defaultUseEmbed := (BuildDefaultUseEmbed == "true" || BuildDefaultUseEmbed == "1")
 
 	config := &Config{
 		Server: ServerConfig{
@@ -80,7 +87,7 @@ func Load() *Config {
 		Course: CourseConfig{
 			Dir:      getEnv("COURSE_DIR", "./courses"),
 			Reload:   getEnvBool("COURSES_RELOAD", true),
-			UseEmbed: getEnvBool("COURSES_USE_EMBED", false),
+			UseEmbed: getEnvBool("COURSES_USE_EMBED", defaultUseEmbed),
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),

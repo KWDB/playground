@@ -24,7 +24,7 @@ SERVER_PORT ?= 3006
 DEBUG_PORT ?= 2345
 
 # 构建标志
-LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT)
+LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT) -X kwdb-playground/internal/config.BuildDefaultUseEmbed=true
 
 # 环境变量文件
 ENV_FILE ?= .env
