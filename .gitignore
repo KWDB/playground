@@ -24,7 +24,7 @@ dist-ssr
 *.sw?
 .vite
 .trae
-.qpder
+.qoder
 .env
 .pytest_cache
 
