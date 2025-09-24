@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -11,20 +12,23 @@ import (
 
 	"kwdb-playground/internal/logger"
 
+	"github.com/containerd/errdefs"
 	"github.com/docker/go-connections/nat"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/client"
 )
 
 // dockerController Docker控制器实现
 type dockerController struct {
-	client     DockerClientInterface
-	containers map[string]*ContainerInfo // 内存中的容器信息
-	mu         sync.RWMutex              // 保护containers映射的读写锁
-	cache      *containerCache           // 容器状态缓存
-	courseMu   map[string]*sync.Mutex    // 每个课程的互斥锁
-	courseMuMu sync.RWMutex              // 保护courseMu映射的读写锁
-	logger     *logger.Logger            // 日志记录器
+	client          DockerClientInterface
+	containers      map[string]*ContainerInfo // 内存中的容器信息
+	mu              sync.RWMutex              // 保护containers映射的读写锁
+	cache           *containerCache           // 容器状态缓存
+	courseMu        map[string]*sync.Mutex    // 每个课程的互斥锁
+	courseMuMu      sync.RWMutex              // 保护courseMu映射的读写锁
+	logger          *logger.Logger            // 日志记录器
+	terminalManager TerminalManagerInterface  // WebSocket终端管理器接口
 }
 
 // createDockerClient 创建Docker客户端，支持多种socket路径
@@ -97,6 +101,11 @@ func createDockerClient(log *logger.Logger) (*client.Client, error) {
 
 // NewController 创建新的Docker控制器
 func NewController() (Controller, error) {
+	return NewControllerWithTerminalManager(nil)
+}
+
+// NewControllerWithTerminalManager 创建带WebSocket管理器的Docker控制器
+func NewControllerWithTerminalManager(terminalManager TerminalManagerInterface) (Controller, error) {
 	// 创建logger实例
 	log := logger.NewLogger(logger.INFO)
 
@@ -123,11 +132,12 @@ func NewController() (Controller, error) {
 
 	// 创建控制器实例
 	controller := &dockerController{
-		client:     adapter,
-		containers: make(map[string]*ContainerInfo),
-		cache:      cache,
-		courseMu:   make(map[string]*sync.Mutex),
-		logger:     log,
+		client:          adapter,
+		containers:      make(map[string]*ContainerInfo),
+		cache:           cache,
+		courseMu:        make(map[string]*sync.Mutex),
+		logger:          log,
+		terminalManager: terminalManager,
 	}
 
 	// 加载现有容器到内存
@@ -308,16 +318,21 @@ func (d *dockerController) isContainerRunning(ctx context.Context, containerID s
 func (d *dockerController) isContainerRunningCached(ctx context.Context, dockerID string) (bool, error) {
 	// 先检查缓存
 	if isRunning, exists := d.cache.get(dockerID); exists {
+		d.logger.Debug("容器状态缓存命中: %s, 运行状态: %v", dockerID[:12], isRunning)
 		return isRunning, nil
 	}
 
 	// 缓存未命中，查询Docker API
+	d.logger.Debug("容器状态缓存未命中，查询Docker API: %s", dockerID[:12])
 	inspect, err := d.client.ContainerInspect(ctx, dockerID)
 	if err != nil {
+		d.logger.Error("检查容器状态失败: %s, 错误: %v", dockerID[:12], err)
 		return false, fmt.Errorf("failed to inspect container: %w", err)
 	}
 
 	isRunning := inspect.State.Running
+	d.logger.Debug("Docker API查询结果: %s, 运行状态: %v, 退出码: %d", 
+		dockerID[:12], isRunning, inspect.State.ExitCode)
 
 	// 更新缓存
 	d.cache.set(dockerID, isRunning)
@@ -357,6 +372,13 @@ func (d *dockerController) StartContainer(ctx context.Context, containerID strin
 			d.logger.Warn("检查容器状态失败: %v", err)
 			time.Sleep(1 * time.Second)
 			continue
+		}
+
+		// 对于一次性执行的容器，成功退出（ExitCode=0）也视为启动成功
+		if containerInfo.IsOneTimeExecution && !inspect.State.Running && inspect.State.ExitCode == 0 {
+			d.logger.Info("一次性执行容器 %s 成功完成，ExitCode=%d", containerID, inspect.State.ExitCode)
+			d.updateContainerState(containerID, StateExited, "Container completed successfully")
+			return nil
 		}
 
 		if inspect.State.Running {
@@ -478,8 +500,19 @@ func (d *dockerController) updateContainerState(containerID string, state Contai
 	defer d.mu.Unlock()
 
 	if containerInfo, exists := d.containers[containerID]; exists {
+		oldState := containerInfo.State
 		containerInfo.State = state
 		containerInfo.Message = message
+		d.logger.Info("容器状态已更新: %s, %s -> %s, 消息: %s", containerID, oldState, state, message)
+		
+		// 同步更新缓存状态，确保一致性
+		if containerInfo.DockerID != "" {
+			isRunning := (state == StateRunning)
+			d.cache.set(containerInfo.DockerID, isRunning)
+			d.logger.Debug("同步更新缓存状态: %s, 运行状态: %v", containerInfo.DockerID[:12], isRunning)
+		}
+	} else {
+		d.logger.Warn("尝试更新不存在的容器状态: %s", containerID)
 	}
 }
 
@@ -506,12 +539,29 @@ func (d *dockerController) RestartContainer(ctx context.Context, containerID str
 
 // CreateContainer 创建容器
 func (d *dockerController) CreateContainer(ctx context.Context, courseID string, config *ContainerConfig) (*ContainerInfo, error) {
+	return d.CreateContainerWithProgress(ctx, courseID, config, nil)
+}
+
+// CreateContainerWithProgress 创建容器并支持镜像拉取进度回调
+func (d *dockerController) CreateContainerWithProgress(ctx context.Context, courseID string, config *ContainerConfig, progressCallback ImagePullProgressCallback) (*ContainerInfo, error) {
 	d.logger.Info("开始创建容器，课程ID: %s, 镜像: %s", courseID, config.Image)
 
 	// 使用课程级别的互斥锁，确保同一课程的容器创建操作是原子性的
 	courseMutex := d.getCourseMutex(courseID)
 	courseMutex.Lock()
 	defer courseMutex.Unlock()
+
+	// 检查镜像是否存在，如果不存在则自动拉取
+	if err := d.ensureImageExistsWithProgress(ctx, config.Image, progressCallback); err != nil {
+		d.logger.Error("确保镜像 %s 存在失败: %v", config.Image, err)
+		return nil, d.enhanceImageError(err, config.Image)
+	}
+
+	// 检查镜像兼容性并优化容器配置
+	if err := d.checkImageCompatibilityAndOptimizeConfig(ctx, config); err != nil {
+		d.logger.Error("镜像兼容性检查失败: %v", err)
+		return nil, err
+	}
 
 	// 清理该课程的所有现有容器
 	if err := d.cleanupCourseContainers(ctx, courseID); err != nil {
@@ -553,6 +603,7 @@ func (d *dockerController) CreateContainer(ctx context.Context, courseID string,
 	}
 
 	// 创建容器配置
+	d.logger.Info("[CreateContainer] 镜像: %s, 启动命令: %v", config.Image, config.Cmd)
 	containerConfig := &container.Config{
 		Image:        config.Image,
 		Env:          env,
@@ -587,14 +638,15 @@ func (d *dockerController) CreateContainer(ctx context.Context, courseID string,
 
 	// 创建容器信息
 	containerInfo := &ContainerInfo{
-		ID:        containerName,
-		CourseID:  courseID,
-		DockerID:  resp.ID,
-		State:     StateCreating,
-		Image:     config.Image,
-		StartedAt: time.Now(),
-		Env:       config.Env,
-		Ports:     config.Ports,
+		ID:                 containerName,
+		CourseID:           courseID,
+		DockerID:           resp.ID,
+		State:              StateCreating,
+		Image:              config.Image,
+		StartedAt:          time.Now(),
+		Env:                config.Env,
+		Ports:              config.Ports,
+		IsOneTimeExecution: config.IsOneTimeExecution,
 	}
 
 	// 保存到内存中
@@ -1194,5 +1246,460 @@ func (d *dockerController) Close() error {
 	if d.client != nil {
 		return d.client.Close()
 	}
+	return nil
+}
+
+// classifyPullError 分类拉取错误并提供详细的错误信息和建议
+func (d *dockerController) classifyPullError(err error, imageName string) string {
+	errorStr := err.Error()
+
+	// 网络连接错误
+	if strings.Contains(errorStr, "connection refused") ||
+		strings.Contains(errorStr, "network is unreachable") ||
+		strings.Contains(errorStr, "timeout") ||
+		strings.Contains(errorStr, "dial tcp") {
+		return fmt.Sprintf("网络连接失败，无法连接到镜像仓库。请检查网络连接或稍后重试。镜像: %s，错误: %v", imageName, err)
+	}
+
+	// 权限认证错误
+	if strings.Contains(errorStr, "unauthorized") ||
+		strings.Contains(errorStr, "authentication required") ||
+		strings.Contains(errorStr, "access denied") ||
+		strings.Contains(errorStr, "forbidden") {
+		return fmt.Sprintf("权限不足，无法访问镜像仓库。请检查Docker登录状态或镜像访问权限。镜像: %s，错误: %v", imageName, err)
+	}
+
+	// 镜像不存在错误
+	if strings.Contains(errorStr, "not found") ||
+		strings.Contains(errorStr, "repository does not exist") ||
+		strings.Contains(errorStr, "manifest unknown") {
+		return fmt.Sprintf("镜像不存在，请检查镜像名称和标签是否正确。镜像: %s，错误: %v", imageName, err)
+	}
+
+	// 磁盘空间不足错误
+	if strings.Contains(errorStr, "no space left on device") ||
+		strings.Contains(errorStr, "disk full") {
+		return fmt.Sprintf("磁盘空间不足，无法下载镜像。请清理磁盘空间后重试。镜像: %s，错误: %v", imageName, err)
+	}
+
+	// Docker守护进程错误
+	if strings.Contains(errorStr, "docker daemon") ||
+		strings.Contains(errorStr, "cannot connect to the Docker daemon") {
+		return fmt.Sprintf("无法连接到Docker守护进程，请确保Docker服务正在运行。镜像: %s，错误: %v", imageName, err)
+	}
+
+	// 镜像仓库服务器错误
+	if strings.Contains(errorStr, "500") ||
+		strings.Contains(errorStr, "502") ||
+		strings.Contains(errorStr, "503") ||
+		strings.Contains(errorStr, "504") {
+		return fmt.Sprintf("镜像仓库服务器错误，请稍后重试。镜像: %s，错误: %v", imageName, err)
+	}
+
+	// 默认错误信息
+	return fmt.Sprintf("拉取镜像失败，请检查镜像名称、网络连接和Docker配置。镜像: %s，错误: %v", imageName, err)
+}
+
+// classifyImageCheckError 分类镜像检查错误并提供详细的错误信息
+func (d *dockerController) classifyImageCheckError(err error, imageName string) string {
+	errorStr := err.Error()
+
+	// Docker守护进程错误
+	if strings.Contains(errorStr, "docker daemon") ||
+		strings.Contains(errorStr, "cannot connect to the Docker daemon") {
+		return fmt.Sprintf("无法连接到Docker守护进程，请确保Docker服务正在运行。镜像: %s，错误: %v", imageName, err)
+	}
+
+	// 权限错误
+	if strings.Contains(errorStr, "permission denied") ||
+		strings.Contains(errorStr, "access denied") {
+		return fmt.Sprintf("权限不足，无法访问Docker。请检查用户权限或以管理员身份运行。镜像: %s，错误: %v", imageName, err)
+	}
+
+	// 网络连接错误
+	if strings.Contains(errorStr, "connection refused") ||
+		strings.Contains(errorStr, "timeout") {
+		return fmt.Sprintf("网络连接失败，无法连接到Docker守护进程。请检查Docker服务状态。镜像: %s，错误: %v", imageName, err)
+	}
+
+	// 默认错误信息
+	return fmt.Sprintf("检查镜像失败，请检查Docker配置和服务状态。镜像: %s，错误: %v", imageName, err)
+}
+
+// ensureImageExistsWithProgress 确保镜像存在，如果不存在则自动拉取，支持进度回调
+func (d *dockerController) ensureImageExistsWithProgress(ctx context.Context, imageName string, progressCallback ImagePullProgressCallback) error {
+	d.logger.Info("检查镜像是否存在: %s", imageName)
+
+	// 检查本地是否存在镜像
+	exists, err := d.checkImageExists(ctx, imageName)
+	if err != nil {
+		return fmt.Errorf("检查镜像存在性失败: %w", err)
+	}
+
+	if exists {
+		d.logger.Info("镜像 %s 已存在于本地", imageName)
+		return nil
+	}
+
+	d.logger.Info("镜像 %s 不存在，开始自动拉取", imageName)
+
+	// 创建WebSocket广播回调
+	webSocketCallback := func(progress ImagePullProgress) {
+		// 调用原始回调（如果存在）
+		if progressCallback != nil {
+			progressCallback(progress)
+		}
+
+		// 通过WebSocket广播进度信息
+		if d.terminalManager != nil {
+			d.terminalManager.BroadcastImagePullProgress(ImagePullProgressMessage{
+				ImageName: progress.ImageName,
+				Status:    progress.Status,
+				Progress:  progress.Progress,
+				Error:     progress.Error,
+			})
+		}
+	}
+
+	// 发送开始拉取的进度信息
+	webSocketCallback(ImagePullProgress{
+		ImageName: imageName,
+		Status:    "开始拉取镜像",
+	})
+
+	if err := d.pullImageWithProgress(ctx, imageName, webSocketCallback); err != nil {
+		// 使用详细的错误分类
+		errorMsg := d.classifyPullError(err, imageName)
+		// 发送拉取失败的进度信息
+		webSocketCallback(ImagePullProgress{
+			ImageName: imageName,
+			Status:    "拉取失败",
+			Error:     errorMsg,
+		})
+		return fmt.Errorf(errorMsg)
+	}
+
+	// 发送拉取成功的进度信息
+	webSocketCallback(ImagePullProgress{
+		ImageName: imageName,
+		Status:    "拉取完成",
+	})
+
+	d.logger.Info("镜像 %s 拉取成功", imageName)
+	return nil
+}
+
+// checkImageExists 检查本地是否存在指定镜像
+func (d *dockerController) checkImageExists(ctx context.Context, imageName string) (bool, error) {
+	// 使用 ImageInspect 检查镜像是否存在
+	_, _, err := d.client.ImageInspectWithRaw(ctx, imageName)
+	if err != nil {
+		// 如果是镜像不存在的错误，返回 false
+		if errdefs.IsNotFound(err) {
+			return false, nil
+		}
+		// 其他错误使用详细的错误分类
+		errorMsg := d.classifyImageCheckError(err, imageName)
+		return false, fmt.Errorf(errorMsg)
+	}
+	return true, nil
+}
+
+// pullImageWithProgress 拉取镜像并支持进度回调
+func (d *dockerController) pullImageWithProgress(ctx context.Context, imageName string, progressCallback ImagePullProgressCallback) error {
+	// 详细日志：开始拉取镜像
+	d.logger.Info("[镜像拉取] 开始拉取镜像: %s", imageName)
+
+	// 发送开始拉取的进度信息
+	if progressCallback != nil {
+		d.logger.Debug("[镜像拉取] 发送开始拉取进度回调: %s", imageName)
+		progressCallback(ImagePullProgress{
+			ImageName: imageName,
+			Status:    "开始拉取镜像",
+		})
+	} else {
+		d.logger.Warn("[镜像拉取] 进度回调函数为空: %s", imageName)
+	}
+
+	// 创建拉取选项
+	options := client.ImagePullOptions{}
+	d.logger.Debug("[镜像拉取] 创建拉取选项: %s", imageName)
+
+	// 开始拉取镜像
+	resp, err := d.client.ImagePull(ctx, imageName, options)
+	if err != nil {
+		// 详细日志：Docker API拉取失败
+		d.logger.Error("[镜像拉取] Docker API拉取失败 - 镜像: %s, 原始错误: %v", imageName, err)
+		// 详细的错误分类和处理
+		errorMsg := d.classifyPullError(err, imageName)
+		d.logger.Error("[镜像拉取] 分类后的错误信息: %s", errorMsg)
+		if progressCallback != nil {
+			d.logger.Debug("[镜像拉取] 发送拉取失败进度回调: %s", imageName)
+			progressCallback(ImagePullProgress{
+				ImageName: imageName,
+				Status:    "拉取失败",
+				Error:     errorMsg,
+			})
+		}
+		return fmt.Errorf(errorMsg)
+	}
+	defer resp.Close()
+
+	// 详细日志：成功开始拉取流
+	d.logger.Info("[镜像拉取] 成功开始镜像拉取流: %s", imageName)
+
+	// 读取拉取进度
+	decoder := json.NewDecoder(resp)
+	progressCount := 0
+	for {
+		var progressInfo map[string]interface{}
+		err := decoder.Decode(&progressInfo)
+		if err != nil {
+			if err == io.EOF {
+				d.logger.Info("[镜像拉取] 拉取进度流结束: %s, 总进度事件数: %d", imageName, progressCount)
+				break
+			}
+			d.logger.Warn("[镜像拉取] 解析拉取进度JSON失败 - 镜像: %s, 错误: %v", imageName, err)
+			continue
+		}
+
+		progressCount++
+		// 解析进度信息
+		status, _ := progressInfo["status"].(string)
+		progress, _ := progressInfo["progress"].(string)
+		errorStr, _ := progressInfo["error"].(string)
+
+		// 为空的status提供默认值，避免前端显示undefined
+		if status == "" {
+			status = "正在拉取镜像..."
+		}
+
+		// 详细日志：进度事件
+		if errorStr != "" {
+			d.logger.Error("[镜像拉取] 拉取过程中出现错误 - 镜像: %s, 状态: %s, 错误: %s", imageName, status, errorStr)
+		} else {
+			d.logger.Debug("[镜像拉取] 进度事件 #%d - 镜像: %s, 状态: %s, 进度: %s", progressCount, imageName, status, progress)
+		}
+
+		// 发送进度回调
+		if progressCallback != nil {
+			d.logger.Debug("[镜像拉取] 发送进度回调 #%d: %s", progressCount, imageName)
+			progressCallback(ImagePullProgress{
+				ImageName: imageName,
+				Status:    status,
+				Progress:  progress,
+				Error:     errorStr,
+			})
+		} else {
+			d.logger.Warn("[镜像拉取] 进度回调函数为空，无法发送进度 #%d: %s", progressCount, imageName)
+		}
+
+		// 检查是否有错误
+		if errorStr != "" {
+			d.logger.Error("[镜像拉取] 拉取失败，返回错误 - 镜像: %s, 错误: %s", imageName, errorStr)
+			return fmt.Errorf("拉取镜像过程中出现错误: %s", errorStr)
+		}
+	}
+
+	// 详细日志：拉取成功完成
+	d.logger.Info("[镜像拉取] 镜像拉取成功完成: %s, 总进度事件数: %d", imageName, progressCount)
+	if progressCallback != nil {
+		d.logger.Debug("[镜像拉取] 发送拉取完成进度回调: %s", imageName)
+		progressCallback(ImagePullProgress{
+			ImageName: imageName,
+			Status:    "拉取完成",
+		})
+	} else {
+		d.logger.Warn("[镜像拉取] 进度回调函数为空，无法发送完成通知: %s", imageName)
+	}
+	return nil
+}
+
+// enhanceImageError 增强镜像相关错误信息，提供更详细的诊断和解决方案
+func (d *dockerController) enhanceImageError(err error, imageName string) error {
+	errorStr := err.Error()
+	lowerError := strings.ToLower(errorStr)
+
+	// 镜像不存在错误
+	if strings.Contains(lowerError, "no such image") || strings.Contains(lowerError, "not found") {
+		return fmt.Errorf("镜像 '%s' 不存在。请检查镜像名称是否正确，或确保镜像已推送到仓库。原始错误: %v", imageName, err)
+	}
+
+	// 权限拒绝错误
+	if strings.Contains(lowerError, "pull access denied") || strings.Contains(lowerError, "access denied") {
+		return fmt.Errorf("无权限拉取镜像 '%s'。请检查镜像仓库的访问权限，或使用公开镜像。原始错误: %v", imageName, err)
+	}
+
+	// 网络连接错误
+	if strings.Contains(lowerError, "connection refused") || strings.Contains(lowerError, "timeout") || strings.Contains(lowerError, "network") {
+		return fmt.Errorf("网络连接失败，无法拉取镜像 '%s'。请检查网络连接和Docker配置。原始错误: %v", imageName, err)
+	}
+
+	// Docker守护进程错误
+	if strings.Contains(lowerError, "docker daemon") || strings.Contains(lowerError, "cannot connect") {
+		return fmt.Errorf("无法连接到Docker守护进程。请确保Docker服务正在运行。镜像: %s，原始错误: %v", imageName, err)
+	}
+
+	// 默认增强错误
+	return fmt.Errorf("镜像操作失败 '%s'。请检查镜像名称、网络连接和Docker配置。原始错误: %v", imageName, err)
+}
+
+// checkImageCompatibilityAndOptimizeConfig 检查镜像兼容性并优化容器配置
+func (d *dockerController) checkImageCompatibilityAndOptimizeConfig(ctx context.Context, config *ContainerConfig) error {
+	d.logger.Info("检查镜像兼容性: %s", config.Image)
+
+	// 检查镜像信息
+	imageInfo, _, err := d.client.ImageInspectWithRaw(ctx, config.Image)
+	if err != nil {
+		return fmt.Errorf("无法获取镜像信息: %w", err)
+	}
+
+	// 分析镜像类型和特征
+	imageType := d.analyzeImageType(config.Image, &imageInfo)
+	d.logger.Info("检测到镜像类型: %s", imageType)
+
+	// 根据镜像类型优化配置
+	switch imageType {
+	case "hello-world":
+		return d.optimizeForHelloWorldImage(config)
+	case "minimal":
+		return d.optimizeForMinimalImage(config, &imageInfo)
+	case "alpine":
+		return d.optimizeForAlpineImage(config)
+	case "ubuntu":
+		return d.optimizeForUbuntuImage(config)
+	case "centos":
+		return d.optimizeForCentOSImage(config)
+	default:
+		return d.optimizeForGenericImage(config, &imageInfo)
+	}
+}
+
+// analyzeImageType 分析镜像类型
+func (d *dockerController) analyzeImageType(imageName string, imageInfo *image.InspectResponse) string {
+	lowerName := strings.ToLower(imageName)
+
+	// 特殊测试镜像
+	if strings.Contains(lowerName, "hello-world") {
+		return "hello-world"
+	}
+
+	// 常见Linux发行版
+	if strings.Contains(lowerName, "alpine") {
+		return "alpine"
+	}
+	if strings.Contains(lowerName, "ubuntu") {
+		return "ubuntu"
+	}
+	if strings.Contains(lowerName, "centos") || strings.Contains(lowerName, "rhel") {
+		return "centos"
+	}
+	if strings.Contains(lowerName, "debian") {
+		return "ubuntu" // 使用类似的优化策略
+	}
+
+	// 检查镜像大小判断是否为最小化镜像
+	if imageInfo.Size < 50*1024*1024 { // 小于50MB认为是最小化镜像
+		return "minimal"
+	}
+
+	return "generic"
+}
+
+// optimizeForHelloWorldImage 为hello-world镜像优化配置
+func (d *dockerController) optimizeForHelloWorldImage(config *ContainerConfig) error {
+	d.logger.Info("检测到hello-world镜像，使用默认行为")
+
+	// hello-world镜像只是打印消息然后退出，这是正常行为
+	// 清空Cmd让镜像使用默认的入口点
+	config.Cmd = nil
+	// 标记这是一个一次性执行的镜像
+	config.IsOneTimeExecution = true
+	d.logger.Info("已为hello-world镜像清空启动命令，使用默认行为，标记为一次性执行")
+
+	return nil
+}
+
+// optimizeForMinimalImage 为最小化镜像优化配置
+func (d *dockerController) optimizeForMinimalImage(config *ContainerConfig, imageInfo *image.InspectResponse) error {
+	d.logger.Info("检测到最小化镜像，检查shell可用性")
+
+	// 检查镜像是否包含常见的shell
+	hasShell := false
+	shellPaths := []string{"/bin/bash", "/bin/sh", "/bin/ash"}
+
+	// 检查镜像配置中的入口点和命令
+	if imageInfo.Config != nil {
+		// 检查默认命令是否包含shell
+		for _, cmd := range imageInfo.Config.Cmd {
+			for _, shellPath := range shellPaths {
+				if strings.Contains(cmd, shellPath) {
+					hasShell = true
+					break
+				}
+			}
+		}
+	}
+
+	if !hasShell {
+		// 尝试使用/bin/sh作为备选
+		d.logger.Info("镜像可能不包含/bin/bash，尝试使用/bin/sh")
+		if len(config.Cmd) == 0 || (len(config.Cmd) > 0 && config.Cmd[0] == "/bin/bash") {
+			config.Cmd = []string{"/bin/sh"}
+			d.logger.Info("已将容器命令修改为: %v", config.Cmd)
+		}
+	}
+
+	return nil
+}
+
+// optimizeForAlpineImage 为Alpine镜像优化配置
+func (d *dockerController) optimizeForAlpineImage(config *ContainerConfig) error {
+	d.logger.Info("为Alpine镜像优化配置")
+
+	// Alpine使用ash shell，但通常/bin/sh链接到ash
+	if len(config.Cmd) == 0 || (len(config.Cmd) > 0 && config.Cmd[0] == "/bin/bash") {
+		config.Cmd = []string{"/bin/sh"}
+		d.logger.Info("Alpine镜像使用/bin/sh替代/bin/bash")
+	}
+
+	return nil
+}
+
+// optimizeForUbuntuImage 为Ubuntu镜像优化配置
+func (d *dockerController) optimizeForUbuntuImage(config *ContainerConfig) error {
+	d.logger.Info("为Ubuntu镜像优化配置")
+
+	// Ubuntu通常包含bash，保持默认配置
+	if len(config.Cmd) == 0 {
+		config.Cmd = []string{"/bin/bash"}
+	}
+
+	return nil
+}
+
+// optimizeForCentOSImage 为CentOS镜像优化配置
+func (d *dockerController) optimizeForCentOSImage(config *ContainerConfig) error {
+	d.logger.Info("为CentOS镜像优化配置")
+
+	// CentOS通常包含bash，保持默认配置
+	if len(config.Cmd) == 0 {
+		config.Cmd = []string{"/bin/bash"}
+	}
+
+	return nil
+}
+
+// optimizeForGenericImage 为通用镜像优化配置
+func (d *dockerController) optimizeForGenericImage(config *ContainerConfig, imageInfo *image.InspectResponse) error {
+	d.logger.Info("为通用镜像优化配置")
+
+	// 对于未知镜像，尝试智能检测和配置
+	if len(config.Cmd) == 0 {
+		// 优先尝试bash，如果不行再尝试sh
+		config.Cmd = []string{"/bin/bash"}
+		d.logger.Info("通用镜像默认使用/bin/bash，如果启动失败会自动尝试其他shell")
+	}
+
 	return nil
 }

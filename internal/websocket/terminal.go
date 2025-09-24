@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"sync"
 
+	"kwdb-playground/internal/docker"
 	"kwdb-playground/internal/logger"
 
 	"github.com/creack/pty"
@@ -16,9 +17,13 @@ import (
 
 // Message WebSocket消息结构
 type Message struct {
-	Type string `json:"type"` // 消息类型: input, output, error
-	Data string `json:"data"` // 消息数据
+	Type string      `json:"type"`           // 消息类型: input, output, error, image_pull_progress
+	Data interface{} `json:"data"`           // 消息数据，支持字符串和结构体
+	Meta interface{} `json:"meta,omitempty"` // 额外的元数据，用于镜像拉取进度等
 }
+
+// 使用docker包中的ImagePullProgressMessage类型
+type ImagePullProgressMessage = docker.ImagePullProgressMessage
 
 // TerminalSession 终端会话
 type TerminalSession struct {
@@ -123,13 +128,17 @@ func (ts *TerminalSession) handleWebSocketInput() {
 				ts.logger.Error("读取WebSocket消息失败: %v", err)
 				return
 			}
-			ts.logger.Debug("收到前端输入消息: %s", msg.Data)
 			// 只处理输入类型的消息
 			if msg.Type == "input" && ts.pty != nil {
-				_, err := ts.pty.Write([]byte(msg.Data))
-				if err != nil {
-					ts.logger.Error("写入终端失败: %v", err)
-					return
+				// 使用类型断言将interface{}转换为string，然后转换为[]byte
+				if dataStr, ok := msg.Data.(string); ok {
+					_, err := ts.pty.Write([]byte(dataStr))
+					if err != nil {
+						ts.logger.Error("写入终端失败: %v", err)
+						return
+					}
+				} else {
+					ts.logger.Error("消息数据类型错误，期望string类型")
 				}
 			}
 		}
@@ -151,7 +160,6 @@ func (ts *TerminalSession) handleTerminalOutput() {
 				}
 				return
 			}
-			ts.logger.Debug("读取终端输出: %s", string(buf[:n]))
 
 			if n > 0 {
 				msg := Message{
@@ -206,4 +214,104 @@ func (tm *TerminalManager) RemoveSession(sessionID string) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	delete(tm.sessions, sessionID)
+}
+
+// BroadcastImagePullProgress 向所有活跃的WebSocket连接广播镜像拉取进度
+func (tm *TerminalManager) BroadcastImagePullProgress(progress ImagePullProgressMessage) {
+	tm.mu.RLock()
+	activeSessions := make(map[string]*TerminalSession)
+	for sessionID, session := range tm.sessions {
+		activeSessions[sessionID] = session
+	}
+	tm.mu.RUnlock()
+
+	// 详细日志记录：区分错误和正常进度消息
+	isErrorMessage := progress.Error != ""
+	isSuccessMessage := progress.Status == "拉取成功" || progress.Status == "Pull complete"
+	isFatalError := isErrorMessage && (progress.Status == "拉取失败" ||
+		progress.Status == "镜像不存在" ||
+		progress.Status == "网络错误")
+
+	if isFatalError {
+		tm.logger.Error("镜像拉取致命错误 - 镜像: %s, 状态: %s, 错误: %s",
+			progress.ImageName, progress.Status, progress.Error)
+	} else if isErrorMessage {
+		tm.logger.Warn("镜像拉取警告 - 镜像: %s, 状态: %s, 错误: %s",
+			progress.ImageName, progress.Status, progress.Error)
+	} else if isSuccessMessage {
+		tm.logger.Info("镜像拉取成功 - 镜像: %s, 状态: %s",
+			progress.ImageName, progress.Status)
+	} else {
+		tm.logger.Debug("镜像拉取进度 - 镜像: %s, 状态: %s, 进度: %s",
+			progress.ImageName, progress.Status, progress.Progress)
+	}
+
+	msg := Message{
+		Type: "image_pull_progress",
+		Data: progress,
+	}
+
+	// 统计活跃会话数量
+	activeSessionCount := len(activeSessions)
+	successfulBroadcasts := 0
+	failedBroadcasts := 0
+	disconnectedSessions := []string{}
+
+	// 向所有活跃的会话广播进度信息
+	for sessionID, session := range activeSessions {
+		select {
+		case <-session.Done():
+			// 会话已关闭，跳过并记录
+			tm.logger.Debug("跳过已关闭的会话: %s", sessionID)
+			disconnectedSessions = append(disconnectedSessions, sessionID)
+			continue
+		default:
+			if session.conn != nil {
+				if err := session.conn.WriteJSON(msg); err != nil {
+					failedBroadcasts++
+					tm.logger.Error("向会话 %s 发送镜像拉取进度失败: %v", sessionID, err)
+					// 连接失败，标记为断开
+					disconnectedSessions = append(disconnectedSessions, sessionID)
+				} else {
+					successfulBroadcasts++
+					if isErrorMessage {
+						tm.logger.Debug("错误消息已发送到会话: %s", sessionID)
+					} else if isSuccessMessage {
+						tm.logger.Debug("成功消息已发送到会话: %s", sessionID)
+					}
+				}
+			} else {
+				tm.logger.Warn("会话 %s 的连接为空", sessionID)
+				disconnectedSessions = append(disconnectedSessions, sessionID)
+			}
+		}
+	}
+
+	// 清理断开的会话
+	if len(disconnectedSessions) > 0 {
+		go func() {
+			for _, sessionID := range disconnectedSessions {
+				tm.RemoveSession(sessionID)
+			}
+			tm.logger.Info("清理了 %d 个断开的会话", len(disconnectedSessions))
+		}()
+	}
+
+	// 广播统计日志
+	logLevel := "Info"
+	if isFatalError {
+		logLevel = "Error"
+	} else if isErrorMessage {
+		logLevel = "Warn"
+	}
+
+	tm.logger.Debug("镜像拉取进度广播完成 [%s] - 总会话: %d, 成功: %d, 失败: %d, 断开: %d, 错误类型: %v",
+		logLevel, activeSessionCount, successfulBroadcasts, failedBroadcasts, len(disconnectedSessions), isFatalError)
+}
+
+// GetActiveSessionCount 获取活跃会话数量
+func (tm *TerminalManager) GetActiveSessionCount() int {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+	return len(tm.sessions)
 }

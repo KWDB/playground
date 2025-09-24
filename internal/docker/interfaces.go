@@ -6,6 +6,7 @@ import (
 
 	"github.com/moby/moby/api/types"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -22,6 +23,7 @@ type DockerClientInterface interface {
 	ContainerList(ctx context.Context, options client.ContainerListOptions) ([]container.Summary, error)
 	ContainerLogs(ctx context.Context, containerID string, options client.ContainerLogsOptions) (io.ReadCloser, error)
 	ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (io.ReadCloser, error)
+	ImageInspectWithRaw(ctx context.Context, imageID string) (image.InspectResponse, []byte, error)
 	ContainerExecCreate(ctx context.Context, containerID string, config container.ExecOptions) (container.ExecCreateResponse, error)
 	ContainerExecAttach(ctx context.Context, execID string, config container.ExecAttachOptions) (client.HijackedResponse, error)
 	ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error
@@ -31,10 +33,37 @@ type DockerClientInterface interface {
 	Close() error
 }
 
+// ImagePullProgressCallback 镜像拉取进度回调函数类型
+type ImagePullProgressCallback func(progress ImagePullProgress)
+
+// ImagePullProgress 镜像拉取进度信息
+type ImagePullProgress struct {
+	ImageName string `json:"imageName"`
+	Status    string `json:"status"`
+	Progress  string `json:"progress,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+// ImagePullProgressMessage WebSocket镜像拉取进度消息
+type ImagePullProgressMessage struct {
+	ImageName string `json:"imageName"`
+	Status    string `json:"status"`
+	Progress  string `json:"progress,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+// TerminalManagerInterface WebSocket终端管理器接口
+type TerminalManagerInterface interface {
+	BroadcastImagePullProgress(progress ImagePullProgressMessage)
+	GetActiveSessionCount() int
+}
+
 // Controller Docker控制器接口
 type Controller interface {
 	// CreateContainer 创建容器
 	CreateContainer(ctx context.Context, courseID string, config *ContainerConfig) (*ContainerInfo, error)
+	// CreateContainerWithProgress 创建容器并支持镜像拉取进度回调
+	CreateContainerWithProgress(ctx context.Context, courseID string, config *ContainerConfig, progressCallback ImagePullProgressCallback) (*ContainerInfo, error)
 	// StartContainer 启动容器
 	StartContainer(ctx context.Context, containerID string) error
 	// StopContainer 停止容器

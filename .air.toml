@@ -13,7 +13,7 @@ tmp_dir = "tmp"
   # 要监视的目录
   include_dir = []
   # 要排除的目录
-  exclude_dir = ["assets", "tmp", "vendor", "testdata", "node_modules", "dist"]
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", "node_modules", "dist", "tests", "e2e_test_env", "e2e_testdata", "scripts"]
   # 要排除的文件
   exclude_file = []
   # 要排除的正则表达式
@@ -33,11 +33,11 @@ tmp_dir = "tmp"
   # 延迟时间（毫秒）
   delay = 1000
   # 停止运行旧的二进制文件
-  stop_on_root = false
+  stop_on_root = true
   # 发送中断信号前的延迟时间（毫秒）
-  send_interrupt = false
+  send_interrupt = true
   # 发送中断信号后的延迟时间（毫秒）
-  kill_delay = "0s"
+  kill_delay = "2s"
   # 重新运行二进制文件
   rerun = false
   # 重新运行延迟时间（毫秒）

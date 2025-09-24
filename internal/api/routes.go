@@ -255,19 +255,36 @@ func (h *Handler) startCourse(c *gin.Context) {
 		h.logger.Debug("[startCourse] 使用默认工作目录: %s", workingDir)
 	}
 
-	// 创建容器配置
+	// 创建容器配置，使用智能镜像适配
+	optimalCmd := h.getOptimalContainerCommand(imageName)
+	h.logger.Info("[startCourse] 智能适配命令: %v", optimalCmd)
 	config := &docker.ContainerConfig{
 		Image:      imageName,
-		WorkingDir: workingDir,                                                   // 使用配置的工作目录
-		Cmd:        []string{"/bin/bash", "-c", "while true; do sleep 30; done"}, // 设置持续运行的命令，防止容器退出
+		WorkingDir: workingDir, // 使用配置的工作目录
+		Cmd:        optimalCmd, // 根据镜像类型选择最佳启动命令
 	}
 
 	h.logger.Debug("[startCourse] 创建容器配置完成，镜像: %s，工作目录: %s", config.Image, config.WorkingDir)
 
-	// 创建容器
+	// 创建容器 - 使用带进度回调的版本以支持镜像拉取进度显示
 	// ctx := context.Background()
 	h.logger.Debug("[startCourse] 开始创建容器...")
-	containerInfo, err := h.dockerController.CreateContainer(ctx, id, config)
+	
+	// 创建WebSocket进度回调函数，用于广播镜像拉取进度
+	progressCallback := func(progress docker.ImagePullProgress) {
+		// 将ImagePullProgress转换为ImagePullProgressMessage
+		message := docker.ImagePullProgressMessage{
+			ImageName: progress.ImageName,
+			Status:    progress.Status,
+			Progress:  progress.Progress,
+			Error:     progress.Error,
+		}
+		h.logger.Debug("[startCourse] 镜像拉取进度: %s - %s", progress.ImageName, progress.Status)
+		// 通过terminalManager广播进度消息到所有WebSocket连接
+		h.terminalManager.BroadcastImagePullProgress(message)
+	}
+	
+	containerInfo, err := h.dockerController.CreateContainerWithProgress(ctx, id, config, progressCallback)
 	if err != nil {
 		h.logger.Error("[startCourse] 容器创建失败: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -623,29 +640,30 @@ func (h *Handler) restartContainer(c *gin.Context) {
 	})
 }
 
-// handleTerminalWebSocket 处理终端WebSocket连接 - 简化版本
-// 专注于docker exec -it /bin/bash功能的WebSocket连接
+// handleTerminalWebSocket 处理终端WebSocket连接 - 支持终端和镜像拉取进度
 // 查询参数:
 //
-//	container_id: 容器ID（必需）
+//	container_id: 容器ID（终端模式必需，进度模式可选）
 //	session_id: 会话ID（可选）
+//	progress_only: 是否仅用于接收镜像拉取进度（可选，true/false）
 //
 // 响应:
 //
 //	101: WebSocket连接建立成功
-//	400: {"error": "容器ID不能为空"} - 参数错误
+//	400: {"error": "容器ID不能为空"} - 终端模式下参数错误
 //	500: {"error": "启动终端会话失败"} - 会话创建失败
 func (h *Handler) handleTerminalWebSocket(c *gin.Context) {
 	sessionID := c.Query("session_id")
 	containerID := c.Query("container_id")
+	progressOnly := c.Query("progress_only") == "true"
 
 	// 生成会话ID（如果未提供）
 	if sessionID == "" {
 		sessionID = fmt.Sprintf("session_%d", time.Now().UnixNano())
 	}
 
-	// 验证容器ID
-	if containerID == "" {
+	// 验证容器ID（仅在非进度模式下必需）
+	if !progressOnly && containerID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "容器ID不能为空"})
 		return
 	}
@@ -671,24 +689,125 @@ func (h *Handler) handleTerminalWebSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	// 创建并启动终端会话
+	// 创建会话
 	session := h.terminalManager.CreateSession(sessionID, containerID, conn)
 	defer h.terminalManager.RemoveSession(sessionID)
 
-	// 启动交互式bash会话
-	err = session.StartInteractiveSession()
-	if err != nil {
-		h.logger.Error("启动终端会话失败: %v", err)
-		return
+	if progressOnly {
+		// 进度模式：仅用于接收镜像拉取进度，不启动终端会话
+		h.logger.Info("WebSocket连接已建立（进度模式），会话: %s", sessionID)
+
+		// 发送连接成功消息
+		if err := conn.WriteJSON(map[string]interface{}{
+			"type": "connected",
+			"data": "等待容器启动...",
+		}); err != nil {
+			h.logger.Error("发送连接确认消息失败: %v", err)
+		}
+
+		// 保持连接直到客户端断开
+		<-c.Request.Context().Done()
+		h.logger.Info("客户端断开连接（进度模式），会话: %s", sessionID)
+	} else {
+		// 终端模式：启动交互式bash会话
+		err = session.StartInteractiveSession()
+		if err != nil {
+			h.logger.Error("启动终端会话失败: %v", err)
+			return
+		}
+
+		h.logger.Info("终端会话 %s 已启动，容器: %s", sessionID, containerID)
+
+		// 保持连接直到会话结束
+		select {
+		case <-c.Request.Context().Done():
+			h.logger.Info("客户端断开连接，会话: %s", sessionID)
+		case <-session.Done():
+			h.logger.Info("终端会话结束: %s", sessionID)
+		}
 	}
+}
 
-	h.logger.Info("终端会话 %s 已启动，容器: %s", sessionID, containerID)
+// getOptimalContainerCommand 根据镜像类型选择最佳的容器启动命令
+// 实现智能镜像适配，为不同类型的镜像提供合适的启动方式
+func (h *Handler) getOptimalContainerCommand(imageName string) []string {
+	h.logger.Debug("[getOptimalContainerCommand] 分析镜像类型: %s", imageName)
 
-	// 保持连接直到会话结束
-	select {
-	case <-c.Request.Context().Done():
-		h.logger.Info("客户端断开连接，会话: %s", sessionID)
-	case <-session.Done():
-		h.logger.Info("终端会话结束: %s", sessionID)
+	// 将镜像名称转换为小写以便匹配
+	lowerImageName := strings.ToLower(imageName)
+
+	// 检测特殊镜像类型并提供适配方案
+	switch {
+	case strings.Contains(lowerImageName, "hello-world"):
+		// hello-world镜像：这是一个最小化测试镜像，只包含一个可执行文件
+		// 不包含shell，需要使用特殊的保持运行命令
+		h.logger.Info("[getOptimalContainerCommand] 检测到hello-world镜像，使用sleep保持运行")
+		return []string{"sleep", "infinity"}
+
+	case strings.Contains(lowerImageName, "scratch"):
+		// scratch镜像：完全空白的镜像，通常用作基础镜像
+		// 不包含任何文件系统或shell
+		h.logger.Info("[getOptimalContainerCommand] 检测到scratch镜像，使用sleep保持运行")
+		return []string{"sleep", "infinity"}
+
+	case strings.Contains(lowerImageName, "busybox"):
+		// busybox镜像：包含基本的Unix工具，但shell路径可能不同
+		h.logger.Info("[getOptimalContainerCommand] 检测到busybox镜像，使用sh shell")
+		return []string{"sh", "-c", "while true; do sleep 30; done"}
+
+	case strings.Contains(lowerImageName, "alpine"):
+		// Alpine Linux：轻量级Linux发行版，使用sh而不是bash
+		h.logger.Info("[getOptimalContainerCommand] 检测到Alpine镜像，使用sh shell")
+		return []string{"sh", "-c", "while true; do sleep 30; done"}
+
+	case strings.Contains(lowerImageName, "distroless"):
+		// Distroless镜像：不包含包管理器、shell等，只有应用运行时
+		h.logger.Info("[getOptimalContainerCommand] 检测到distroless镜像，使用sleep保持运行")
+		return []string{"sleep", "infinity"}
+
+	case strings.Contains(lowerImageName, "nginx"):
+		// Nginx镜像：Web服务器，有自己的启动方式
+		h.logger.Info("[getOptimalContainerCommand] 检测到nginx镜像，使用daemon模式")
+		return []string{"nginx", "-g", "daemon off;"}
+
+	case strings.Contains(lowerImageName, "redis"):
+		// Redis镜像：数据库服务
+		h.logger.Info("[getOptimalContainerCommand] 检测到redis镜像，启动redis服务")
+		return []string{"redis-server"}
+
+	case strings.Contains(lowerImageName, "mysql") || strings.Contains(lowerImageName, "mariadb"):
+		// MySQL/MariaDB镜像：数据库服务
+		h.logger.Info("[getOptimalContainerCommand] 检测到MySQL/MariaDB镜像，启动数据库服务")
+		return []string{"mysqld"}
+
+	case strings.Contains(lowerImageName, "postgres"):
+		// PostgreSQL镜像：数据库服务
+		h.logger.Info("[getOptimalContainerCommand] 检测到PostgreSQL镜像，启动数据库服务")
+		return []string{"postgres"}
+
+	case strings.Contains(lowerImageName, "node"):
+		// Node.js镜像：通常包含bash
+		h.logger.Info("[getOptimalContainerCommand] 检测到Node.js镜像，使用bash shell")
+		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
+
+	case strings.Contains(lowerImageName, "python"):
+		// Python镜像：通常包含bash
+		h.logger.Info("[getOptimalContainerCommand] 检测到Python镜像，使用bash shell")
+		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
+
+	case strings.Contains(lowerImageName, "ubuntu") || strings.Contains(lowerImageName, "debian"):
+		// Ubuntu/Debian镜像：标准Linux发行版，包含bash
+		h.logger.Info("[getOptimalContainerCommand] 检测到Ubuntu/Debian镜像，使用bash shell")
+		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
+
+	case strings.Contains(lowerImageName, "centos") || strings.Contains(lowerImageName, "rhel") || strings.Contains(lowerImageName, "fedora"):
+		// CentOS/RHEL/Fedora镜像：Red Hat系列，包含bash
+		h.logger.Info("[getOptimalContainerCommand] 检测到Red Hat系列镜像，使用bash shell")
+		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
+
+	default:
+		// 默认情况：尝试使用bash，如果失败会由错误处理机制处理
+		h.logger.Info("[getOptimalContainerCommand] 未识别的镜像类型，使用默认bash命令")
+		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
 	}
 }

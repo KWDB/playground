@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Terminal, Database, Server } from 'lucide-react'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -11,7 +10,6 @@ import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import TerminalComponent, { TerminalRef } from '../components/Terminal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StatusIndicator, { StatusType } from '../components/StatusIndicator';
-import 'highlight.js/styles/github.css';
 import '../styles/markdown.css';
 
 // 定义接口类型
@@ -47,6 +45,9 @@ export function Learn() {
   // 移除未使用的状态变量
   const terminalRef = useRef<TerminalRef>(null)
   
+  // 定期状态检查的引用
+  const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  
   // 简化状态管理
   const [, setIsConnected] = useState(false)
   const [, setConnectionError] = useState<string | null>(null)
@@ -60,9 +61,9 @@ export function Learn() {
     }
   }, [containerStatus])
 
-  const checkContainerStatus = useCallback(async (containerId: string) => {
+  const checkContainerStatus = useCallback(async (containerId: string, shouldUpdateState = true) => {
     try {
-      console.log('检查容器状态，容器ID:', containerId)
+      console.log(`开始检查容器状态，容器ID: ${containerId}`);
       const response = await fetch(`/api/containers/${containerId}/status`)
       if (!response.ok) {
         console.error('容器状态检查失败，HTTP状态:', response.status)
@@ -70,14 +71,34 @@ export function Learn() {
       }
       const data = await response.json()
       console.log('容器状态检查结果:', data)
-      setContainerStatus(data.status)
+      
+      // 状态验证和同步逻辑
+      if (shouldUpdateState) {
+        const currentStatus = containerStatus;
+        const newStatus = data.status;
+        
+        // 记录状态变化
+        if (currentStatus !== newStatus) {
+          console.log(`容器状态发生变化: ${currentStatus} -> ${newStatus}`);
+        }
+        
+        // 状态一致性验证
+        if (newStatus === 'running' && currentStatus === 'starting') {
+          console.log('容器启动完成，状态同步为running');
+        } else if (newStatus === 'exited' && (currentStatus === 'running' || currentStatus === 'starting')) {
+          console.warn('检测到容器意外退出，状态不一致');
+        }
+        
+        setContainerStatus(newStatus);
+      }
+      
       return data
     } catch (err) {
       console.error('获取容器状态失败:', err)
       // 网络错误时不要设置容器状态为error，保持当前状态
       return null
     }
-  }, [])
+  }, [containerStatus])
 
   // 简化的WebSocket连接处理
   const connectToTerminal = useCallback((containerId: string) => {
@@ -124,35 +145,64 @@ export function Learn() {
       
       setContainerId(data.containerId)
       
-      // 等待容器完全启动的函数
-      const waitForContainerReady = async (containerId: string, maxRetries = 10, retryInterval = 2000) => {
+      // 等待容器完全启动的函数 - 增强版本
+      const waitForContainerReady = async (containerId: string, maxRetries = 15, retryInterval = 1500) => {
+        console.log(`开始等待容器启动，最大重试次数: ${maxRetries}，检查间隔: ${retryInterval}ms`);
+        
         for (let i = 0; i < maxRetries; i++) {
-          console.log(`第 ${i + 1} 次检查容器状态...`)
+          console.log(`第 ${i + 1}/${maxRetries} 次检查容器状态...`)
           
           // 等待一段时间再检查，给容器启动时间
           if (i > 0) {
             await new Promise(resolve => setTimeout(resolve, retryInterval))
           }
           
-          const statusData = await checkContainerStatus(containerId)
+          const statusData = await checkContainerStatus(containerId, true)
+          
           if (statusData && statusData.status === 'running') {
-            console.log('容器已完全启动，状态:', statusData.status)
-            setContainerStatus('running')
+            console.log('✅ 容器已完全启动，状态验证通过:', statusData.status)
             
-            // 容器启动完成后连接终端
-            setTimeout(() => {
-              connectToTerminal(containerId)
-            }, 500)
+            // 额外验证：再次确认容器确实在运行
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const finalCheck = await checkContainerStatus(containerId, false);
             
-            return true
+            if (finalCheck && finalCheck.status === 'running') {
+               console.log('✅ 容器状态最终验证通过，准备连接终端');
+               setContainerStatus('running');
+               
+               // 启动状态监控
+               startStatusMonitoring(containerId);
+               
+               // 容器启动完成后连接终端
+               setTimeout(() => {
+                 connectToTerminal(containerId)
+               }, 500)
+               
+               return true
+            } else {
+              console.warn('⚠️ 容器状态最终验证失败，继续等待...');
+              continue;
+            }
+          } else if (statusData && statusData.status === 'starting') {
+            console.log(`⏳ 容器正在启动中，状态: ${statusData.status}，继续等待... (${i + 1}/${maxRetries})`);
+            continue;
           } else if (statusData && (statusData.status === 'exited' || statusData.status === 'error')) {
-            console.error('容器启动失败，状态:', statusData.status)
-            throw new Error(`容器启动失败，状态: ${statusData.status}`)
+            console.error('❌ 容器启动失败，状态:', statusData.status)
+            
+            // 如果是一次性执行容器正常退出，不视为错误
+            if (statusData.status === 'exited' && statusData.exitCode === 0) {
+              console.log('✅ 一次性执行容器正常完成，退出码: 0');
+              setContainerStatus('completed');
+              return true;
+            }
+            
+            throw new Error(`容器启动失败，状态: ${statusData.status}${statusData.exitCode ? `, 退出码: ${statusData.exitCode}` : ''}`)
           }
           
-          console.log(`容器状态: ${statusData?.status || '未知'}，继续等待...`)
+          console.log(`⏳ 容器状态: ${statusData?.status || '未知'}，继续等待... (${i + 1}/${maxRetries})`)
         }
         
+        console.error('❌ 容器启动超时，已达到最大重试次数');
         throw new Error('容器启动超时，请重试')
       }
       
@@ -168,6 +218,19 @@ export function Learn() {
       setIsStartingContainer(false)
     }
   }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal])
+
+  // 使用useRef保存最新的状态值，避免闭包问题
+  const courseIdRef = useRef(courseId)
+  const containerStatusRef = useRef(containerStatus)
+  
+  // 更新ref值
+  useEffect(() => {
+    courseIdRef.current = courseId
+  }, [courseId])
+  
+  useEffect(() => {
+    containerStatusRef.current = containerStatus
+  }, [containerStatus])
 
   const stopContainer = useCallback(async (courseId: string) => {
     console.log('停止容器请求开始，课程ID:', courseId)
@@ -195,6 +258,13 @@ export function Learn() {
           setContainerStatus('stopped')
       setIsConnected(false)
       setConnectionError(null)
+      
+      // 停止状态监控
+      if (statusCheckIntervalRef.current) {
+        console.log('停止定期状态监控')
+        clearInterval(statusCheckIntervalRef.current)
+        statusCheckIntervalRef.current = null
+      }
           return // 正常返回，不抛出异常
         }
         console.error('停止容器失败，响应内容:', errorText)
@@ -235,14 +305,76 @@ export function Learn() {
     }
   }, [courseId, fetchCourse])
 
+  // 定期状态检查机制
+  const startStatusMonitoring = useCallback((containerId: string) => {
+    // 清除之前的定时器
+    if (statusCheckIntervalRef.current) {
+      clearInterval(statusCheckIntervalRef.current);
+    }
+    
+    console.log('开始定期状态监控，容器ID:', containerId);
+    
+    // 每30秒检查一次容器状态
+    statusCheckIntervalRef.current = setInterval(async () => {
+      try {
+        const statusData = await checkContainerStatus(containerId, false);
+        if (statusData) {
+          const currentStatus = containerStatus;
+          const actualStatus = statusData.status;
+          
+          // 检测状态不一致
+          if (currentStatus !== actualStatus) {
+            console.warn(`检测到状态不一致: 前端状态=${currentStatus}, 实际状态=${actualStatus}`);
+            
+            // 自动修复状态不一致
+            if (actualStatus === 'exited' && currentStatus === 'running') {
+              console.log('容器意外退出，更新前端状态');
+              setContainerStatus('stopped');
+              setIsConnected(false);
+              setConnectionError('容器已停止运行');
+            } else if (actualStatus === 'running' && currentStatus === 'stopped') {
+              console.log('检测到容器已启动，更新前端状态');
+              setContainerStatus('running');
+              setIsConnected(true);
+              setConnectionError(null);
+            } else {
+              // 其他状态不一致情况，直接同步
+              setContainerStatus(actualStatus);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('定期状态检查失败:', error);
+      }
+    }, 30000); // 30秒检查一次
+  }, [containerStatus, checkContainerStatus, setIsConnected, setConnectionError]);
+
   useEffect(() => {
     return () => {
-      // 组件卸载时停止容器
-      if (courseId && containerStatus === 'running') {
-        stopContainer(courseId)
+      // 组件卸载时停止状态监控
+      if (statusCheckIntervalRef.current) {
+        console.log('组件卸载：停止定期状态监控')
+        clearInterval(statusCheckIntervalRef.current)
+        statusCheckIntervalRef.current = null
+      }
+      
+      // 组件卸载时停止容器（使用ref值避免闭包问题）
+      const currentCourseId = courseIdRef.current
+      const currentContainerStatus = containerStatusRef.current
+      
+      if (currentCourseId && currentContainerStatus === 'running') {
+        console.log('组件卸载：停止容器，课程ID:', currentCourseId)
+        fetch(`/api/courses/${currentCourseId}/stop`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }).catch(error => {
+          console.error('组件卸载时停止容器失败:', error)
+        })
       }
     }
-  }, [courseId, containerStatus, stopContainer])
+  }, []) // 移除所有依赖项，避免重复执行
 
 
 
@@ -271,6 +403,7 @@ export function Learn() {
 
 
   
+
 
 
 
@@ -321,7 +454,7 @@ export function Learn() {
       <div onClick={handleExecButtonClick} className="markdown-container">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeHighlight, rehypeRaw]}
+          rehypePlugins={[rehypeRaw]}
           components={{
             // 标题组件
             h1: ({ children, ...props }) => (
@@ -374,6 +507,23 @@ export function Learn() {
             // 代码组件 - 区分代码块和内联代码
             code: ({ className, children, ...props }: CodeComponentProps) => {
               const match = /language-(\w+)/.exec(className || '')
+
+              // 兼容非字符串 children（例如被其他插件包裹为 ReactElement）
+              const getText = (node: React.ReactNode): string => {
+                if (node == null) return ''
+                if (typeof node === 'string' || typeof node === 'number') return String(node)
+                if (Array.isArray(node)) return (node as React.ReactNode[]).map(getText).join('')
+                if (typeof node === 'object') {
+                  const maybeEl = node as React.ReactElement<{ children?: React.ReactNode }>
+                  if ('props' in maybeEl && maybeEl.props && 'children' in maybeEl.props) {
+                    return getText(maybeEl.props.children)
+                  }
+                }
+                return ''
+              }
+
+              const codeText = getText(children).replace(/\n$/, '')
+
               return match ? (
                 // 代码块渲染
                 <div className="markdown-code-block">
@@ -392,15 +542,15 @@ export function Learn() {
                     <SyntaxHighlighter
                       style={tomorrow}
                       language={match[1]}
-                      PreTag="div"
+                      PreTag="pre"
                       className="markdown-syntax-highlighter"
                       {...props}
                     >
-                      {String(children).replace(/\n$/, '')}
+                      {codeText}
                     </SyntaxHighlighter>
                     <button 
                       className="markdown-copy-btn"
-                      onClick={() => navigator.clipboard?.writeText(String(children))}
+                      onClick={() => navigator.clipboard?.writeText(codeText)}
                       title="复制代码"
                     >
                       复制
@@ -410,7 +560,7 @@ export function Learn() {
               ) : (
                 // 内联代码渲染
                 <code className={`markdown-inline-code ${className || ''}`} {...props}>
-                  {children}
+                  {getText(children)}
                 </code>
               )
             }
@@ -583,22 +733,262 @@ export function Learn() {
   }
 
   if (error || !course) {
+    // 分析错误类型并提供相应的解决方案
+    const getErrorInfo = (errorMessage: string) => {
+      const lowerError = errorMessage.toLowerCase()
+      
+      if (lowerError.includes('/bin/bash') && lowerError.includes('no such file')) {
+        return {
+          title: '镜像兼容性问题',
+          description: '当前镜像不包含所需的 shell 环境',
+          reason: '某些最小化镜像不包含完整的 shell 环境或特定命令',
+          solutions: [
+            '系统正在尝试自动适配镜像类型，请稍等片刻',
+            '如果问题持续，请切换到包含完整环境的镜像',
+            '联系管理员检查课程配置和镜像兼容性',
+            '查看课程文档了解推荐的镜像类型'
+          ],
+          icon: '🔧'
+        }
+      }
+      
+      if (lowerError.includes('container failed to start') && lowerError.includes('exitcode')) {
+        const exitCodeMatch = lowerError.match(/exitcode[=:]?(\d+)/)
+        const exitCode = exitCodeMatch ? exitCodeMatch[1] : 'unknown'
+        return {
+          title: '容器启动异常',
+          description: `容器启动后异常退出 (退出码: ${exitCode})`,
+          reason: '容器内部程序执行失败或配置错误',
+          solutions: [
+            '检查容器镜像是否支持当前的启动配置',
+            '查看容器日志获取详细错误信息',
+            '确认镜像版本和课程要求是否匹配',
+            '联系管理员检查容器配置和启动参数'
+          ],
+          icon: '🚫'
+        }
+      }
+      
+      if (lowerError.includes('no such image') || lowerError.includes('pull access denied')) {
+        return {
+          title: '镜像拉取失败',
+          description: '无法获取指定的容器镜像',
+          reason: '镜像不存在、网络连接问题或权限不足',
+          solutions: [
+            '检查网络连接是否正常',
+            '确认镜像名称是否正确',
+            '检查 Docker Hub 或镜像仓库的访问权限',
+            '尝试使用其他镜像源或联系管理员'
+          ],
+          icon: '📦'
+        }
+      }
+      
+      if (lowerError.includes('image') && lowerError.includes('not found')) {
+        return {
+          title: '镜像拉取失败',
+          description: '无法找到指定的 Docker 镜像',
+          reason: '镜像名称错误、镜像不存在或网络连接问题',
+          solutions: [
+            '检查镜像名称和标签是否正确',
+            '确认网络连接正常，可能需要配置代理',
+            '尝试使用其他镜像源或联系管理员',
+            '检查 Docker Hub 或私有仓库的访问权限'
+          ],
+          icon: '📦'
+        }
+      }
+      
+      if (lowerError.includes('permission denied') || lowerError.includes('access denied')) {
+        return {
+          title: '权限访问错误',
+          description: '容器操作权限不足',
+          reason: 'Docker 服务权限配置问题或用户权限不足',
+          solutions: [
+            '检查 Docker 服务是否正常运行',
+            '确认当前用户是否有 Docker 操作权限',
+            '联系系统管理员检查权限配置',
+            '尝试重启 Docker 服务'
+          ],
+          icon: '🔒'
+        }
+      }
+      
+      if (lowerError.includes('no space left') || lowerError.includes('disk space')) {
+        return {
+          title: '存储空间不足',
+          description: '系统磁盘空间不足，无法创建容器',
+          reason: '服务器存储空间已满或接近满载',
+          solutions: [
+            '清理不必要的文件和容器',
+            '联系管理员扩展存储空间',
+            '删除未使用的 Docker 镜像和容器',
+            '检查系统磁盘使用情况'
+          ],
+          icon: '💾'
+        }
+      }
+      
+      if (lowerError.includes('network') || lowerError.includes('connection')) {
+        return {
+          title: '网络连接问题',
+          description: '容器网络配置或连接异常',
+          reason: '网络配置错误、防火墙阻拦或网络服务异常',
+          solutions: [
+            '检查网络连接是否正常',
+            '确认防火墙设置允许相关端口',
+            '检查 Docker 网络配置',
+            '联系网络管理员检查网络策略'
+          ],
+          icon: '🌐'
+        }
+      }
+      
+      if (lowerError.includes('timeout') && !lowerError.includes('network')) {
+        return {
+          title: '操作超时',
+          description: '容器启动或操作超时',
+          reason: '服务器响应缓慢、负载过高或配置问题',
+          solutions: [
+            '稍后重试，服务器可能正在处理其他任务',
+            '检查网络连接稳定性',
+            '联系管理员检查服务器负载状态',
+            '尝试使用更轻量级的镜像'
+          ],
+          icon: '⏱️'
+        }
+      }
+      
+      if (lowerError.includes('port') && (lowerError.includes('already') || lowerError.includes('in use'))) {
+        return {
+          title: '端口冲突',
+          description: '所需端口已被其他服务占用',
+          reason: '多个容器或服务尝试使用相同端口',
+          solutions: [
+            '停止占用端口的其他容器或服务',
+            '等待片刻后重试，系统会自动分配可用端口',
+            '联系管理员检查端口使用情况',
+            '检查是否有重复的容器实例'
+          ],
+          icon: '🔌'
+        }
+      }
+      
+      // 默认错误信息 - 提供更友好的通用错误处理
+      return {
+        title: '容器启动异常',
+        description: '遇到了预期之外的问题',
+        reason: `系统错误: ${errorMessage}`,
+        solutions: [
+          '请稍后重试，问题可能是临时的',
+          '刷新页面重新加载课程',
+          '如果问题持续存在，请联系技术支持',
+          '可以尝试切换到其他课程后再回来'
+        ],
+        icon: '🔧'
+      }
+    }
+    
+    const errorInfo = error ? getErrorInfo(error) : {
+      title: '课程未找到',
+      description: '请求的课程不存在或已被删除',
+      reason: '课程ID无效或课程配置文件缺失',
+      solutions: [
+        '检查课程ID是否正确',
+        '返回课程列表选择其他课程',
+        '联系管理员确认课程状态'
+      ],
+      icon: '📚'
+    }
+    
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 mb-4">错误: {error || '课程未找到'}</div>
-          <Link to="/courses" className="text-blue-600 hover:text-blue-800">
-            返回课程列表
-          </Link>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+          {/* 错误标题区域 */}
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 px-8 py-6 border-b border-gray-200">
+            <div className="text-center">
+              <div className="text-5xl mb-4 animate-bounce">{errorInfo.icon}</div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">{errorInfo.title}</h1>
+              <p className="text-gray-600 text-lg">{errorInfo.description}</p>
+            </div>
+          </div>
+          
+          <div className="p-8">
+            {/* 错误详情 */}
+            <div className="bg-gradient-to-r from-red-50 to-red-100 border-l-4 border-red-400 rounded-r-lg p-5 mb-6">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="font-semibold text-red-800 mb-2">错误原因</h3>
+                  <p className="text-red-700 text-sm leading-relaxed">{errorInfo.reason}</p>
+                  {error && (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-red-600 hover:text-red-800 font-medium text-sm transition-colors duration-200 select-none">
+                        🔍 查看详细错误信息
+                      </summary>
+                      <div className="mt-3 p-4 bg-red-200/50 rounded-lg border border-red-300">
+                        <pre className="font-mono text-xs text-red-800 whitespace-pre-wrap break-all leading-relaxed">
+                          {error}
+                        </pre>
+                      </div>
+                    </details>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* 操作按钮 */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
+              <button
+                onClick={() => window.location.reload()}
+                className="group relative px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 active:scale-95"
+              >
+                <span className="flex items-center justify-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  重试启动
+                </span>
+              </button>
+              <Link
+                to="/courses"
+                className="group relative px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg font-medium shadow-lg shadow-gray-500/25 hover:shadow-gray-500/40 hover:from-gray-700 hover:to-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 active:scale-95 text-center"
+              >
+                <span className="flex items-center justify-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  返回课程列表
+                </span>
+              </Link>
+            </div>
+            
+            {/* 帮助信息 */}
+            <div className="pt-6 border-t border-gray-200 text-center">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  <span className="font-medium">💬 需要帮助？</span><br/>
+                  如果问题持续存在，请在 项目 Github 上
+                  <a href="https://github.com/kwdb/playground/issues" className="text-blue-600 hover:text-blue-800 font-medium ml-1 underline decoration-dotted underline-offset-2 transition-colors duration-200">
+                    提交 Issue
+                  </a>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       {/* 顶部导航栏 */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
+      <header className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button 
@@ -664,32 +1054,34 @@ export function Learn() {
       </header>
 
       {/* 主要内容区域 */}
-      <div className="flex-1">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <PanelGroup direction="horizontal">
           {/* 左侧内容面板 */}
           <Panel defaultSize={50} minSize={30}>
-            <div className="h-full bg-white border-r border-gray-200 flex flex-col">
+            <div className="h-full bg-white border-r border-gray-200 flex flex-col overflow-hidden">
               {/* 课程进度条 - 合并到内容区域 */}
               {renderProgressBar()}
               
               {/* 内容标题 */}
-              <div className="p-3 lg:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+              <div className="flex-shrink-0 p-3 lg:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
                 <h2 className="text-lg lg:text-xl font-semibold text-gray-800">
                   {getCurrentTitle()}
                 </h2>
               </div>
 
-              {/* 内容区域 - 极简高效代码块显示 */}
-              <div className="markdown-main-content">
-                <div className="markdown-content-wrapper">
-                  <div className="markdown-prose">
-                    {renderMarkdown(getCurrentContent())}
+              {/* 内容区域 - 可滚动区域 */}
+              <div className="flex-1 min-h-0 overflow-y-auto markdown-scroll-container">
+                <div className="markdown-main-content">
+                  <div className="markdown-content-wrapper">
+                    <div className="markdown-prose">
+                      {renderMarkdown(getCurrentContent())}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* 导航按钮 */}
-              <div className="p-4 border-t border-gray-200 flex justify-between">
+              {/* 导航按钮 - 固定在底部 */}
+              <div className="flex-shrink-0 p-4 border-t border-gray-200 flex justify-between bg-white">
                 {currentStep >= course.details.steps.length ? (
                   // 课程完成页面显示退出按钮
                   <>
@@ -778,11 +1170,14 @@ export function Learn() {
                   >
                     {activeTab === 'shell' && (
                       <div className="h-full">
-                        {containerId && containerStatus === 'running' ? (
-                          <TerminalComponent ref={terminalRef} containerId={containerId} />
+                        {(containerStatus === 'running' || containerStatus === 'starting' || isStartingContainer) ? (
+                          <TerminalComponent 
+                            ref={terminalRef} 
+                            containerId={containerId} 
+                          />
                         ) : (
                           <div className="flex items-center justify-center h-full text-gray-500">
-                            {containerStatus === 'starting' ? '容器启动中...' : '请先启动容器'}
+                            请先启动容器
                           </div>
                         )}
                       </div>

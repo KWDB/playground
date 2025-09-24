@@ -29,7 +29,7 @@ LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.Git
 # 环境变量文件
 ENV_FILE ?= .env
 
-.PHONY: all build dev dev-full debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help
+.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help
 
 # 默认目标
 all: build
@@ -60,19 +60,12 @@ install-tools:
 	}
 	@echo "✅ Development tools installed successfully!"
 
-# 开发模式（统一端口 - 仅后端服务）
+# 开发模式（统一端口）
 dev: install-tools
 	@echo "🚀 Starting unified development server..."
 	@echo "Building frontend first..."
 	pnpm run build
 	@echo "Server will be available at http://localhost:$(SERVER_PORT)"
-	SERVER_PORT=$(SERVER_PORT) air -c .air.toml
-
-# 完整开发模式（统一端口热重载）
-dev-full: install-tools
-	@echo "🚀 Starting unified development environment with hot reload..."
-	@echo "Server will be available at http://localhost:$(SERVER_PORT)"
-	@echo "Frontend and backend changes will trigger automatic rebuild"
 	@echo "Press Ctrl+C to stop the service"
 	SERVER_PORT=$(SERVER_PORT) air -c .air.toml
 
@@ -229,7 +222,6 @@ help:
 	@echo ""
 	@echo "🚀 开发模式:"
 	@echo "  dev           - 启动统一开发服务器 (端口 $(SERVER_PORT))"
-	@echo "  dev-full      - 启动完整开发环境 (前后端热重载)"
 	@echo "  debug         - 启动后端调试模式 (端口 $(DEBUG_PORT))"
 	@echo "  dev-debug     - 前端开发 + 后端调试模式"
 	@echo ""

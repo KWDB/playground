@@ -1,0 +1,21 @@
+title: 单节点部署
+description: 使用官网脚本一键部署 KWDB 单节点
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: 下载安装包
+      text: step1.md
+    - title: 修改配置文件
+      text: step2.md
+    - title: 安装
+      text: step3.md
+  finish:
+    text: finish.md
+backend:
+  imageid: postgres #ubuntu:20.04
+estimatedMinutes: 10
+difficulty: intermediate
+tags:
+  - 安装
+  - 单节点

@@ -6,6 +6,7 @@ import (
 
 	"github.com/moby/moby/api/types"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -66,6 +67,13 @@ func (d *dockerClientAdapter) ContainerLogs(ctx context.Context, containerID str
 // ImagePull 拉取镜像
 func (d *dockerClientAdapter) ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (io.ReadCloser, error) {
 	return d.client.ImagePull(ctx, refStr, options)
+}
+
+// ImageInspectWithRaw 检查镜像详细信息
+func (d *dockerClientAdapter) ImageInspectWithRaw(ctx context.Context, imageID string) (image.InspectResponse, []byte, error) {
+	// 使用ImageInspect方法，因为新版本API中没有ImageInspectWithRaw
+	inspect, err := d.client.ImageInspect(ctx, imageID)
+	return inspect, nil, err
 }
 
 // ContainerExecCreate 创建执行实例

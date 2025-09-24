@@ -56,16 +56,16 @@ func main() {
 		appLogger.Warn("Warning: failed to load courses from %s: %v", cfg.Course.Dir, err)
 	}
 
-	// 初始化Docker控制器
-	dockerController, err := docker.NewController()
+	// 初始化WebSocket终端管理器 - 简化版本，专注于docker exec -it /bin/bash
+	terminalManager := websocket.NewTerminalManager()
+
+	// 初始化Docker控制器，传入WebSocket管理器
+	dockerController, err := docker.NewControllerWithTerminalManager(terminalManager)
 	if err != nil {
 		// Docker服务不可用时记录警告但不阻止应用启动
 		appLogger.Warn("Warning: Docker service not available: %v", err)
 		dockerController = nil
 	}
-
-	// 初始化WebSocket终端管理器 - 简化版本，专注于docker exec -it /bin/bash
-	terminalManager := websocket.NewTerminalManager()
 	terminalManager.SetLogger(appLogger) // 设置统一的logger实例
 	appLogger.Info("WebSocket终端管理器初始化完成")
 
