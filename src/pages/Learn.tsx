@@ -5,11 +5,12 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import TerminalComponent, { TerminalRef } from '../components/Terminal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StatusIndicator, { StatusType } from '../components/StatusIndicator';
+import CourseContentPanel from '../components/CourseContentPanel';
 import '../styles/markdown.css';
 
 // 定义接口类型
@@ -44,10 +45,10 @@ export function Learn() {
   const [isStartingContainer, setIsStartingContainer] = useState<boolean>(false)
   // 移除未使用的状态变量
   const terminalRef = useRef<TerminalRef>(null)
-  
+
   // 定期状态检查的引用
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  
+
   // 简化状态管理
   const [, setIsConnected] = useState(false)
   const [, setConnectionError] = useState<string | null>(null)
@@ -71,27 +72,27 @@ export function Learn() {
       }
       const data = await response.json()
       console.log('容器状态检查结果:', data)
-      
+
       // 状态验证和同步逻辑
       if (shouldUpdateState) {
         const currentStatus = containerStatus;
         const newStatus = data.status;
-        
+
         // 记录状态变化
         if (currentStatus !== newStatus) {
           console.log(`容器状态发生变化: ${currentStatus} -> ${newStatus}`);
         }
-        
+
         // 状态一致性验证
         if (newStatus === 'running' && currentStatus === 'starting') {
           console.log('容器启动完成，状态同步为running');
         } else if (newStatus === 'exited' && (currentStatus === 'running' || currentStatus === 'starting')) {
           console.warn('检测到容器意外退出，状态不一致');
         }
-        
+
         setContainerStatus(newStatus);
       }
-      
+
       return data
     } catch (err) {
       console.error('获取容器状态失败:', err)
@@ -106,12 +107,12 @@ export function Learn() {
       setConnectionError('容器ID为空')
       return
     }
-    
+
     if (containerStatus !== 'running') {
       setConnectionError('容器未运行')
       return
     }
-    
+
     setIsConnected(true)
     setConnectionError(null)
   }, [containerStatus, setConnectionError, setIsConnected])
@@ -124,61 +125,61 @@ export function Learn() {
       console.log('容器已在启动中或运行中，跳过重复启动请求')
       return
     }
-    
+
     setIsStartingContainer(true)
     setContainerStatus('starting')
     setError(null) // 清除之前的错误信息
     setConnectionError(null) // 清除连接错误
-    
+
     try {
       const response = await fetch(`/api/courses/${courseId}/start`, {
         method: 'POST'
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || '启动容器失败')
       }
-      
+
       const data = await response.json()
       console.log('容器启动成功，响应数据:', data)
-      
+
       setContainerId(data.containerId)
-      
+
       // 等待容器完全启动的函数 - 增强版本
       const waitForContainerReady = async (containerId: string, maxRetries = 15, retryInterval = 1500) => {
         console.log(`开始等待容器启动，最大重试次数: ${maxRetries}，检查间隔: ${retryInterval}ms`);
-        
+
         for (let i = 0; i < maxRetries; i++) {
           console.log(`第 ${i + 1}/${maxRetries} 次检查容器状态...`)
-          
+
           // 等待一段时间再检查，给容器启动时间
           if (i > 0) {
             await new Promise(resolve => setTimeout(resolve, retryInterval))
           }
-          
+
           const statusData = await checkContainerStatus(containerId, true)
-          
+
           if (statusData && statusData.status === 'running') {
             console.log('✅ 容器已完全启动，状态验证通过:', statusData.status)
-            
+
             // 额外验证：再次确认容器确实在运行
             await new Promise(resolve => setTimeout(resolve, 1000));
             const finalCheck = await checkContainerStatus(containerId, false);
-            
+
             if (finalCheck && finalCheck.status === 'running') {
-               console.log('✅ 容器状态最终验证通过，准备连接终端');
-               setContainerStatus('running');
-               
-               // 启动状态监控
-               startStatusMonitoring(containerId);
-               
-               // 容器启动完成后连接终端
-               setTimeout(() => {
-                 connectToTerminal(containerId)
-               }, 500)
-               
-               return true
+              console.log('✅ 容器状态最终验证通过，准备连接终端');
+              setContainerStatus('running');
+
+              // 启动状态监控
+              startStatusMonitoring(containerId);
+
+              // 容器启动完成后连接终端
+              setTimeout(() => {
+                connectToTerminal(containerId)
+              }, 500)
+
+              return true
             } else {
               console.warn('⚠️ 容器状态最终验证失败，继续等待...');
               continue;
@@ -188,27 +189,27 @@ export function Learn() {
             continue;
           } else if (statusData && (statusData.status === 'exited' || statusData.status === 'error')) {
             console.error('❌ 容器启动失败，状态:', statusData.status)
-            
+
             // 如果是一次性执行容器正常退出，不视为错误
             if (statusData.status === 'exited' && statusData.exitCode === 0) {
               console.log('✅ 一次性执行容器正常完成，退出码: 0');
               setContainerStatus('completed');
               return true;
             }
-            
+
             throw new Error(`容器启动失败，状态: ${statusData.status}${statusData.exitCode ? `, 退出码: ${statusData.exitCode}` : ''}`)
           }
-          
+
           console.log(`⏳ 容器状态: ${statusData?.status || '未知'}，继续等待... (${i + 1}/${maxRetries})`)
         }
-        
+
         console.error('❌ 容器启动超时，已达到最大重试次数');
         throw new Error('容器启动超时，请重试')
       }
-      
+
       // 等待容器完全启动
       await waitForContainerReady(data.containerId)
-      
+
     } catch (error) {
       console.error('启动容器失败:', error)
       setError(error instanceof Error ? error.message : '启动容器失败')
@@ -222,12 +223,12 @@ export function Learn() {
   // 使用useRef保存最新的状态值，避免闭包问题
   const courseIdRef = useRef(courseId)
   const containerStatusRef = useRef(containerStatus)
-  
+
   // 更新ref值
   useEffect(() => {
     courseIdRef.current = courseId
   }, [courseId])
-  
+
   useEffect(() => {
     containerStatusRef.current = containerStatus
   }, [containerStatus])
@@ -235,49 +236,49 @@ export function Learn() {
   const stopContainer = useCallback(async (courseId: string) => {
     console.log('停止容器请求开始，课程ID:', courseId)
     console.log('请求URL:', `/api/courses/${courseId}/stop`)
-    
+
     try {
       // 立即设置容器状态为停止中，提供即时UI反馈
       setContainerStatus('stopping')
-      
+
       const response = await fetch(`/api/courses/${courseId}/stop`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         }
       })
-      
+
       console.log('停止容器响应状态:', response.status)
       console.log('停止容器响应URL:', response.url)
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         // 如果是404错误，说明容器已经不存在，这是正常情况
         if (response.status === 404) {
           console.log('容器已不存在，停止操作完成:', errorText)
           setContainerStatus('stopped')
-      setIsConnected(false)
-      setConnectionError(null)
-      
-      // 停止状态监控
-      if (statusCheckIntervalRef.current) {
-        console.log('停止定期状态监控')
-        clearInterval(statusCheckIntervalRef.current)
-        statusCheckIntervalRef.current = null
-      }
+          setIsConnected(false)
+          setConnectionError(null)
+
+          // 停止状态监控
+          if (statusCheckIntervalRef.current) {
+            console.log('停止定期状态监控')
+            clearInterval(statusCheckIntervalRef.current)
+            statusCheckIntervalRef.current = null
+          }
           return // 正常返回，不抛出异常
         }
         console.error('停止容器失败，响应内容:', errorText)
         throw new Error(`停止容器失败: ${response.status} ${errorText}`)
       }
-      
+
       const result = await response.json()
       console.log('停止容器成功，响应:', result)
-      
+
       setContainerStatus('stopped')
       setIsConnected(false)
       setConnectionError(null)
-      
+
     } catch (error) {
       console.error('停止容器异常:', error)
       setError(error instanceof Error ? error.message : '停止容器失败')
@@ -311,9 +312,9 @@ export function Learn() {
     if (statusCheckIntervalRef.current) {
       clearInterval(statusCheckIntervalRef.current);
     }
-    
+
     console.log('开始定期状态监控，容器ID:', containerId);
-    
+
     // 每30秒检查一次容器状态
     statusCheckIntervalRef.current = setInterval(async () => {
       try {
@@ -321,11 +322,11 @@ export function Learn() {
         if (statusData) {
           const currentStatus = containerStatus;
           const actualStatus = statusData.status;
-          
+
           // 检测状态不一致
           if (currentStatus !== actualStatus) {
             console.warn(`检测到状态不一致: 前端状态=${currentStatus}, 实际状态=${actualStatus}`);
-            
+
             // 自动修复状态不一致
             if (actualStatus === 'exited' && currentStatus === 'running') {
               console.log('容器意外退出，更新前端状态');
@@ -357,11 +358,11 @@ export function Learn() {
         clearInterval(statusCheckIntervalRef.current)
         statusCheckIntervalRef.current = null
       }
-      
+
       // 组件卸载时停止容器（使用ref值避免闭包问题）
       const currentCourseId = courseIdRef.current
       const currentContainerStatus = containerStatusRef.current
-      
+
       if (currentCourseId && currentContainerStatus === 'running') {
         console.log('组件卸载：停止容器，课程ID:', currentCourseId)
         fetch(`/api/courses/${currentCourseId}/stop`, {
@@ -374,40 +375,7 @@ export function Learn() {
         })
       }
     }
-  }, []) // 移除所有依赖项，避免重复执行
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-  
-
-
-
-
-
+  }, [])
 
   // Helper functions for navigation
   const getCurrentTitle = () => {
@@ -449,7 +417,7 @@ export function Learn() {
 
   const renderMarkdown = (content: string) => {
     const processedContent = preprocessMarkdown(content)
-    
+
     return (
       <div onClick={handleExecButtonClick} className="markdown-container">
         <ReactMarkdown
@@ -508,7 +476,6 @@ export function Learn() {
             code: ({ className, children, ...props }: CodeComponentProps) => {
               const match = /language-(\w+)/.exec(className || '')
 
-              // 兼容非字符串 children（例如被其他插件包裹为 ReactElement）
               const getText = (node: React.ReactNode): string => {
                 if (node == null) return ''
                 if (typeof node === 'string' || typeof node === 'number') return String(node)
@@ -525,7 +492,6 @@ export function Learn() {
               const codeText = getText(children).replace(/\n$/, '')
 
               return match ? (
-                // 代码块渲染
                 <div className="markdown-code-block">
                   <div className="markdown-code-header">
                     <div className="flex items-center space-x-2">
@@ -540,7 +506,7 @@ export function Learn() {
                   </div>
                   <div className="markdown-code-content">
                     <SyntaxHighlighter
-                      style={tomorrow}
+                      style={highlighterStyle}
                       language={match[1]}
                       PreTag="pre"
                       className="markdown-syntax-highlighter"
@@ -548,19 +514,11 @@ export function Learn() {
                     >
                       {codeText}
                     </SyntaxHighlighter>
-                    <button 
-                      className="markdown-copy-btn"
-                      onClick={() => navigator.clipboard?.writeText(codeText)}
-                      title="复制代码"
-                    >
-                      复制
-                    </button>
                   </div>
                 </div>
               ) : (
-                // 内联代码渲染
-                <code className={`markdown-inline-code ${className || ''}`} {...props}>
-                  {getText(children)}
+                <code className="markdown-inline-code" {...props}>
+                  {codeText}
                 </code>
               )
             }
@@ -602,7 +560,7 @@ export function Learn() {
   // 获取进度条步骤列表 - 使用配置文件中的标题
   const getProgressSteps = () => {
     if (!course) return []
-    
+
     const steps = [
       { id: -1, title: '介绍', type: 'intro' },
       ...course.details.steps.map((step, index) => ({
@@ -612,7 +570,7 @@ export function Learn() {
       })),
       { id: course.details.steps.length, title: '完成', type: 'finish' }
     ]
-    
+
     return steps
   }
 
@@ -631,39 +589,38 @@ export function Learn() {
               {currentStep + 2} / {steps.length}
             </div>
           </div>
-          
+
           {/* 极简进度线 */}
           <div className="flex-1 relative">
             <div className="h-0.5 bg-gray-100 rounded-full"></div>
-            <div 
+            <div
               className="absolute top-0 left-0 h-0.5 bg-blue-500 rounded-full transition-all duration-500 ease-out"
               style={{
                 width: `${(Math.max(0, currentStep + 1) / (steps.length - 1)) * 100}%`
               }}
             ></div>
           </div>
-          
+
           {/* 极简步骤导航 */}
           <div className="flex items-center space-x-1">
             {steps.map((step) => {
               const isCompleted = currentStep > step.id
               const isCurrent = currentStep === step.id
               const isClickable = step.id <= currentStep || step.id === currentStep + 1
-              
+
               return (
                 <button
                   key={step.id}
                   onClick={() => isClickable && goToStep(step.id)}
                   disabled={!isClickable}
-                  className={`group relative w-2 h-2 rounded-full transition-all duration-200 ${
-                    isCompleted
-                      ? 'bg-blue-500 hover:bg-blue-600'
-                      : isCurrent
+                  className={`group relative w-2 h-2 rounded-full transition-all duration-200 ${isCompleted
+                    ? 'bg-blue-500 hover:bg-blue-600'
+                    : isCurrent
                       ? 'bg-blue-500 ring-2 ring-blue-200'
                       : isClickable
-                      ? 'bg-gray-300 hover:bg-gray-400'
-                      : 'bg-gray-200 cursor-not-allowed'
-                  }`}
+                        ? 'bg-gray-300 hover:bg-gray-400'
+                        : 'bg-gray-200 cursor-not-allowed'
+                    }`}
                   title={step.title}
                 >
                   {/* 悬浮提示 */}
@@ -674,7 +631,7 @@ export function Learn() {
               )
             })}
           </div>
-          
+
           {/* 当前步骤标题 */}
           <div className="text-sm font-medium text-gray-700 min-w-0">
             {steps.find(step => step.id === currentStep)?.title || '介绍'}
@@ -690,7 +647,7 @@ export function Learn() {
       await stopContainer(course.id)
     }
   }
-  
+
   // 退出课程并跳转到课程列表
   const exitCourseAndNavigate = async () => {
     await exitCourse()
@@ -736,7 +693,7 @@ export function Learn() {
     // 分析错误类型并提供相应的解决方案
     const getErrorInfo = (errorMessage: string) => {
       const lowerError = errorMessage.toLowerCase()
-      
+
       if (lowerError.includes('/bin/bash') && lowerError.includes('no such file')) {
         return {
           title: '镜像兼容性问题',
@@ -751,7 +708,7 @@ export function Learn() {
           icon: '🔧'
         }
       }
-      
+
       if (lowerError.includes('container failed to start') && lowerError.includes('exitcode')) {
         const exitCodeMatch = lowerError.match(/exitcode[=:]?(\d+)/)
         const exitCode = exitCodeMatch ? exitCodeMatch[1] : 'unknown'
@@ -768,7 +725,7 @@ export function Learn() {
           icon: '🚫'
         }
       }
-      
+
       if (lowerError.includes('no such image') || lowerError.includes('pull access denied')) {
         return {
           title: '镜像拉取失败',
@@ -783,7 +740,7 @@ export function Learn() {
           icon: '📦'
         }
       }
-      
+
       if (lowerError.includes('image') && lowerError.includes('not found')) {
         return {
           title: '镜像拉取失败',
@@ -798,7 +755,7 @@ export function Learn() {
           icon: '📦'
         }
       }
-      
+
       if (lowerError.includes('permission denied') || lowerError.includes('access denied')) {
         return {
           title: '权限访问错误',
@@ -813,7 +770,7 @@ export function Learn() {
           icon: '🔒'
         }
       }
-      
+
       if (lowerError.includes('no space left') || lowerError.includes('disk space')) {
         return {
           title: '存储空间不足',
@@ -828,7 +785,7 @@ export function Learn() {
           icon: '💾'
         }
       }
-      
+
       if (lowerError.includes('network') || lowerError.includes('connection')) {
         return {
           title: '网络连接问题',
@@ -843,7 +800,7 @@ export function Learn() {
           icon: '🌐'
         }
       }
-      
+
       if (lowerError.includes('timeout') && !lowerError.includes('network')) {
         return {
           title: '操作超时',
@@ -858,7 +815,7 @@ export function Learn() {
           icon: '⏱️'
         }
       }
-      
+
       if (lowerError.includes('port') && (lowerError.includes('already') || lowerError.includes('in use'))) {
         return {
           title: '端口冲突',
@@ -873,7 +830,7 @@ export function Learn() {
           icon: '🔌'
         }
       }
-      
+
       // 默认错误信息 - 提供更友好的通用错误处理
       return {
         title: '容器启动异常',
@@ -888,7 +845,7 @@ export function Learn() {
         icon: '🔧'
       }
     }
-    
+
     const errorInfo = error ? getErrorInfo(error) : {
       title: '课程未找到',
       description: '请求的课程不存在或已被删除',
@@ -900,7 +857,7 @@ export function Learn() {
       ],
       icon: '📚'
     }
-    
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
         <div className="max-w-2xl w-full bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
@@ -912,7 +869,7 @@ export function Learn() {
               <p className="text-gray-600 text-lg">{errorInfo.description}</p>
             </div>
           </div>
-          
+
           <div className="p-8">
             {/* 错误详情 */}
             <div className="bg-gradient-to-r from-red-50 to-red-100 border-l-4 border-red-400 rounded-r-lg p-5 mb-6">
@@ -940,7 +897,7 @@ export function Learn() {
                 </div>
               </div>
             </div>
-            
+
             {/* 操作按钮 */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
               <button
@@ -966,12 +923,12 @@ export function Learn() {
                 </span>
               </Link>
             </div>
-            
+
             {/* 帮助信息 */}
             <div className="pt-6 border-t border-gray-200 text-center">
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-gray-600 text-sm leading-relaxed">
-                  <span className="font-medium">💬 需要帮助？</span><br/>
+                  <span className="font-medium">💬 需要帮助？</span><br />
                   如果问题持续存在，请在 项目 Github 上
                   <a href="https://github.com/kwdb/playground/issues" className="text-blue-600 hover:text-blue-800 font-medium ml-1 underline decoration-dotted underline-offset-2 transition-colors duration-200">
                     提交 Issue
@@ -991,7 +948,7 @@ export function Learn() {
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <button 
+            <button
               onClick={handleBackClick}
               className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/40 hover:shadow-xl hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white transition-all duration-300 transform active:scale-95 active:translate-y-0 border border-blue-400/20 backdrop-blur-sm"
               title="返回课程列表"
@@ -1001,21 +958,21 @@ export function Learn() {
             </button>
             <h1 className="text-lg font-semibold text-gray-900">{course.title}</h1>
           </div>
-          
+
           {/* 容器状态栏 */}
           <div className="flex items-center space-x-3">
             {/* 容器状态 */}
-            <StatusIndicator 
+            <StatusIndicator
               status={containerStatus as StatusType}
               label={`容器: ${containerStatus === 'running' ? '运行中' :
-                              containerStatus === 'starting' ? '启动中' :
-                              containerStatus === 'stopping' ? '停止中' :
-                              containerStatus === 'error' ? '错误' :
-                              '已停止'}`}
+                containerStatus === 'starting' ? '启动中' :
+                  containerStatus === 'stopping' ? '停止中' :
+                    containerStatus === 'error' ? '错误' :
+                      '已停止'}`}
               icon={Server}
               size="sm"
             />
-            
+
             {/* 操作按钮组 */}
             <div className="flex items-center space-x-3">
               {containerStatus === 'stopped' || containerStatus === 'error' ? (
@@ -1024,12 +981,10 @@ export function Learn() {
                   disabled={isStartingContainer}
                   className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-300 transform hover:scale-105 active:scale-95"
                 >
-                  <div className={`flex items-center space-x-2 ${
-                    isStartingContainer ? 'animate-pulse' : ''
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full bg-white ${
-                      isStartingContainer ? 'animate-spin' : ''
-                    }`}></div>
+                  <div className={`flex items-center space-x-2 ${isStartingContainer ? 'animate-pulse' : ''
+                    }`}>
+                    <div className={`w-2 h-2 rounded-full bg-white ${isStartingContainer ? 'animate-spin' : ''
+                      }`}></div>
                     <span>{isStartingContainer ? '启动中...' : '启动容器'}</span>
                   </div>
                   {!isStartingContainer && (
@@ -1058,75 +1013,19 @@ export function Learn() {
         <PanelGroup direction="horizontal">
           {/* 左侧内容面板 */}
           <Panel defaultSize={50} minSize={30}>
-            <div className="h-full bg-white border-r border-gray-200 flex flex-col overflow-hidden">
-              {/* 课程进度条 - 合并到内容区域 */}
-              {renderProgressBar()}
-              
-              {/* 内容标题 */}
-              <div className="flex-shrink-0 p-3 lg:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-                <h2 className="text-lg lg:text-xl font-semibold text-gray-800">
-                  {getCurrentTitle()}
-                </h2>
-              </div>
-
-              {/* 内容区域 - 可滚动区域 */}
-              <div className="flex-1 min-h-0 overflow-y-auto markdown-scroll-container">
-                <div className="markdown-main-content">
-                  <div className="markdown-content-wrapper">
-                    <div className="markdown-prose">
-                      {renderMarkdown(getCurrentContent())}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 导航按钮 - 固定在底部 */}
-              <div className="flex-shrink-0 p-4 border-t border-gray-200 flex justify-between bg-white">
-                {currentStep >= course.details.steps.length ? (
-                  // 课程完成页面显示退出按钮
-                  <>
-                    <button
-                      onClick={goToPrevious}
-                      disabled={!canGoPrevious()}
-                      className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gray-500 rounded-lg shadow-md shadow-gray-500/20 hover:bg-gray-600 hover:shadow-gray-500/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none transition-all duration-300 transform active:scale-95"
-                    >
-                      上一步
-                    </button>
-                    <div className="flex items-center text-gray-600 text-sm font-medium">
-                      完成
-                    </div>
-                    <button
-                      onClick={exitCourseAndNavigate}
-                      className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:from-red-600 hover:to-red-700 hover:shadow-red-500/40 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform active:scale-95 space-x-2"
-                    >
-                      <span>退出课程</span>
-                    </button>
-                  </>
-                ) : (
-                  // 正常导航按钮
-                  <>
-                    <button
-                      onClick={goToPrevious}
-                      disabled={!canGoPrevious()}
-                      className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gray-500 rounded-lg shadow-md shadow-gray-500/20 hover:bg-gray-600 hover:shadow-gray-500/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none transition-all duration-300 transform active:scale-95"
-                    >
-                      上一步
-                    </button>
-                    <div className="flex items-center text-gray-600 text-sm font-medium">
-                      {currentStep === -1 ? '介绍' : 
-                       `步骤 ${currentStep + 1}/${course.details.steps.length}`}
-                    </div>
-                    <button
-                      onClick={goToNext}
-                      disabled={!canGoNext()}
-                      className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/40 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none transition-all duration-300 transform active:scale-95"
-                    >
-                      下一步
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
+            <CourseContentPanel
+              renderProgressBar={renderProgressBar}
+              title={getCurrentTitle()}
+              content={getCurrentContent()}
+              renderMarkdown={renderMarkdown}
+              currentStep={currentStep}
+              stepsLength={course?.details.steps.length ?? 0}
+              onPrev={goToPrevious}
+              onNext={goToNext}
+              canPrev={canGoPrevious()}
+              canNext={canGoNext()}
+              onExit={exitCourseAndNavigate}
+            />
           </Panel>
 
           <PanelResizeHandle className="w-2 bg-gray-300 hover:bg-gray-400 transition-colors cursor-col-resize" />
@@ -1138,22 +1037,20 @@ export function Learn() {
               <div className="flex flex-wrap gap-2 p-3 border-b border-gray-700/50" style={{ backgroundColor: '#161b22' }}>
                 <button
                   onClick={() => setActiveTab('shell')}
-                  className={`px-3 lg:px-4 py-2 lg:py-2.5 flex items-center space-x-1.5 text-sm font-medium rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 ${
-                    activeTab === 'shell'
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 border border-emerald-400/30'
-                      : 'bg-gray-800/60 text-gray-300 hover:bg-gray-700/80 hover:text-white border border-gray-600/50 backdrop-blur-sm'
-                  }`}
+                  className={`px-3 lg:px-4 py-2 lg:py-2.5 flex items-center space-x-1.5 text-sm font-medium rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 ${activeTab === 'shell'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 border border-emerald-400/30'
+                    : 'bg-gray-800/60 text-gray-300 hover:bg-gray-700/80 hover:text-white border border-gray-600/50 backdrop-blur-sm'
+                    }`}
                 >
                   <Terminal className="h-4 w-4" />
                   <span className="hidden sm:inline font-semibold">Shell</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('sql')}
-                  className={`px-3 lg:px-4 py-2 lg:py-2.5 flex items-center space-x-1.5 text-sm font-medium rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 ${
-                    activeTab === 'sql'
-                      ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400/30'
-                      : 'bg-gray-800/60 text-gray-300 hover:bg-gray-700/80 hover:text-white border border-gray-600/50 backdrop-blur-sm'
-                  }`}
+                  className={`px-3 lg:px-4 py-2 lg:py-2.5 flex items-center space-x-1.5 text-sm font-medium rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 ${activeTab === 'sql'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400/30'
+                    : 'bg-gray-800/60 text-gray-300 hover:bg-gray-700/80 hover:text-white border border-gray-600/50 backdrop-blur-sm'
+                    }`}
                 >
                   <Database className="h-4 w-4" />
                   <span className="hidden sm:inline font-semibold">SQL</span>
@@ -1165,15 +1062,15 @@ export function Learn() {
               {/* 终端内容区域 - 优化滚动和布局 */}
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="flex-1 p-4 overflow-hidden">
-                  <div 
+                  <div
                     className="h-full max-h-[calc(100vh-200px)] overflow-y-auto terminal-scrollbar"
                   >
                     {activeTab === 'shell' && (
                       <div className="h-full">
                         {(containerStatus === 'running' || containerStatus === 'starting' || isStartingContainer) ? (
-                          <TerminalComponent 
-                            ref={terminalRef} 
-                            containerId={containerId} 
+                          <TerminalComponent
+                            ref={terminalRef}
+                            containerId={containerId}
                           />
                         ) : (
                           <div className="flex items-center justify-center h-full text-gray-500">
@@ -1197,7 +1094,7 @@ export function Learn() {
           </Panel>
         </PanelGroup>
       </div>
-      
+
       {/* 确认对话框 */}
       <ConfirmDialog
         isOpen={showConfirmDialog}
@@ -1212,3 +1109,40 @@ export function Learn() {
     </div>
   )
 }
+
+// 统一代码块渲染：提高对比度、简化视觉效果
+const highlighterStyle = {
+  ...oneLight,
+  'pre[class*="language-"]': {
+    ...oneLight['pre[class*="language-"]'],
+    background: '#0b1020', // 更深背景以提升对比度
+  },
+  'code[class*="language-"]': {
+    ...oneLight['code[class*="language-"]'],
+    textShadow: 'none', // 去除冗余阴影
+  },
+  '.token.comment,.token.prolog,.token.doctype,.token.cdata': {
+    color: '#94a3b8', // 提升可读性
+  },
+  '.token.punctuation': {
+    color: '#e5e7eb',
+  },
+  '.token.property,.token.tag,.token.constant,.token.symbol,.token.deleted': {
+    color: '#93c5fd',
+  },
+  '.token.boolean,.token.number': {
+    color: '#fdba74',
+  },
+  '.token.selector,.token.attr-name,.token.string,.token.char,.token.builtin,.token.inserted': {
+    color: '#86efac',
+  },
+  '.token.operator,.token.entity,.token.url': {
+    color: '#fca5a5',
+  },
+  '.token.atrule,.token.attr-value,.token.keyword': {
+    color: '#60a5fa',
+  },
+  '.token.function,.token.class-name': {
+    color: '#f9a8d4',
+  },
+};

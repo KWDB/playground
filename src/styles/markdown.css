@@ -74,16 +74,16 @@
   display: inline-block;
   padding: 4px 8px;
   margin: 0 2px;
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  color: #1e40af;
+  background-color: #f3f4f6; /* 更高可读性的浅灰背景 */
+  color: #111827; /* 更高对比度 */
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace;
   font-size: 0.875rem;
   font-weight: 500;
-  border: 1px solid #93c5fd;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
   vertical-align: middle;
-  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
-  transition: all 0.2s ease;
+  box-shadow: none; /* 减少装饰性阴影 */
+  transition: none; /* 减少动画效果 */
 }
 
 .markdown-inline-code:hover {
@@ -211,16 +211,16 @@
   display: inline-block;
   padding: 6px 10px;
   margin: 2px 6px 2px 0;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  color: #1e293b;
+  background-color: #f8fafc; /* 统一浅色背景 */
+  color: #1f2937;
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace;
   font-size: 0.875rem;
   font-weight: 500;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   vertical-align: middle;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
+  box-shadow: none; /* 去除阴影以简化视觉 */
+  transition: none; /* 移除动画 */
   position: relative;
 }
 
@@ -238,7 +238,7 @@
   display: inline-block;
   padding: 6px 14px;
   margin: 2px 0 2px 4px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background-color: #2563eb; /* 统一纯色背景 */
   color: white;
   font-size: 0.75rem;
   font-weight: 600;
@@ -247,8 +247,8 @@
   border-radius: 6px;
   cursor: pointer;
   vertical-align: middle;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-  transition: all 0.2s ease;
+  box-shadow: none; /* 去除阴影 */
+  transition: none; /* 移除动画和过渡 */
   text-transform: uppercase;
   letter-spacing: 0.5px;
   position: relative;
@@ -257,7 +257,7 @@
 
 /* 执行按钮光效动画 */
 .exec-btn::before {
-  content: '';
+  content: none; /* 移除光效动画 */
   position: absolute;
   top: 0;
   left: -100%;
@@ -268,9 +268,9 @@
 }
 
 .exec-btn:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
-  transform: translateY(-1px);
+  background-color: #1d4ed8; /* 简单的悬停颜色变化 */
+  box-shadow: none;
+  transform: none;
 }
 
 .exec-btn:hover::before {
@@ -278,9 +278,9 @@
 }
 
 .exec-btn:active {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  background-color: #1e40af;
+  transform: none;
+  box-shadow: none;
 }
 
 /* ========================================
@@ -290,7 +290,7 @@
   margin: 1.5rem 0;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); /* 更轻的阴影 */
   border: 1px solid #e5e7eb;
   background: white;
 }
@@ -298,7 +298,7 @@
 /* 代码块头部 - macOS 窗口风格 */
 .markdown-code-header {
   padding: 12px 16px;
-  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  background-color: #f5f7fa; /* 去除渐变，改为纯色 */
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
@@ -349,20 +349,20 @@
 /* 代码内容区域 */
 .markdown-code-content {
   position: relative;
-  background: linear-gradient(135deg, #fafbfc 0%, #f6f8fa 100%);
+  background-color: transparent; /* 让高亮主题控制背景 */
 }
 
 /* 代码高亮容器 */
 .markdown-syntax-highlighter {
   margin: 0 !important;
   padding: 1rem 1.25rem !important;
-  background: linear-gradient(135deg, #fafbfc 0%, #f6f8fa 100%) !important;
-  font-size: 0.875rem !important;
-  line-height: 1.5 !important;
+  /* 移除背景以尊重高亮主题 */
+  background: transparent !important;
+  font-size: 0.9rem !important; /* 略微增大以提升可读性 */
+  line-height: 1.6 !important;
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace !important;
   border-radius: 0 !important;
-  /* 保留空白与格式，确保 ini 等键值行原样显示 */
-  white-space: pre !important;
+  white-space: pre !important; /* 保留空白与格式 */
   overflow: auto;
 }
 
@@ -594,7 +594,7 @@
   }
   
   .markdown-syntax-highlighter {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+    background: transparent !important; /* 尊重高亮主题 */
   }
   
   .markdown-link {

@@ -16,7 +16,9 @@ package course
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -29,10 +31,12 @@ import (
 // Service 课程服务，负责管理所有课程的加载和访问
 // 线程安全，支持并发访问
 type Service struct {
-	coursesDir string             // 课程文件根目录
-	courses    map[string]*Course // 课程缓存，key为课程ID
-	mu         sync.RWMutex       // 读写锁，保护courses map的并发访问
-	logger     *logger.Logger     // 日志记录器实例
+	coursesDir       string             // 课程文件根目录
+	coursesFS        fs.FS              // 课程文件系统
+	coursesBasePath  string             // 课程在FS中的根路径
+	courses          map[string]*Course // 课程缓存，key为课程ID
+	mu               sync.RWMutex       // 读写锁，保护courses map的并发访问
+	logger           *logger.Logger     // 日志记录器实例
 }
 
 // NewService 创建新的课程服务实例
@@ -46,10 +50,29 @@ func NewService(coursesDir string) *Service {
 	loggerInstance := logger.NewLogger(logger.INFO)
 	loggerInstance.Debug("Creating new course service with directory: %s", coursesDir)
 	return &Service{
-		coursesDir: coursesDir,
-		courses:    make(map[string]*Course),
-		mu:         sync.RWMutex{},
-		logger:     loggerInstance,
+		coursesDir:      coursesDir,
+		courses:         make(map[string]*Course),
+		mu:              sync.RWMutex{},
+		logger:          loggerInstance,
+	}
+}
+
+// NewServiceFromFS 基于嵌入式文件系统创建课程服务（发布模式）
+// 参数:
+//
+//  coursesFS: 提供课程内容的文件系统，通常为 embed.FS
+//  basePath: 课程在FS中的根路径，例如 "courses"
+//
+// 返回: 初始化的课程服务实例
+func NewServiceFromFS(coursesFS fs.FS, basePath string) *Service {
+	loggerInstance := logger.NewLogger(logger.INFO)
+	loggerInstance.Debug("Creating new course service from FS with base path: %s", basePath)
+	return &Service{
+		coursesFS:       coursesFS,
+		coursesBasePath: basePath,
+		courses:         make(map[string]*Course),
+		mu:              sync.RWMutex{},
+		logger:          loggerInstance,
 	}
 }
 
@@ -67,6 +90,44 @@ func (s *Service) SetLogger(loggerInstance *logger.Logger) {
 // 该方法是线程安全的，会清空现有课程缓存并重新加载
 // 返回: 如果目录不存在或读取失败则返回错误
 func (s *Service) LoadCourses() error {
+	// 如果设置了嵌入式FS，则走嵌入模式
+	if s.coursesFS != nil {
+		s.logger.Debug("Loading courses from embedded FS: %s", s.coursesBasePath)
+
+		entries, err := fs.ReadDir(s.coursesFS, s.coursesBasePath)
+		if err != nil {
+			return fmt.Errorf("failed to read courses base path in FS: %w", err)
+		}
+
+		// 使用写锁保护courses map
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		// 重新初始化缓存，避免旧数据残留
+		s.courses = make(map[string]*Course)
+
+		loadedCount := 0
+		for _, entry := range entries {
+			if entry.IsDir() {
+				courseID := entry.Name()
+				s.logger.Debug("Loading course (FS): %s", courseID)
+
+				coursePath := path.Join(s.coursesBasePath, courseID)
+				course, err := s.loadCourseFromFS(courseID, coursePath)
+				if err != nil {
+					s.logger.Error("Failed to load course %s from FS: %v", courseID, err)
+					continue
+				}
+
+				s.courses[courseID] = course
+				loadedCount++
+			}
+		}
+
+		s.logger.Info("Successfully loaded %d courses from embedded FS", loadedCount)
+		return nil
+	}
+
 	s.logger.Debug("Loading courses from directory: %s", s.coursesDir)
 
 	// 检查课程目录是否存在
@@ -82,6 +143,9 @@ func (s *Service) LoadCourses() error {
 	// 使用写锁保护courses map
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// 重新初始化缓存，避免旧数据残留
+	s.courses = make(map[string]*Course)
 
 	loadedCount := 0
 	for _, entry := range entries {
@@ -105,7 +169,7 @@ func (s *Service) LoadCourses() error {
 	return nil
 }
 
-// loadCourse 加载单个课程的配置和内容
+// loadCourse 加载单个课程的配置和内容（磁盘模式）
 // courseID: 课程的唯一标识符
 // coursePath: 课程目录的完整路径
 // 返回完整的课程对象或错误信息
@@ -148,7 +212,45 @@ func (s *Service) loadCourse(courseID, coursePath string) (*Course, error) {
 	return &course, nil
 }
 
-// loadCourseContent 加载课程的详细内容，根据index.yaml中的details结构加载对应文件
+// loadCourseFromFS 加载单个课程的配置和内容（嵌入模式）
+// courseID: 课程的唯一标识符
+// coursePath: 课程在FS中的目录路径（使用/分隔）
+// 返回完整的课程对象或错误信息
+func (s *Service) loadCourseFromFS(courseID, coursePath string) (*Course, error) {
+	configPath := path.Join(coursePath, "index.yaml")
+
+	// 读取课程配置文件（FS内）
+	configData, err := fs.ReadFile(s.coursesFS, configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read course config from FS: %w", err)
+	}
+
+	// 检查配置文件是否为空
+	if len(configData) == 0 {
+		return nil, fmt.Errorf("course config file is empty: %s", configPath)
+	}
+
+	// 解析YAML配置
+	var course Course
+	if err := yaml.Unmarshal(configData, &course); err != nil {
+		return nil, fmt.Errorf("failed to parse course config: %w", err)
+	}
+
+	// 设置课程ID和基础信息
+	course.ID = courseID
+	if course.Title == "" {
+		course.Title = courseID // 如果没有设置标题，使用ID作为默认标题
+	}
+
+	// 加载课程详细内容（FS内）
+	if err := s.loadCourseContentFromFS(&course, coursePath); err != nil {
+		return nil, fmt.Errorf("failed to load course content from FS: %w", err)
+	}
+
+	return &course, nil
+}
+
+// loadCourseContent 加载课程的详细内容，根据index.yaml中的details结构加载对应文件（磁盘模式）
 // course: 要加载内容的课程对象指针
 // coursePath: 课程目录的完整路径
 // 返回加载过程中遇到的错误
@@ -198,7 +300,57 @@ func (s *Service) loadCourseContent(course *Course, coursePath string) error {
 	return nil
 }
 
-// loadMarkdownFile 读取并返回Markdown文件的内容
+// loadCourseContentFromFS 加载课程的详细内容（嵌入模式）
+// course: 要加载内容的课程对象指针
+// coursePath: 课程在FS中的目录路径（使用/分隔）
+// 返回加载过程中遇到的错误
+func (s *Service) loadCourseContentFromFS(course *Course, coursePath string) error {
+	s.logger.Debug("Loading content for course from FS: %s", course.ID)
+
+	// 加载课程介绍内容
+	if course.Details.Intro.Text != "" {
+		introPath := path.Join(coursePath, course.Details.Intro.Text)
+		if content, err := s.loadMarkdownFileFromFS(introPath); err == nil {
+			course.Details.Intro.Content = content
+			s.logger.Debug("Loaded intro file %s for course(FS): %s", course.Details.Intro.Text, course.ID)
+		} else {
+			s.logger.Warn("Failed to load intro file %s for course(FS) %s: %v", course.Details.Intro.Text, course.ID, err)
+			course.Details.Intro.Content = "" // 设置为空字符串
+		}
+	}
+
+	// 加载课程步骤内容
+	for i := range course.Details.Steps {
+		step := &course.Details.Steps[i]
+		if step.Text != "" {
+			stepPath := path.Join(coursePath, step.Text)
+			if content, err := s.loadMarkdownFileFromFS(stepPath); err == nil {
+				step.Content = content
+				s.logger.Debug("Loaded step file %s for course(FS): %s", step.Text, course.ID)
+			} else {
+				s.logger.Warn("Failed to load step file %s for course(FS) %s: %v", step.Text, course.ID, err)
+				step.Content = "" // 设置为空字符串
+			}
+		}
+	}
+
+	// 加载课程结束内容
+	if course.Details.Finish.Text != "" {
+		finishPath := path.Join(coursePath, course.Details.Finish.Text)
+		if content, err := s.loadMarkdownFileFromFS(finishPath); err == nil {
+			course.Details.Finish.Content = content
+			s.logger.Debug("Loaded finish file %s for course(FS): %s", course.Details.Finish.Text, course.ID)
+		} else {
+			s.logger.Warn("Failed to load finish file %s for course(FS) %s: %v", course.Details.Finish.Text, course.ID, err)
+			course.Details.Finish.Content = "" // 设置为空字符串
+		}
+	}
+
+	s.logger.Debug("Loaded content for course(FS): %s with %d steps", course.ID, len(course.Details.Steps))
+	return nil
+}
+
+// loadMarkdownFile 读取并返回Markdown文件的内容（磁盘模式）
 // filePath: Markdown文件的完整路径
 // 返回文件内容字符串或错误信息
 func (s *Service) loadMarkdownFile(filePath string) (string, error) {
@@ -214,6 +366,22 @@ func (s *Service) loadMarkdownFile(filePath string) (string, error) {
 	}
 
 	// 检查文件是否为空
+	if len(content) == 0 {
+		return "", fmt.Errorf("markdown file is empty: %s", filePath)
+	}
+
+	return string(content), nil
+}
+
+// loadMarkdownFileFromFS 读取并返回Markdown文件的内容（嵌入模式）
+// filePath: Markdown文件在FS中的路径（使用/分隔）
+// 返回文件内容字符串或错误信息
+func (s *Service) loadMarkdownFileFromFS(filePath string) (string, error) {
+	content, err := fs.ReadFile(s.coursesFS, filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read markdown file from FS %s: %w", filePath, err)
+	}
+
 	if len(content) == 0 {
 		return "", fmt.Errorf("markdown file is empty: %s", filePath)
 	}

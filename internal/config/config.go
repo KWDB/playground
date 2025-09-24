@@ -40,8 +40,9 @@ type DockerConfig struct {
 // 定义课程文件的存储路径
 type CourseConfig struct {
 	// Dir 课程文件目录路径，默认为./courses
-	Dir    string `json:"dir" yaml:"dir"`       // 课程文件目录路径
-	Reload bool   `json:"reload" yaml:"reload"` // 是否启用热重载
+	Dir      string `json:"dir" yaml:"dir"`             // 课程文件目录路径
+	Reload   bool   `json:"reload" yaml:"reload"`       // 是否启用热重载
+	UseEmbed bool   `json:"useEmbed" yaml:"useEmbed"`   // 是否使用嵌入式FS作为课程数据来源
 }
 
 // LogConfig 日志系统相关配置
@@ -56,6 +57,8 @@ type LogConfig struct {
 //   - SERVER_HOST: 服务器监听地址 (默认: localhost)
 //   - SERVER_PORT: 服务器监听端口 (默认: 8080)
 //   - COURSE_DIR: 课程文件目录 (默认: ./courses)
+//   - COURSES_RELOAD: 是否启用课程热重载 (默认: true)
+//   - COURSES_USE_EMBED: 是否使用嵌入式FS作为课程数据来源 (默认: false)
 //
 // 返回完整的配置对象，如果配置验证失败会记录警告但不会中断程序
 func Load() *Config {
@@ -75,8 +78,9 @@ func Load() *Config {
 			Timeout: getEnvInt("DOCKER_TIMEOUT", 30),
 		},
 		Course: CourseConfig{
-			Dir:    getEnv("COURSE_DIR", "./courses"),
-			Reload: getEnvBool("COURSES_RELOAD", true),
+			Dir:      getEnv("COURSE_DIR", "./courses"),
+			Reload:   getEnvBool("COURSES_RELOAD", true),
+			UseEmbed: getEnvBool("COURSES_USE_EMBED", false),
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
@@ -110,9 +114,11 @@ func validateConfig(cfg *Config, logger *logger.Logger) error {
 		return fmt.Errorf("invalid docker timeout: %d, must be positive", cfg.Docker.Timeout)
 	}
 
-	// 检查课程目录是否存在
-	if _, err := os.Stat(cfg.Course.Dir); os.IsNotExist(err) {
-		return fmt.Errorf("course directory does not exist: %s", cfg.Course.Dir)
+	// 检查课程目录是否存在（仅在非嵌入模式下）
+	if !cfg.Course.UseEmbed {
+		if _, err := os.Stat(cfg.Course.Dir); os.IsNotExist(err) {
+			return fmt.Errorf("course directory does not exist: %s", cfg.Course.Dir)
+		}
 	}
 
 	validLogLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}
@@ -126,8 +132,8 @@ func validateConfig(cfg *Config, logger *logger.Logger) error {
 // getEnv 获取环境变量，如果不存在则返回默认值
 // 参数:
 //
-//	key: 环境变量名称
-//	defaultValue: 默认值
+//  key: 环境变量名称
+//  defaultValue: 默认值
 //
 // 返回: 环境变量值或默认值
 func getEnv(key, defaultValue string) string {
@@ -140,8 +146,8 @@ func getEnv(key, defaultValue string) string {
 // getEnvInt 获取整数类型的环境变量，如果不存在或转换失败则返回默认值
 // 参数:
 //
-//	key: 环境变量名称
-//	defaultValue: 默认值
+//  key: 环境变量名称
+//  defaultValue: 默认值
 //
 // 返回: 环境变量转换后的整数值或默认值
 func getEnvInt(key string, defaultValue int) int {
@@ -160,8 +166,8 @@ func getEnvInt(key string, defaultValue int) int {
 // getEnvBool 获取布尔类型的环境变量，如果不存在或转换失败则返回默认值
 // 参数:
 //
-//	key: 环境变量名称
-//	defaultValue: 默认值
+//  key: 环境变量名称
+//  defaultValue: 默认值
 //
 // 返回: 环境变量转换后的布尔值或默认值
 // 支持的布尔值格式: true, false, 1, 0, t, f, T, F, TRUE, FALSE

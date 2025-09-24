@@ -13,7 +13,7 @@ details:
   finish:
     text: finish.md
 backend:
-  imageid: postgres #ubuntu:20.04
+  imageid: ubuntu:20.04
 estimatedMinutes: 10
 difficulty: intermediate
 tags:

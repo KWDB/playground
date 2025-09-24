@@ -24,9 +24,9 @@ dist-ssr
 *.sw?
 .vite
 .trae
-.qoder
 .env
 .pytest_cache
+.qoder
 
 tmp
 node_modules

@@ -29,7 +29,7 @@ LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.Git
 # 环境变量文件
 ENV_FILE ?= .env
 
-.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help
+.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-darwin-arm64 release-windows-amd64 release-all
 
 # 默认目标
 all: build
@@ -120,6 +120,42 @@ build: backend
 	@echo "  - Version: $(VERSION)"
 	@echo "  - Build Time: $(BUILD_TIME)"
 	@echo "  - Git Commit: $(GIT_COMMIT)"
+	@ls -lh bin/$(APP_NAME)
+
+# 发布模式（单一二进制，嵌入 courses 与 dist）
+release: frontend
+	@echo "🚀📦 Building RELEASE (single binary with embedded assets and courses) ..."
+	@mkdir -p bin
+	COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME) .
+	@echo "✅ Release build completed: bin/$(APP_NAME)"
+	@ls -lh bin/$(APP_NAME)
+
+# 以发布模式运行（使用嵌入式FS）
+release-run: release
+	@echo "🚀 Running in RELEASE mode (embedded FS) ..."
+	COURSES_USE_EMBED=true SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME)
+
+# 跨平台发布构建
+release-linux-amd64: frontend
+	@echo "🐧 Building RELEASE for Linux amd64 ..."
+	@mkdir -p bin
+	GOOS=linux GOARCH=amd64 COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME)-linux-amd64 .
+	@ls -lh bin/$(APP_NAME)-linux-amd64
+
+release-darwin-arm64: frontend
+	@echo "🍎 Building RELEASE for macOS arm64 ..."
+	@mkdir -p bin
+	GOOS=darwin GOARCH=arm64 COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME)-darwin-arm64 .
+	@ls -lh bin/$(APP_NAME)-darwin-arm64
+
+release-windows-amd64: frontend
+	@echo "🪟 Building RELEASE for Windows amd64 ..."
+	@mkdir -p bin
+	GOOS=windows GOARCH=amd64 COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME)-windows-amd64.exe .
+	@ls -lh bin/$(APP_NAME)-windows-amd64.exe
+
+release-all: release-linux-amd64 release-darwin-arm64 release-windows-amd64
+	@echo "🎉 All release builds completed!"
 	@ls -lh bin/$(APP_NAME)
 
 # 运行应用
@@ -229,7 +265,9 @@ help:
 	@echo "  frontend      - 构建前端"
 	@echo "  backend       - 构建后端 (包含前端)"
 	@echo "  build         - 完整构建 (生产环境)"
-	@echo "  run           - 构建并运行应用"
+	@echo "  release       - 发布构建（嵌入模式，单一二进制）"
+	@echo "  release-run   - 以发布模式运行（启用嵌入式FS）"
+	@echo "  release-all   - 生成 Linux/macOS/Windows 的发布二进制"
 	@echo ""
 	@echo "🛠️ 维护工具:"
 	@echo "  fmt           - 格式化代码 (Go + 前端)"
@@ -245,13 +283,16 @@ help:
 	@echo "  SERVER_PORT   - 服务器端口 (默认: $(SERVER_PORT))"
 	@echo "  DEBUG_PORT    - 调试端口 (默认: $(DEBUG_PORT))"
 	@echo "  ENV_FILE      - 环境变量文件 (默认: $(ENV_FILE))"
+	@echo "  COURSES_USE_EMBED - 是否使用嵌入式FS（发布模式建议：true）"
 	@echo ""
 	@echo "📖 使用示例:"
-	@echo "  make install install-tools  # 初始化开发环境"
-	@echo "  make dev-full               # 启动完整开发环境"
-	@echo "  make build                  # 构建生产版本"
-	@echo "  make run                    # 运行应用"
-	@echo "  SERVER_PORT=3006 make run   # 自定义端口运行"
+	@echo "  make install install-tools         # 初始化开发环境"
+	@echo "  make dev                          # 启动开发环境 (磁盘模式)"
+	@echo "  COURSES_USE_EMBED=true make build # 构建生产版本（启用嵌入）"
+	@echo "  make release                      # 一键发布（单一二进制，嵌入）"
+	@echo "  make release-run                  # 以发布模式运行"
+	@echo "  make release-all                  # 生成跨平台发布二进制"
+	@echo "  SERVER_PORT=3006 make run         # 自定义端口运行"
 	@echo ""
 	@echo "💡 提示:"
 	@echo "  - 使用 Ctrl+C 停止开发服务器"
