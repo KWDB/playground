@@ -1,6 +1,8 @@
 # KWDB Playground
 
-KWDB Playground 是一个面向学习与演示 KWDB 的课程项目。
+KWDB Playground 提供了一个实践环境，以便用户可以轻松地探索 KWDB 的功能。
+
+本项目采用 Go 与 Node.js 构建，帮助用户在 Docker 容器中快速体验 KWDB。
 
 ## 启动说明
 
@@ -169,7 +171,7 @@ COURSES_USE_EMBED=1 ./bin/kwdb-playground server -d
 检查内容：
 - 端口占用：可区分“被本服务占用（正常）”与“被其他进程占用（冲突）”，仅在实际端口冲突时提示错误。
 - 服务状态：检测 TCP 可达性与 HTTP 健康检查（/health）。
-- Docker 环境：检测本机 Docker 客户端与服务是否可用（如不需要容器功能，可忽略相关警告）。
+- Docker 环境：检测本机 Docker 客户端与服务是否可用。
 - 课程资源：检测课程索引与可用性。
 
 用法示例：
