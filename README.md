@@ -59,11 +59,8 @@ make dev
 # 构建前后端
 make build
 
-# 启动二进制（开发模式：磁盘资源）
-./kwdb-playground
-
-# 启动二进制（发布模式：嵌入资源）
-COURSES_USE_EMBED=1 ./kwdb-playground
+# 启动二进制
+./bin/kwdb-playground server
 ```
 
 访问地址：
@@ -89,7 +86,7 @@ make backend
 make build
 ```
 
-生成的二进制默认位于项目根目录：`./kwdb-playground`
+生成的二进制默认位于 `bin/kwdb-playground`
 
 ### 3. 常见编译问题与解决方案
 - 构建后运行报错：找不到前端资源或课程
@@ -136,20 +133,6 @@ COURSES_USE_EMBED=1 make release-windows-amd64
 COURSES_USE_EMBED=1 make release-all
 ```
 
-### 3. 版本控制与发布后的验证方法
-- 使用 Git 标签进行版本化：
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-- 发布后验证：
-  - 启动二进制：`./kwdb-playground`（或守护模式见下文）
-  - 访问应用主页并检查基本功能：http://localhost:3006
-  - 检查课程是否加载成功（前端课程列表与阅读流程可用）
-  - 若使用容器功能，验证 Docker 环境及交互式终端（WebSocket）是否正常
-
 ## 守护进程模式
 
 项目支持通过 `--daemon` 或 `-d` 以守护进程模式运行，自动 fork + detach、管理 PID 文件，标准输出与错误重定向到守护日志文件。
@@ -158,21 +141,21 @@ git push origin v1.0.0
 
 ```bash
 # 开发模式（磁盘资源）后台运行
-./kwdb-playground -d
+./bin/kwdb-playground server -d
 
 # 发布模式（嵌入资源）后台运行
-COURSES_USE_EMBED=1 ./kwdb-playground -d
+COURSES_USE_EMBED=1 ./bin/kwdb-playground server -d
 
 # 查看日志
-tail -f logs/daemon.log
+ tail -f logs/daemon.log
 
 # 查看 PID
-cat tmp/kwdb-playground.pid
+ cat tmp/kwdb-playground.pid
 
 # 优雅停止（清理 PID 文件）
-kill -TERM $(cat tmp/kwdb-playground.pid)
+ kill -TERM $(cat tmp/kwdb-playground.pid)
 # 或发送 SIGINT
-kill -INT $(cat tmp/kwdb-playground.pid)
+ kill -INT $(cat tmp/kwdb-playground.pid)
 ```
 
 说明：

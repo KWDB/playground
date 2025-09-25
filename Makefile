@@ -78,9 +78,9 @@ debug: install-tools
 	@echo "Debug port: $(DEBUG_PORT)"
 	@echo "Connect your IDE to debug port $(DEBUG_PORT)"
 	@if [ "$(OS)" = "Windows_NT" ]; then \
-		set SERVER_PORT=$(SERVER_PORT) && dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient; \
+		set SERVER_PORT=$(SERVER_PORT) && dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient -- buildFlags='-ldflags "$(LDFLAGS)"' -- server; \
 	else \
-		SERVER_PORT=$(SERVER_PORT) dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient; \
+		SERVER_PORT=$(SERVER_PORT) dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient -- buildFlags='-ldflags "$(LDFLAGS)"' -- server; \
 	fi
 
 # 开发+调试模式 - 统一端口调试
@@ -92,9 +92,9 @@ dev-debug: install-tools
 	@echo "Debug port: $(DEBUG_PORT)"
 	@echo "Press Ctrl+C to stop the service"
 	@if [ "$(OS)" = "Windows_NT" ]; then \
-		set SERVER_PORT=$(SERVER_PORT) && dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient; \
+		set SERVER_PORT=$(SERVER_PORT) && dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient -- buildFlags='-ldflags "$(LDFLAGS)"' -- server; \
 	else \
-		SERVER_PORT=$(SERVER_PORT) dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient; \
+		SERVER_PORT=$(SERVER_PORT) dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient -- buildFlags='-ldflags "$(LDFLAGS)"' -- server; \
 	fi
 
 # 构建前端
@@ -133,7 +133,7 @@ release: frontend
 # 以发布模式运行（使用嵌入式FS）
 release-run: release
 	@echo "🚀 Running in RELEASE mode (embedded FS) ..."
-	COURSES_USE_EMBED=true SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME)
+	COURSES_USE_EMBED=true SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME) server
 
 # 跨平台发布构建
 release-linux-amd64: frontend
@@ -162,7 +162,7 @@ release-all: release-linux-amd64 release-darwin-arm64 release-windows-amd64
 run: build
 	@echo "🚀 Starting KWDB Playground..."
 	@echo "Server will be available at http://localhost:$(SERVER_PORT)"
-	SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME)
+	SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME) server
 
 # 停止所有服务
 stop:

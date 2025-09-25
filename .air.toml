@@ -24,8 +24,8 @@ tmp_dir = "tmp"
   follow_symlink = false
   # 是否启用完整构建
   full_bin = ""
-  # 构建参数
-  args_bin = []
+  # 构建参数（为子命令传参）
+  args_bin = ["server"]
   # 构建的二进制文件名
   bin = "./tmp/main"
   # 只构建Go程序，前端构建由Vite独立处理

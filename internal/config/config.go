@@ -44,9 +44,9 @@ type DockerConfig struct {
 // 定义课程文件的存储路径
 type CourseConfig struct {
 	// Dir 课程文件目录路径，默认为./courses
-	Dir      string `json:"dir" yaml:"dir"`             // 课程文件目录路径
-	Reload   bool   `json:"reload" yaml:"reload"`       // 是否启用热重载
-	UseEmbed bool   `json:"useEmbed" yaml:"useEmbed"`   // 是否使用嵌入式FS作为课程数据来源
+	Dir      string `json:"dir" yaml:"dir"`           // 课程文件目录路径
+	Reload   bool   `json:"reload" yaml:"reload"`     // 是否启用热重载
+	UseEmbed bool   `json:"useEmbed" yaml:"useEmbed"` // 是否使用嵌入式FS作为课程数据来源
 }
 
 // LogConfig 日志系统相关配置
@@ -76,7 +76,7 @@ func Load() *Config {
 	config := &Config{
 		Server: ServerConfig{
 			Host:         getEnv("SERVER_HOST", "localhost"),
-			Port:         getEnvInt("SERVER_PORT", 8080),
+			Port:         getEnvInt("SERVER_PORT", 3006),
 			Token:        getEnv("TOKEN", ""),
 			SessionLimit: getEnvInt("SESSION_LIMIT", 1),
 		},
@@ -139,8 +139,8 @@ func validateConfig(cfg *Config, logger *logger.Logger) error {
 // getEnv 获取环境变量，如果不存在则返回默认值
 // 参数:
 //
-//  key: 环境变量名称
-//  defaultValue: 默认值
+//	key: 环境变量名称
+//	defaultValue: 默认值
 //
 // 返回: 环境变量值或默认值
 func getEnv(key, defaultValue string) string {
@@ -153,8 +153,8 @@ func getEnv(key, defaultValue string) string {
 // getEnvInt 获取整数类型的环境变量，如果不存在或转换失败则返回默认值
 // 参数:
 //
-//  key: 环境变量名称
-//  defaultValue: 默认值
+//	key: 环境变量名称
+//	defaultValue: 默认值
 //
 // 返回: 环境变量转换后的整数值或默认值
 func getEnvInt(key string, defaultValue int) int {
@@ -173,8 +173,8 @@ func getEnvInt(key string, defaultValue int) int {
 // getEnvBool 获取布尔类型的环境变量，如果不存在或转换失败则返回默认值
 // 参数:
 //
-//  key: 环境变量名称
-//  defaultValue: 默认值
+//	key: 环境变量名称
+//	defaultValue: 默认值
 //
 // 返回: 环境变量转换后的布尔值或默认值
 // 支持的布尔值格式: true, false, 1, 0, t, f, T, F, TRUE, FALSE
