@@ -44,17 +44,9 @@ type ImagePullProgress struct {
 	Error     string `json:"error,omitempty"`
 }
 
-// ImagePullProgressMessage WebSocket镜像拉取进度消息
-type ImagePullProgressMessage struct {
-	ImageName string `json:"imageName"`
-	Status    string `json:"status"`
-	Progress  string `json:"progress,omitempty"`
-	Error     string `json:"error,omitempty"`
-}
-
 // TerminalManagerInterface WebSocket终端管理器接口
 type TerminalManagerInterface interface {
-	BroadcastImagePullProgress(progress ImagePullProgressMessage)
+	BroadcastImagePullProgress(progress ImagePullProgress)
 	GetActiveSessionCount() int
 }
 

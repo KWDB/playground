@@ -15,7 +15,6 @@ import (
 	"github.com/containerd/errdefs"
 	"github.com/docker/go-connections/nat"
 	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/client"
 )
 
@@ -331,7 +330,7 @@ func (d *dockerController) isContainerRunningCached(ctx context.Context, dockerI
 	}
 
 	isRunning := inspect.State.Running
-	d.logger.Debug("Docker API查询结果: %s, 运行状态: %v, 退出码: %d", 
+	d.logger.Debug("Docker API查询结果: %s, 运行状态: %v, 退出码: %d",
 		dockerID[:12], isRunning, inspect.State.ExitCode)
 
 	// 更新缓存
@@ -372,13 +371,6 @@ func (d *dockerController) StartContainer(ctx context.Context, containerID strin
 			d.logger.Warn("检查容器状态失败: %v", err)
 			time.Sleep(1 * time.Second)
 			continue
-		}
-
-		// 对于一次性执行的容器，成功退出（ExitCode=0）也视为启动成功
-		if containerInfo.IsOneTimeExecution && !inspect.State.Running && inspect.State.ExitCode == 0 {
-			d.logger.Info("一次性执行容器 %s 成功完成，ExitCode=%d", containerID, inspect.State.ExitCode)
-			d.updateContainerState(containerID, StateExited, "Container completed successfully")
-			return nil
 		}
 
 		if inspect.State.Running {
@@ -504,7 +496,7 @@ func (d *dockerController) updateContainerState(containerID string, state Contai
 		containerInfo.State = state
 		containerInfo.Message = message
 		d.logger.Info("容器状态已更新: %s, %s -> %s, 消息: %s", containerID, oldState, state, message)
-		
+
 		// 同步更新缓存状态，确保一致性
 		if containerInfo.DockerID != "" {
 			isRunning := (state == StateRunning)
@@ -555,12 +547,6 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 	if err := d.ensureImageExistsWithProgress(ctx, config.Image, progressCallback); err != nil {
 		d.logger.Error("确保镜像 %s 存在失败: %v", config.Image, err)
 		return nil, d.enhanceImageError(err, config.Image)
-	}
-
-	// 检查镜像兼容性并优化容器配置
-	if err := d.checkImageCompatibilityAndOptimizeConfig(ctx, config); err != nil {
-		d.logger.Error("镜像兼容性检查失败: %v", err)
-		return nil, err
 	}
 
 	// 清理该课程的所有现有容器
@@ -616,6 +602,7 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 	hostConfig := &container.HostConfig{
 		PortBindings: portBindings,
 		Binds:        binds,
+		Privileged:   config.Privileged,
 	}
 
 	// 设置资源限制
@@ -638,15 +625,15 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 
 	// 创建容器信息
 	containerInfo := &ContainerInfo{
-		ID:                 containerName,
-		CourseID:           courseID,
-		DockerID:           resp.ID,
-		State:              StateCreating,
-		Image:              config.Image,
-		StartedAt:          time.Now(),
-		Env:                config.Env,
-		Ports:              config.Ports,
-		IsOneTimeExecution: config.IsOneTimeExecution,
+		ID:         containerName,
+		CourseID:   courseID,
+		DockerID:   resp.ID,
+		State:      StateCreating,
+		Image:      config.Image,
+		StartedAt:  time.Now(),
+		Env:        config.Env,
+		Ports:      config.Ports,
+		Privileged: config.Privileged,
 	}
 
 	// 保存到内存中
@@ -849,7 +836,7 @@ func (d *dockerController) prepareExecEnvironment(inspect container.InspectRespo
 	}
 
 	// 设置工作目录
-	workingDir := "/workspace"
+	workingDir := "/root"
 	if inspect.Config.WorkingDir != "" {
 		workingDir = inspect.Config.WorkingDir
 	}
@@ -1352,7 +1339,7 @@ func (d *dockerController) ensureImageExistsWithProgress(ctx context.Context, im
 
 		// 通过WebSocket广播进度信息
 		if d.terminalManager != nil {
-			d.terminalManager.BroadcastImagePullProgress(ImagePullProgressMessage{
+			d.terminalManager.BroadcastImagePullProgress(ImagePullProgress{
 				ImageName: progress.ImageName,
 				Status:    progress.Status,
 				Progress:  progress.Progress,
@@ -1542,164 +1529,4 @@ func (d *dockerController) enhanceImageError(err error, imageName string) error 
 
 	// 默认增强错误
 	return fmt.Errorf("镜像操作失败 '%s'。请检查镜像名称、网络连接和Docker配置。原始错误: %v", imageName, err)
-}
-
-// checkImageCompatibilityAndOptimizeConfig 检查镜像兼容性并优化容器配置
-func (d *dockerController) checkImageCompatibilityAndOptimizeConfig(ctx context.Context, config *ContainerConfig) error {
-	d.logger.Info("检查镜像兼容性: %s", config.Image)
-
-	// 检查镜像信息
-	imageInfo, _, err := d.client.ImageInspectWithRaw(ctx, config.Image)
-	if err != nil {
-		return fmt.Errorf("无法获取镜像信息: %w", err)
-	}
-
-	// 分析镜像类型和特征
-	imageType := d.analyzeImageType(config.Image, &imageInfo)
-	d.logger.Info("检测到镜像类型: %s", imageType)
-
-	// 根据镜像类型优化配置
-	switch imageType {
-	case "hello-world":
-		return d.optimizeForHelloWorldImage(config)
-	case "minimal":
-		return d.optimizeForMinimalImage(config, &imageInfo)
-	case "alpine":
-		return d.optimizeForAlpineImage(config)
-	case "ubuntu":
-		return d.optimizeForUbuntuImage(config)
-	case "centos":
-		return d.optimizeForCentOSImage(config)
-	default:
-		return d.optimizeForGenericImage(config, &imageInfo)
-	}
-}
-
-// analyzeImageType 分析镜像类型
-func (d *dockerController) analyzeImageType(imageName string, imageInfo *image.InspectResponse) string {
-	lowerName := strings.ToLower(imageName)
-
-	// 特殊测试镜像
-	if strings.Contains(lowerName, "hello-world") {
-		return "hello-world"
-	}
-
-	// 常见Linux发行版
-	if strings.Contains(lowerName, "alpine") {
-		return "alpine"
-	}
-	if strings.Contains(lowerName, "ubuntu") {
-		return "ubuntu"
-	}
-	if strings.Contains(lowerName, "centos") || strings.Contains(lowerName, "rhel") {
-		return "centos"
-	}
-	if strings.Contains(lowerName, "debian") {
-		return "ubuntu" // 使用类似的优化策略
-	}
-
-	// 检查镜像大小判断是否为最小化镜像
-	if imageInfo.Size < 50*1024*1024 { // 小于50MB认为是最小化镜像
-		return "minimal"
-	}
-
-	return "generic"
-}
-
-// optimizeForHelloWorldImage 为hello-world镜像优化配置
-func (d *dockerController) optimizeForHelloWorldImage(config *ContainerConfig) error {
-	d.logger.Info("检测到hello-world镜像，使用默认行为")
-
-	// hello-world镜像只是打印消息然后退出，这是正常行为
-	// 清空Cmd让镜像使用默认的入口点
-	config.Cmd = nil
-	// 标记这是一个一次性执行的镜像
-	config.IsOneTimeExecution = true
-	d.logger.Info("已为hello-world镜像清空启动命令，使用默认行为，标记为一次性执行")
-
-	return nil
-}
-
-// optimizeForMinimalImage 为最小化镜像优化配置
-func (d *dockerController) optimizeForMinimalImage(config *ContainerConfig, imageInfo *image.InspectResponse) error {
-	d.logger.Info("检测到最小化镜像，检查shell可用性")
-
-	// 检查镜像是否包含常见的shell
-	hasShell := false
-	shellPaths := []string{"/bin/bash", "/bin/sh", "/bin/ash"}
-
-	// 检查镜像配置中的入口点和命令
-	if imageInfo.Config != nil {
-		// 检查默认命令是否包含shell
-		for _, cmd := range imageInfo.Config.Cmd {
-			for _, shellPath := range shellPaths {
-				if strings.Contains(cmd, shellPath) {
-					hasShell = true
-					break
-				}
-			}
-		}
-	}
-
-	if !hasShell {
-		// 尝试使用/bin/sh作为备选
-		d.logger.Info("镜像可能不包含/bin/bash，尝试使用/bin/sh")
-		if len(config.Cmd) == 0 || (len(config.Cmd) > 0 && config.Cmd[0] == "/bin/bash") {
-			config.Cmd = []string{"/bin/sh"}
-			d.logger.Info("已将容器命令修改为: %v", config.Cmd)
-		}
-	}
-
-	return nil
-}
-
-// optimizeForAlpineImage 为Alpine镜像优化配置
-func (d *dockerController) optimizeForAlpineImage(config *ContainerConfig) error {
-	d.logger.Info("为Alpine镜像优化配置")
-
-	// Alpine使用ash shell，但通常/bin/sh链接到ash
-	if len(config.Cmd) == 0 || (len(config.Cmd) > 0 && config.Cmd[0] == "/bin/bash") {
-		config.Cmd = []string{"/bin/sh"}
-		d.logger.Info("Alpine镜像使用/bin/sh替代/bin/bash")
-	}
-
-	return nil
-}
-
-// optimizeForUbuntuImage 为Ubuntu镜像优化配置
-func (d *dockerController) optimizeForUbuntuImage(config *ContainerConfig) error {
-	d.logger.Info("为Ubuntu镜像优化配置")
-
-	// Ubuntu通常包含bash，保持默认配置
-	if len(config.Cmd) == 0 {
-		config.Cmd = []string{"/bin/bash"}
-	}
-
-	return nil
-}
-
-// optimizeForCentOSImage 为CentOS镜像优化配置
-func (d *dockerController) optimizeForCentOSImage(config *ContainerConfig) error {
-	d.logger.Info("为CentOS镜像优化配置")
-
-	// CentOS通常包含bash，保持默认配置
-	if len(config.Cmd) == 0 {
-		config.Cmd = []string{"/bin/bash"}
-	}
-
-	return nil
-}
-
-// optimizeForGenericImage 为通用镜像优化配置
-func (d *dockerController) optimizeForGenericImage(config *ContainerConfig, imageInfo *image.InspectResponse) error {
-	d.logger.Info("为通用镜像优化配置")
-
-	// 对于未知镜像，尝试智能检测和配置
-	if len(config.Cmd) == 0 {
-		// 优先尝试bash，如果不行再尝试sh
-		config.Cmd = []string{"/bin/bash"}
-		d.logger.Info("通用镜像默认使用/bin/bash，如果启动失败会自动尝试其他shell")
-	}
-
-	return nil
 }

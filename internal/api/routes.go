@@ -229,10 +229,6 @@ func (h *Handler) startCourse(c *gin.Context) {
 	if course.Backend.ImageID != "" {
 		imageName = course.Backend.ImageID
 		h.logger.Debug("[startCourse] 使用课程指定镜像: %s", imageName)
-	} else if course.DockerImage != "" {
-		// 兼容旧的DockerImage字段
-		imageName = course.DockerImage
-		h.logger.Debug("[startCourse] 使用兼容镜像字段: %s", imageName)
 	} else {
 		h.logger.Debug("[startCourse] 使用默认镜像: %s", imageName)
 	}
@@ -247,7 +243,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 	}
 
 	// 设置工作目录，优先使用课程配置的workspace，否则使用默认值
-	workingDir := "/workspace" // 默认工作目录
+	workingDir := "/root" // 默认工作目录
 	if course.Backend.Workspace != "" {
 		workingDir = course.Backend.Workspace
 		h.logger.Debug("[startCourse] 使用课程配置的工作目录: %s", workingDir)
@@ -255,35 +251,31 @@ func (h *Handler) startCourse(c *gin.Context) {
 		h.logger.Debug("[startCourse] 使用默认工作目录: %s", workingDir)
 	}
 
-	// 创建容器配置，使用智能镜像适配
-	optimalCmd := h.getOptimalContainerCommand(imageName)
-	h.logger.Info("[startCourse] 智能适配命令: %v", optimalCmd)
+	// 创建容器配置
 	config := &docker.ContainerConfig{
 		Image:      imageName,
-		WorkingDir: workingDir, // 使用配置的工作目录
-		Cmd:        optimalCmd, // 根据镜像类型选择最佳启动命令
+		WorkingDir: workingDir,                // 使用配置的工作目录
+		Cmd:        course.Backend.Cmd,        // 根据课程配置的Cmd启动容器
+		Privileged: course.Backend.Privileged, // 根据课程配置的Privileged启动容器
 	}
 
-	h.logger.Debug("[startCourse] 创建容器配置完成，镜像: %s，工作目录: %s", config.Image, config.WorkingDir)
+	// if strings.Contains(imageName, "ubuntu") {
+	// 	config.Privileged = true
+	// }
 
-	// 创建容器 - 使用带进度回调的版本以支持镜像拉取进度显示
-	// ctx := context.Background()
-	h.logger.Debug("[startCourse] 开始创建容器...")
-	
+	h.logger.Debug("[startCourse] 创建容器配置完成，镜像: %s，工作目录: %s，Cmd: %v, Privileged: %v",
+		config.Image, config.WorkingDir, config.Cmd, config.Privileged)
+
 	// 创建WebSocket进度回调函数，用于广播镜像拉取进度
 	progressCallback := func(progress docker.ImagePullProgress) {
-		// 将ImagePullProgress转换为ImagePullProgressMessage
-		message := docker.ImagePullProgressMessage{
-			ImageName: progress.ImageName,
-			Status:    progress.Status,
-			Progress:  progress.Progress,
-			Error:     progress.Error,
-		}
 		h.logger.Debug("[startCourse] 镜像拉取进度: %s - %s", progress.ImageName, progress.Status)
 		// 通过terminalManager广播进度消息到所有WebSocket连接
-		h.terminalManager.BroadcastImagePullProgress(message)
+		h.terminalManager.BroadcastImagePullProgress(progress)
 	}
-	
+
+	// 创建容器 - 使用带进度回调的版本以支持镜像拉取进度显示
+	h.logger.Debug("[startCourse] 开始创建容器...")
+
 	containerInfo, err := h.dockerController.CreateContainerWithProgress(ctx, id, config, progressCallback)
 	if err != nil {
 		h.logger.Error("[startCourse] 容器创建失败: %v", err)
@@ -698,7 +690,7 @@ func (h *Handler) handleTerminalWebSocket(c *gin.Context) {
 		h.logger.Info("WebSocket连接已建立（进度模式），会话: %s", sessionID)
 
 		// 发送连接成功消息
-		if err := conn.WriteJSON(map[string]interface{}{
+		if err = conn.WriteJSON(map[string]interface{}{
 			"type": "connected",
 			"data": "等待容器启动...",
 		}); err != nil {
@@ -725,89 +717,5 @@ func (h *Handler) handleTerminalWebSocket(c *gin.Context) {
 		case <-session.Done():
 			h.logger.Info("终端会话结束: %s", sessionID)
 		}
-	}
-}
-
-// getOptimalContainerCommand 根据镜像类型选择最佳的容器启动命令
-// 实现智能镜像适配，为不同类型的镜像提供合适的启动方式
-func (h *Handler) getOptimalContainerCommand(imageName string) []string {
-	h.logger.Debug("[getOptimalContainerCommand] 分析镜像类型: %s", imageName)
-
-	// 将镜像名称转换为小写以便匹配
-	lowerImageName := strings.ToLower(imageName)
-
-	// 检测特殊镜像类型并提供适配方案
-	switch {
-	case strings.Contains(lowerImageName, "hello-world"):
-		// hello-world镜像：这是一个最小化测试镜像，只包含一个可执行文件
-		// 不包含shell，需要使用特殊的保持运行命令
-		h.logger.Info("[getOptimalContainerCommand] 检测到hello-world镜像，使用sleep保持运行")
-		return []string{"sleep", "infinity"}
-
-	case strings.Contains(lowerImageName, "scratch"):
-		// scratch镜像：完全空白的镜像，通常用作基础镜像
-		// 不包含任何文件系统或shell
-		h.logger.Info("[getOptimalContainerCommand] 检测到scratch镜像，使用sleep保持运行")
-		return []string{"sleep", "infinity"}
-
-	case strings.Contains(lowerImageName, "busybox"):
-		// busybox镜像：包含基本的Unix工具，但shell路径可能不同
-		h.logger.Info("[getOptimalContainerCommand] 检测到busybox镜像，使用sh shell")
-		return []string{"sh", "-c", "while true; do sleep 30; done"}
-
-	case strings.Contains(lowerImageName, "alpine"):
-		// Alpine Linux：轻量级Linux发行版，使用sh而不是bash
-		h.logger.Info("[getOptimalContainerCommand] 检测到Alpine镜像，使用sh shell")
-		return []string{"sh", "-c", "while true; do sleep 30; done"}
-
-	case strings.Contains(lowerImageName, "distroless"):
-		// Distroless镜像：不包含包管理器、shell等，只有应用运行时
-		h.logger.Info("[getOptimalContainerCommand] 检测到distroless镜像，使用sleep保持运行")
-		return []string{"sleep", "infinity"}
-
-	case strings.Contains(lowerImageName, "nginx"):
-		// Nginx镜像：Web服务器，有自己的启动方式
-		h.logger.Info("[getOptimalContainerCommand] 检测到nginx镜像，使用daemon模式")
-		return []string{"nginx", "-g", "daemon off;"}
-
-	case strings.Contains(lowerImageName, "redis"):
-		// Redis镜像：数据库服务
-		h.logger.Info("[getOptimalContainerCommand] 检测到redis镜像，启动redis服务")
-		return []string{"redis-server"}
-
-	case strings.Contains(lowerImageName, "mysql") || strings.Contains(lowerImageName, "mariadb"):
-		// MySQL/MariaDB镜像：数据库服务
-		h.logger.Info("[getOptimalContainerCommand] 检测到MySQL/MariaDB镜像，启动数据库服务")
-		return []string{"mysqld"}
-
-	case strings.Contains(lowerImageName, "postgres"):
-		// PostgreSQL镜像：数据库服务
-		h.logger.Info("[getOptimalContainerCommand] 检测到PostgreSQL镜像，启动数据库服务")
-		return []string{"postgres"}
-
-	case strings.Contains(lowerImageName, "node"):
-		// Node.js镜像：通常包含bash
-		h.logger.Info("[getOptimalContainerCommand] 检测到Node.js镜像，使用bash shell")
-		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
-
-	case strings.Contains(lowerImageName, "python"):
-		// Python镜像：通常包含bash
-		h.logger.Info("[getOptimalContainerCommand] 检测到Python镜像，使用bash shell")
-		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
-
-	case strings.Contains(lowerImageName, "ubuntu") || strings.Contains(lowerImageName, "debian"):
-		// Ubuntu/Debian镜像：标准Linux发行版，包含bash
-		h.logger.Info("[getOptimalContainerCommand] 检测到Ubuntu/Debian镜像，使用bash shell")
-		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
-
-	case strings.Contains(lowerImageName, "centos") || strings.Contains(lowerImageName, "rhel") || strings.Contains(lowerImageName, "fedora"):
-		// CentOS/RHEL/Fedora镜像：Red Hat系列，包含bash
-		h.logger.Info("[getOptimalContainerCommand] 检测到Red Hat系列镜像，使用bash shell")
-		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
-
-	default:
-		// 默认情况：尝试使用bash，如果失败会由错误处理机制处理
-		h.logger.Info("[getOptimalContainerCommand] 未识别的镜像类型，使用默认bash命令")
-		return []string{"/bin/bash", "-c", "while true; do sleep 30; done"}
 	}
 }

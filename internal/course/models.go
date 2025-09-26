@@ -4,16 +4,14 @@ import "time"
 
 // Course 课程模型
 type Course struct {
-	ID               string            `json:"id" yaml:"id"`
-	Title            string            `json:"title" yaml:"title"`
-	Description      string            `json:"description" yaml:"description"`
-	Details          CourseDetail      `json:"details" yaml:"details"`
-	Backend          Backend           `json:"backend" yaml:"backend"`
-	Difficulty       string            `json:"difficulty" yaml:"difficulty"`
-	EstimatedMinutes int               `json:"estimatedMinutes" yaml:"estimatedMinutes"`
-	Tags             []string          `json:"tags" yaml:"tags"`
-	DockerImage      string            `json:"dockerImage" yaml:"dockerImage"`
-	DockerEnv        map[string]string `json:"dockerEnv,omitempty" yaml:"dockerEnv,omitempty"`
+	ID               string       `json:"id" yaml:"id"`
+	Title            string       `json:"title" yaml:"title"`
+	Description      string       `json:"description" yaml:"description"`
+	Details          CourseDetail `json:"details" yaml:"details"`
+	Backend          Backend      `json:"backend" yaml:"backend"`
+	Difficulty       string       `json:"difficulty" yaml:"difficulty"`
+	EstimatedMinutes int          `json:"estimatedMinutes" yaml:"estimatedMinutes"`
+	Tags             []string     `json:"tags" yaml:"tags"`
 }
 
 // CourseDetail 课程详细信息
@@ -38,8 +36,10 @@ type CourseFile struct {
 
 // Backend 后端配置
 type Backend struct {
-	ImageID   string `json:"imageid" yaml:"imageid"`
-	Workspace string `json:"workspace" yaml:"workspace"` // 容器工作目录
+	ImageID    string   `json:"imageid" yaml:"imageid"`
+	Workspace  string   `json:"workspace" yaml:"workspace"`
+	Cmd        []string `json:"cmd" yaml:"cmd"`
+	Privileged bool     `json:"privileged" yaml:"privileged"`
 }
 
 // UserProgress 用户课程进度

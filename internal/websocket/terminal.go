@@ -23,7 +23,7 @@ type Message struct {
 }
 
 // 使用docker包中的ImagePullProgressMessage类型
-type ImagePullProgressMessage = docker.ImagePullProgressMessage
+type ImagePullProgressMessage = docker.ImagePullProgress
 
 // TerminalSession 终端会话
 type TerminalSession struct {

@@ -13,7 +13,9 @@ details:
   finish:
     text: finish.md
 backend:
-  imageid: ubuntu:20.04
+  imageid: kwdb/ubuntu:20.04
+  cmd: ["/sbin/init"]
+  privileged: true
 estimatedMinutes: 10
 difficulty: intermediate
 tags:
