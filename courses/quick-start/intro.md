@@ -1,5 +1,7 @@
-## Welcome
+## 欢迎来到 KWDB 课程
 
-Welcome to KWDB! This scenario will guide you to quick start KWDB.
+本课程将引导您快速体验在 KWDB 中执行您的第一个查询。
 
-**HAVE FUN**
+在开始之前，请点击页面右上角的 `启动课程` 按钮，我们将为您准备一个专属的、隔离的实验环境。
+
+**尽情享受探索 KWDB 的乐趣吧！**

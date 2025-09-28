@@ -201,6 +201,42 @@ go run . check
 ================ 环境检查结束 ================
 ```
 
+## e2e 测试
+
+### 1. 测试环境准备
+
+```bash
+# 安装测试环境
+./scripts/setup_e2e_env.sh
+
+# 启动应用服务
+make dev
+```
+
+### 2. 执行测试
+
+```bash
+# 完整测试套件
+./scripts/run_e2e_tests.sh
+
+# 快速核心测试
+./scripts/quick_e2e_test.sh
+
+# 单独执行特定测试
+source e2e_test_env/bin/activate
+pytest tests/e2e/test_user_journey.py -v
+```
+
+### 3. 查看结果
+
+```bash
+# 查看HTML测试报告
+open tests/reports/e2e_report.html
+
+# 查看测试截图
+ls tests/screenshots/
+```
+
 ## 常见问题与故障排除
 
 - 启动后页面空白或资源 404

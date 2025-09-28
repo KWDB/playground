@@ -38,3 +38,4 @@ tests/reports
 tests/screenshots
 tests/__pycache__
 __pycache__
+tests/e2e/__pycache__

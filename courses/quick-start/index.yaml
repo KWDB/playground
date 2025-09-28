@@ -1,5 +1,5 @@
 title: 快速开始
-description: 欢迎来到 KWDB 课程，本场景将引导您快速开始使用 KWDB。
+description: 欢迎来到 KWDB 课程，本场景将引导您快速体验在 KWDB 中执行您的第一个查询。
 details:
   intro:
     text: intro.md
@@ -17,5 +17,5 @@ estimatedMinutes: 10
 difficulty: beginner
 # slqTerminal: true
 tags:
-  - quick-start
+  - 
   - 快速开始

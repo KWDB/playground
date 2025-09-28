@@ -1,24 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Terminal, Database, Server } from 'lucide-react'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import TerminalComponent, { TerminalRef } from '../components/Terminal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StatusIndicator, { StatusType } from '../components/StatusIndicator';
 import CourseContentPanel from '../components/CourseContentPanel';
 import '../styles/markdown.css';
-
-// 定义接口类型
-interface CodeComponentProps {
-  className?: string
-  children: React.ReactNode
-  [key: string]: unknown
-}
 
 interface Course {
   id: string
@@ -52,6 +45,9 @@ export function Learn() {
   // 简化状态管理
   const [, setIsConnected] = useState(false)
   const [, setConnectionError] = useState<string | null>(null)
+
+  // 已移除全局 hasExecMeta，改为在代码块渲染时按块检测，避免跨渲染的状态污染
+  // let hasExecMeta = false;
 
   // 监听容器状态变化，当容器停止时清除连接错误
   useEffect(() => {
@@ -390,9 +386,56 @@ export function Learn() {
     return course?.details.steps[currentStep]?.content || ''
   }
 
-  // 预处理Markdown内容，处理{{exec}}标记 - 极简高效设计
+  // 使用 useMemo 缓存当前标题与内容，避免无关渲染
+  const currentTitle = useMemo(() => getCurrentTitle(), [course, currentStep])
+  const currentContent = useMemo(() => getCurrentContent(), [course, currentStep])
+
+  // =============================
+  // Markdown 工具函数（仅在本组件内部使用）
+  // =============================
+  // 将 ReactNode 提取为纯文本（用于从 <code> children 中获取命令字符串）
+  const extractTextFromNode = useCallback((n: React.ReactNode): string => {
+    if (n == null) return ''
+    if (typeof n === 'string' || typeof n === 'number') return String(n)
+    if (Array.isArray(n)) return (n as React.ReactNode[]).map(extractTextFromNode).join('')
+    if (React.isValidElement(n)) return extractTextFromNode((n as React.ReactElement).props?.children)
+    return ''
+  }, [])
+
+  // 从 ReactMarkdown AST 节点读取 meta 字段（用于识别是否带有 exec 标记）
+  const readNodeMeta = useCallback((node: unknown): string | null => {
+    const metaContainer = node as { meta?: string | null; data?: { meta?: string | null } } | undefined
+    return metaContainer?.meta ?? metaContainer?.data?.meta ?? null
+  }, [])
+
+  // =============================
+  // 预处理 Markdown：支持 {{exec}} 语法
+  // =============================
   const preprocessMarkdown = (content: string) => {
-    return content.replace(/`([^`]+)`{{exec}}/g, (match, command) => {
+    // 0) 处理“开头围栏（info string）中包含 {{exec}}”的情况，例如 ```bash {{exec}} 或 ```{{exec}}
+    const normalizedOpeningExec = content.replace(/```([^\n]*?)\{\{\s*exec\s*\}\}([^\n]*)\n([\s\S]*?)```/g, (match, before, after, code) => {
+      const infoStr = `${String(before || '')} ${String(after || '')}`.trim()
+      const [langRaw, ...restParts] = infoStr.split(/\s+/).filter(Boolean)
+      const langOrDefault = langRaw || 'bash'
+      const extrasFiltered = restParts.filter(p => p.toLowerCase() !== 'exec').join(' ')
+      const newInfo = `${langOrDefault}-exec${extrasFiltered ? ' ' + extrasFiltered : ''}`.trim()
+      return `\`\`\`${newInfo}\n${code}\`\`\``
+    })
+
+    // 1) 处理“围栏代码块 + {{exec}}”，允许在代码块结束后存在空白或换行，再跟随 {{exec}} 标记
+    const withExecMeta = normalizedOpeningExec.replace(/```([^\n]*)\n([\s\S]*?)```[\s\r\n]*\{\{\s*exec\s*\}\}/g, (match, info, code) => {
+      const infoStr = String(info || '').trim()
+      const [langRaw, ...restParts] = infoStr.split(/\s+/).filter(Boolean)
+      const langOrDefault = langRaw || 'bash' // 无语言时默认 bash
+      // 过滤掉已有 extras 中的 exec 标记，避免重复
+      const extrasFiltered = restParts.filter(p => p.toLowerCase() !== 'exec').join(' ')
+      // 将 exec 信息编码进语言后缀，以确保在 ReactMarkdown->hast 流程中仍可检测到
+      const newInfo = `${langOrDefault}-exec${extrasFiltered ? ' ' + extrasFiltered : ''}`.trim()
+      return `\`\`\`${newInfo}\n${code}\`\`\``
+    })
+
+    // 2) 处理行内代码 `cmd`{{exec}}，允许存在空白
+    return withExecMeta.replace(/`([^`]+)`\s*\{\{\s*exec\s*\}\}/g, (match, command) => {
       return `<code class="inline-code-exec">${command}</code><button class="exec-btn" data-command="${command}" title="执行命令">Run</button>`
     })
   }
@@ -403,7 +446,6 @@ export function Learn() {
     if (button) {
       const command = button.getAttribute('data-command')
       if (command && containerId && containerStatus === 'running') {
-        // 通过Terminal组件的ref发送命令
         if (terminalRef.current) {
           terminalRef.current.sendCommand(command)
         } else {
@@ -415,7 +457,11 @@ export function Learn() {
     }
   }, [containerId, containerStatus])
 
-  const renderMarkdown = (content: string) => {
+  // =============================
+  // Markdown 渲染：基于 ReactMarkdown + 代码高亮
+  // 使用 useCallback 保持稳定引用，减少子组件不必要更新
+  // =============================
+  const renderMarkdown = useCallback((content: string) => {
     const processedContent = preprocessMarkdown(content)
 
     return (
@@ -473,23 +519,21 @@ export function Learn() {
               <th className="markdown-table-cell" {...props}>{children}</th>
             ),
             // 代码组件 - 区分代码块和内联代码
-            code: ({ className, children, ...props }: CodeComponentProps) => {
-              const match = /language-(\w+)/.exec(className || '')
+            code: ({ className, children, node, ...props }) => {
+              // 支持语言 className 中包含连字符，例如 language-bash-exec
+              const match = /language-([\w-]+)/.exec(className || '')
+              const langToken = match ? match[1] : ''
 
-              const getText = (node: React.ReactNode): string => {
-                if (node == null) return ''
-                if (typeof node === 'string' || typeof node === 'number') return String(node)
-                if (Array.isArray(node)) return (node as React.ReactNode[]).map(getText).join('')
-                if (typeof node === 'object') {
-                  const maybeEl = node as React.ReactElement<{ children?: React.ReactNode }>
-                  if ('props' in maybeEl && maybeEl.props && 'children' in maybeEl.props) {
-                    return getText(maybeEl.props.children)
-                  }
-                }
-                return ''
-              }
+              // 使用顶层工具函数提取文本
+              const codeText = extractTextFromNode(children ?? '').replace(/\n$/, '')
 
-              const codeText = getText(children).replace(/\n$/, '')
+              // 通过 AST 节点的 meta 检测是否存在 exec 标记（围栏语言后的额外信息）
+              const metaValue = readNodeMeta(node)
+              const hasExecMeta = !!(metaValue && String(metaValue).includes('exec'))
+
+              // 兼容通过语言后缀携带 exec（例如 language-bash-exec）
+              const hasExecInClass = langToken.includes('-exec')
+              const language = langToken.replace(/-exec$/, '')
 
               return match ? (
                 <div className="markdown-code-block">
@@ -500,17 +544,28 @@ export function Learn() {
                         <div className="markdown-code-dot markdown-code-dot--yellow"></div>
                         <div className="markdown-code-dot markdown-code-dot--green"></div>
                       </div>
-                      <span className="markdown-code-language">{match[1]}</span>
+                      <span className="markdown-code-language">{language}</span>
                     </div>
-                    <div className="markdown-code-title">代码块</div>
+                    <div className="flex items-center space-x-3">
+                      <div className="markdown-code-title">{(hasExecMeta || hasExecInClass) ? '可执行代码' : '代码块'}</div>
+                      {(hasExecMeta || hasExecInClass) && (
+                        <button
+                          className="exec-btn"
+                          data-command={codeText}
+                          title="执行命令"
+                          aria-label="执行当前代码块命令"
+                        >
+                          Run
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="markdown-code-content">
                     <SyntaxHighlighter
                       style={highlighterStyle}
-                      language={match[1]}
+                      language={language}
                       PreTag="pre"
                       className="markdown-syntax-highlighter"
-                      {...props}
                     >
                       {codeText}
                     </SyntaxHighlighter>
@@ -528,7 +583,7 @@ export function Learn() {
         </ReactMarkdown>
       </div>
     )
-  }
+  }, [handleExecButtonClick])
 
   const canGoPrevious = () => currentStep > -1
   const canGoNext = () => course && currentStep < course.details.steps.length
@@ -902,7 +957,7 @@ export function Learn() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
               <button
                 onClick={() => window.location.reload()}
-                className="group relative px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 active:scale-95"
+                className="group relative px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium shadow-lg shadow-gray-500/25 hover:shadow-gray-500/40 hover:from-gray-700 hover:to-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 active:scale-95"
               >
                 <span className="flex items-center justify-center">
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1015,8 +1070,8 @@ export function Learn() {
           <Panel defaultSize={50} minSize={30}>
             <CourseContentPanel
               renderProgressBar={renderProgressBar}
-              title={getCurrentTitle()}
-              content={getCurrentContent()}
+              title={currentTitle}
+              content={currentContent}
               renderMarkdown={renderMarkdown}
               currentStep={currentStep}
               stepsLength={course?.details.steps.length ?? 0}
@@ -1111,14 +1166,14 @@ export function Learn() {
 }
 
 // 统一代码块渲染：提高对比度、简化视觉效果
-const highlighterStyle = {
-  ...oneLight,
+const highlighterStyle: { [selector: string]: React.CSSProperties } = {
+  ...(vs as unknown as { [selector: string]: React.CSSProperties }),
   'pre[class*="language-"]': {
-    ...oneLight['pre[class*="language-"]'],
+    ...((vs as unknown as { [selector: string]: React.CSSProperties })['pre[class*="language-"]'] || {}),
     background: '#0b1020', // 更深背景以提升对比度
   },
   'code[class*="language-"]': {
-    ...oneLight['code[class*="language-"]'],
+    ...((vs as unknown as { [selector: string]: React.CSSProperties })['code[class*="language-"]'] || {}),
     textShadow: 'none', // 去除冗余阴影
   },
   '.token.comment,.token.prolog,.token.doctype,.token.cdata': {
@@ -1145,4 +1200,4 @@ const highlighterStyle = {
   '.token.function,.token.class-name': {
     color: '#f9a8d4',
   },
-};
+}

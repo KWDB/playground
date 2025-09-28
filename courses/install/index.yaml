@@ -10,6 +10,8 @@ details:
       text: step2.md
     - title: 安装
       text: step3.md
+    - title: 启动数据库
+      text: step4.md
   finish:
     text: finish.md
 backend:

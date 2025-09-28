@@ -62,40 +62,10 @@ install-tools:
 
 # 开发模式（统一端口）
 dev: install-tools
-	@echo "🚀 Starting unified development server..."
-	@echo "Building frontend first..."
-	pnpm run build
+	@echo "🚀 Starting playground development server..."
 	@echo "Server will be available at http://localhost:$(SERVER_PORT)"
 	@echo "Press Ctrl+C to stop the service"
 	SERVER_PORT=$(SERVER_PORT) air -c .air.toml
-
-# 调试模式 - 后端调试
-debug: install-tools
-	@echo "🐛 Starting backend in debug mode..."
-	@echo "Building frontend first..."
-	pnpm run build
-	@echo "Debug server: http://localhost:$(SERVER_PORT)"
-	@echo "Debug port: $(DEBUG_PORT)"
-	@echo "Connect your IDE to debug port $(DEBUG_PORT)"
-	@if [ "$(OS)" = "Windows_NT" ]; then \
-		set SERVER_PORT=$(SERVER_PORT) && dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient -- buildFlags='-ldflags "$(LDFLAGS)"' -- server; \
-	else \
-		SERVER_PORT=$(SERVER_PORT) dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient -- buildFlags='-ldflags "$(LDFLAGS)"' -- server; \
-	fi
-
-# 开发+调试模式 - 统一端口调试
-dev-debug: install-tools
-	@echo "🚀🐛 Starting unified development with debug mode..."
-	@echo "Building frontend first..."
-	pnpm run build
-	@echo "Debug server: http://localhost:$(SERVER_PORT)"
-	@echo "Debug port: $(DEBUG_PORT)"
-	@echo "Press Ctrl+C to stop the service"
-	@if [ "$(OS)" = "Windows_NT" ]; then \
-		set SERVER_PORT=$(SERVER_PORT) && dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient -- buildFlags='-ldflags "$(LDFLAGS)"' -- server; \
-	else \
-		SERVER_PORT=$(SERVER_PORT) dlv debug --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient -- buildFlags='-ldflags "$(LDFLAGS)"' -- server; \
-	fi
 
 # 构建前端
 frontend:
@@ -258,8 +228,6 @@ help:
 	@echo ""
 	@echo "🚀 开发模式:"
 	@echo "  dev           - 启动统一开发服务器 (端口 $(SERVER_PORT))"
-	@echo "  debug         - 启动后端调试模式 (端口 $(DEBUG_PORT))"
-	@echo "  dev-debug     - 前端开发 + 后端调试模式"
 	@echo ""
 	@echo "🏗️ 构建和部署:"
 	@echo "  frontend      - 构建前端"

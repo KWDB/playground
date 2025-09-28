@@ -251,17 +251,21 @@ func (h *Handler) startCourse(c *gin.Context) {
 		h.logger.Debug("[startCourse] 使用默认工作目录: %s", workingDir)
 	}
 
+	cmd := []string{"/bin/bash", "-c", "while true; do sleep 3600; done"} // 默认 Cmd
+	if course.Backend.Cmd != nil {
+		cmd = course.Backend.Cmd
+		h.logger.Debug("[startCourse] 使用课程配置的Cmd: %v", cmd)
+	} else {
+		h.logger.Debug("[startCourse] 使用默认Cmd: %v", cmd)
+	}
+
 	// 创建容器配置
 	config := &docker.ContainerConfig{
 		Image:      imageName,
 		WorkingDir: workingDir,                // 使用配置的工作目录
-		Cmd:        course.Backend.Cmd,        // 根据课程配置的Cmd启动容器
+		Cmd:        cmd,                       // 根据课程配置的Cmd启动容器
 		Privileged: course.Backend.Privileged, // 根据课程配置的Privileged启动容器
 	}
-
-	// if strings.Contains(imageName, "ubuntu") {
-	// 	config.Privileged = true
-	// }
 
 	h.logger.Debug("[startCourse] 创建容器配置完成，镜像: %s，工作目录: %s，Cmd: %v, Privileged: %v",
 		config.Image, config.WorkingDir, config.Cmd, config.Privileged)
