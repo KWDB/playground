@@ -104,13 +104,50 @@ make build
 
 ## 发布流程
 
-### 1. 发布前准备
-- 确认前端构建完成：`pnpm run build`（生成 `dist/`）
-- 开启嵌入模式以打包静态资源与课程：`COURSES_USE_EMBED=1`
-- 验证 `.env` 或环境变量设置正确（`SERVER_HOST`、`SERVER_PORT` 等）
+### 1. 发布自动化（GitHub Release）
+- 本仓库已配置 GitHub Actions 自动发布工作流：`.github/workflows/release.yml`
+- 触发方式：推送语义化版本标签到远程，例如 `v1.2.0`
+- 工作流内容：
+  - 验证构建（`make check`、前端 `pnpm run build`、Go 测试 `go test -v ./...`）
+  - 跨平台构建（Linux amd64、macOS arm64、Windows amd64），启用嵌入模式打包前端与课程
+  - 生成 `sha256` 校验文件并上传到 Release
+  - 生成分发包（zip/tar.gz），每包包含二进制、`LICENSE` 与 `README` 摘要，并附 `distribution-checksums.txt`
+  - 自动生成 Release Notes 并发布二进制制品
 
-### 2. 发布的具体操作步骤
+#### 使用步骤
+1) 本地创建版本标签并推送：
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+2) 等待 GitHub Actions 完成，访问 Releases 页面下载对应平台的二进制：
+- `kwdb-playground-linux-amd64`
+- `kwdb-playground-darwin-arm64`
+- `kwdb-playground-windows-amd64.exe`
+- `checksums.txt`（包含上述文件的 SHA256）
+ 或下载打包分发物：
+ - `kwdb-playground-linux-amd64.tar.gz`
+ - `kwdb-playground-darwin-arm64.tar.gz`
+ - `kwdb-playground-windows-amd64.zip`
+ - `distribution-checksums.txt`（包含上述压缩包的 SHA256）
 
+#### 校验下载文件
+```bash
+# 以 Linux 为例
+sha256sum -c checksums.txt | grep linux-amd64
+
+# 校验分发包
+sha256sum -c distribution-checksums.txt | grep linux-amd64
+```
+
+#### 预发布（prerelease）标签
+- 若标签包含后缀 `-alpha`、`-beta` 或 `-rc`，会自动标记为 Pre-release。
+
+#### 注意事项
+- 工作流使用 `Go 1.23` 与 `Node.js 18 + pnpm 8`，确保依赖版本兼容。
+- 构建过程启用 `COURSES_USE_EMBED=true` 与 `CGO_ENABLED=0`，可在 Linux Runner 上跨平台生成 macOS/Windows 二进制。
+
+### 2. 手动发布（本地）
 单平台发布：
 ```bash
 # 生成发布版二进制（嵌入静态资源与课程）
@@ -226,6 +263,18 @@ make dev
 source e2e_test_env/bin/activate
 pytest tests/e2e/test_user_journey.py -v
 ```
+
+## Release 自动化设计说明
+
+- 版本规范：采用语义化版本（SemVer），示例：`vMAJOR.MINOR.PATCH`，如 `v1.2.0`
+- 触发策略：仅当推送 `v*` 标签时执行发布工作流，避免普通 CI 与发布互相影响
+- 构建策略：通过 Makefile 的 `release-all` 目标统一进行跨平台嵌入式构建，确保产物一致性
+- 制品清单：包含三个平台二进制与 `checksums.txt`，用于快速下载安装与校验
+ 以及三种平台的压缩分发包（含 `LICENSE` 与 `README` 摘要）与 `distribution-checksums.txt`
+- 安全策略：GitHub Actions 使用默认的 `GITHUB_TOKEN` 发布 Release，权限仅限当前仓库内容
+- 可扩展性：如需添加其他架构（例如 `linux/arm64`），可仿照 Makefile 现有目标新增，并在工作流中追加上传
+
+如需在企业内部 GitLab 等环境复用，可参考本工作流迁移到对应 CI 平台，并保持 Makefile 目标一致以降低迁移成本。
 
 ### 3. 查看结果
 

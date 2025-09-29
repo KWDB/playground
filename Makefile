@@ -29,7 +29,7 @@ LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.Git
 # 环境变量文件
 ENV_FILE ?= .env
 
-.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-darwin-arm64 release-windows-amd64 release-all
+.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist
 
 # 默认目标
 all: build
@@ -136,7 +136,13 @@ release-windows-amd64: frontend
 
 release-all: release-linux-amd64 release-darwin-arm64 release-windows-amd64
 	@echo "🎉 All release builds completed!"
-	@ls -lh bin/$(APP_NAME)
+	@ls -lh bin/
+
+# 打包分发包（zip/tar.gz），包含二进制、LICENSE、README摘要
+package-dist:
+	@echo "📦 Creating distribution packages (zip/tar.gz) ..."
+	bash .github/scripts/create_distribution_packages.sh
+	@echo "✅ Distribution packages ready in dist/"
 
 # 运行应用
 run: build
@@ -247,6 +253,7 @@ help:
 	@echo "  release       - 发布构建（嵌入模式，单一二进制）"
 	@echo "  release-run   - 以发布模式运行（启用嵌入式FS）"
 	@echo "  release-all   - 生成 Linux/macOS/Windows 的发布二进制"
+	@echo "  package-dist  - 打包跨平台分发包 (zip/tar.gz)"
 	@echo ""
 	@echo "🛠️ 维护工具:"
 	@echo "  fmt           - 格式化代码 (Go + 前端)"

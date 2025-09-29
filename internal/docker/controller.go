@@ -549,14 +549,9 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 		return nil, d.enhanceImageError(err, config.Image)
 	}
 
-	// 清理该课程的所有现有容器
-	if err := d.cleanupCourseContainers(ctx, courseID); err != nil {
-		d.logger.Warn("清理课程 %s 的现有容器失败: %v", courseID, err)
-		return nil, fmt.Errorf("failed to cleanup existing containers: %w", err)
-	}
-
-	// 生成唯一的容器名称
-	containerName := fmt.Sprintf("kwdb-playground-%s-%d", courseID, time.Now().Unix())
+	// 允许同一课程并行多个容器实例，不再在创建前清理旧容器
+	// 生成更高精度的唯一容器名称，避免并发同秒冲突
+	containerName := fmt.Sprintf("kwdb-playground-%s-%d", courseID, time.Now().UnixNano())
 	d.logger.Info("生成容器名称: %s", containerName)
 
 	// 构建环境变量

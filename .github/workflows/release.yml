@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build_and_release:
+    name: Build and publish GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build release binaries (Linux/macOS/Windows)
+        run: |
+          make release-all
+
+      - name: Generate checksums
+        run: |
+          cd bin
+          sha256sum kwdb-playground-* > checksums.txt
+          ls -lh
+
+      - name: Create distribution packages (zip/tar.gz)
+        run: |
+          make package-dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            bin/kwdb-playground-linux-amd64
+            bin/kwdb-playground-darwin-arm64
+            bin/kwdb-playground-windows-amd64.exe
+            bin/checksums.txt
+            dist/kwdb-playground-linux-amd64.tar.gz
+            dist/kwdb-playground-darwin-arm64.tar.gz
+            dist/kwdb-playground-windows-amd64.zip
+            dist/distribution-checksums.txt
+          tag_name: ${{ github.ref_name }}
+          name: KWDB Playground ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
