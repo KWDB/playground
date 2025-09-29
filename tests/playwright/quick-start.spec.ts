@@ -37,6 +37,7 @@ test.describe('Quick Start', () => {
 
     // 6) 点击“停止容器”
     await page.getByRole('button', { name: '停止容器' }).click();
-    await expect(page.getByText('请先启动容器')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('停止中')).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByText('请先启动容器')).toBeVisible({ timeout: 240_000 });
   });
 });

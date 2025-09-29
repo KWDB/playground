@@ -17,6 +17,7 @@ interface ImagePullProgressMessage {
 // 终端组件属性接口
 interface TerminalProps {
   containerId?: string; // 改为可选参数，支持容器启动过程中的显示
+  containerStatus?: string; // 新增：容器状态，用于控制WS连接策略（running/starting/stopped）
 }
 
 // 终端引用接口
@@ -24,7 +25,7 @@ export interface TerminalRef {
   sendCommand: (command: string) => void;
 }
 
-const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId }, ref) => {
+const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containerStatus }, ref) => {
   // 引用和状态管理
   const xtermRef = useRef<XTerm | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -242,8 +243,8 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId }, ref) =
             xtermRef.current.write('\r\n\x1b[33m连接已断开\x1b[0m\r\n');
           }
           
-          // 守卫：如果容器ID缺失或页面已导航离开，则不再重连
-          const shouldStopReconnect = !containerId || document.visibilityState === 'hidden';
+          // 守卫：如果容器ID缺失、页面不可见或容器非运行状态，则不再重连
+          const shouldStopReconnect = !containerId || document.visibilityState === 'hidden' || containerStatus !== 'running';
           if (shouldStopReconnect) {
             return;
           }
@@ -276,12 +277,12 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId }, ref) =
     };
 
     connect();
-  }, [containerId, parseProgressPercent]);
+  }, [containerId, containerStatus, parseProgressPercent]);
 
   // 进度专用 WebSocket 连接（progress_only=true），用于容器启动阶段接收镜像拉取进度
   const connectProgressOnly = useCallback(() => {
-    // 当容器ID未就绪时，建立进度专用连接
-    if (containerId) return;
+    // 仅在容器启动阶段建立进度连接
+    if (containerStatus !== 'starting') return;
 
     // 关闭已有进度连接，避免重复
     if (wsProgressRef.current) {
@@ -358,7 +359,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId }, ref) =
     } catch (error) {
       console.error('创建进度专用WebSocket连接失败:', error);
     }
-  }, [containerId, parseProgressPercent]);
+  }, [containerStatus, parseProgressPercent]);
 
   // 初始化终端
   useEffect(() => {
@@ -452,19 +453,36 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId }, ref) =
     sendCommand
   }), [sendCommand]);
 
-  // WebSocket连接管理
+  // WebSocket连接管理：根据容器状态决定连接策略
   useEffect(() => {
-    if (containerId && xtermRef.current) {
-      // 容器ID就绪：使用终端连接
+    const isRunning = containerStatus === 'running';
+    const isStarting = containerStatus === 'starting';
+
+    if (isRunning && containerId && xtermRef.current) {
+      // 容器运行中：使用终端连接
       connectWebSocket();
       // 关闭进度专用连接，避免双连接
       if (wsProgressRef.current) {
         wsProgressRef.current.close();
         wsProgressRef.current = null;
       }
-    } else {
-      // 容器ID未就绪：建立进度专用连接以接收镜像拉取进度
+    } else if (isStarting) {
+      // 容器启动中：建立进度专用连接以接收镜像拉取进度
       connectProgressOnly();
+    } else {
+      // 其他状态（stopped/exited/undefined）：确保关闭所有连接并隐藏进度
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (wsProgressRef.current) {
+        wsProgressRef.current.close();
+        wsProgressRef.current = null;
+      }
+      setShowProgress(false);
+      setImagePullProgress(null);
+      lastProgressRef.current = null;
+      lastStatusRef.current = '';
     }
     
     return () => {
@@ -476,7 +494,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId }, ref) =
         wsProgressRef.current = null;
       }
     };
-  }, [containerId, connectWebSocket, connectProgressOnly]);
+  }, [containerId, containerStatus, connectWebSocket, connectProgressOnly]);
 
   // 组件卸载时清理
   useEffect(() => {
