@@ -6,296 +6,477 @@ import 'xterm/css/xterm.css';
 // 镜像拉取进度消息接口
 interface ImagePullProgressMessage {
   imageName: string;
-  status?: string; // 改为可选字段，提高类型安全性
+  status?: string;
   progress?: string;
   error?: string;
+  progressPercent?: number;
+  detail?: string;
+  lastUpdated?: number;
 }
 
-// 组件属性接口
+// 终端组件属性接口
 interface TerminalProps {
   containerId?: string; // 改为可选参数，支持容器启动过程中的显示
 }
 
-// 暴露给父组件的方法接口
+// 终端引用接口
 export interface TerminalRef {
   sendCommand: (command: string) => void;
 }
 
 const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId }, ref) => {
-  // 终端实例和插件引用
-  const terminalRef = useRef<HTMLDivElement>(null);
+  // 引用和状态管理
   const xtermRef = useRef<XTerm | null>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-
-  // 连接状态管理
-  const [, setIsConnected] = useState(false);
+  // 进度专用 WebSocket 引用，在容器ID未就绪时也能接收镜像拉取进度
+  const wsProgressRef = useRef<WebSocket | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  // 记录上一次的进度与状态，减少终端内重复输出，避免闪烁
+  const lastProgressRef = useRef<number | null>(null);
+  const lastStatusRef = useRef<string>('');
   
-  // 镜像拉取进度状态管理
+  // 状态管理
+  const [isConnected, setIsConnected] = useState(false);
   const [imagePullProgress, setImagePullProgress] = useState<ImagePullProgressMessage | null>(null);
   const [showProgress, setShowProgress] = useState(false);
+
+  // 防抖函数用于窗口大小调整
+  const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, wait: number) => {
+    let timeout: NodeJS.Timeout;
+    return function executedFunction(...args: Parameters<T>) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }, []);
+
+  // 调整终端大小的函数
+  const resizeTerminal = useCallback(() => {
+    if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
+      try {
+        fitAddonRef.current.fit();
+        
+        // 发送新的终端尺寸到服务器
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          const { cols, rows } = xtermRef.current;
+          wsRef.current.send(JSON.stringify({
+            type: 'resize',
+            cols,
+            rows
+          }));
+        }
+      } catch (error) {
+        console.warn('调整终端大小失败:', error);
+      }
+    }
+  }, []);
+
+  // 防抖的调整大小函数
+  const debouncedResize = useCallback(
+    debounce(resizeTerminal, 150),
+    [resizeTerminal, debounce]
+  );
+
+  // 发送命令到终端
+  const sendCommand = useCallback((command: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const message = {
+        type: 'input',
+        data: command + '\r' // 添加回车符
+      };
+      wsRef.current.send(JSON.stringify(message));
+    } else {
+      console.warn('WebSocket未连接，无法发送命令');
+    }
+  }, []);
+
+  // 解析镜像拉取进度百分比的辅助函数
+  const parseProgressPercent = useCallback((progress?: string): number | null => {
+    // 1) 直接匹配百分比（例如 "56%"）
+    if (progress) {
+      const pctMatch = progress.match(/(\d{1,3})%/);
+      if (pctMatch) {
+        const val = Math.min(100, Math.max(0, parseInt(pctMatch[1], 10)));
+        return isNaN(val) ? null : val;
+      }
+    }
+
+    // 2) 匹配字节/大小进度（例如 "44.1MB/67.2MB" 或 "1024kB/2048kB"）
+    // 提示：Docker拉取进度常见格式为 "xx.x MB/yy.y MB" 或 "xx.x kB/yy.y kB"
+    if (!progress) return null;
+    const sizeMatch = progress.match(/([0-9]+(?:\.[0-9]+)?)\s*([kMG]?B)\s*\/\s*([0-9]+(?:\.[0-9]+)?)\s*([kMG]?B)/i);
+    if (sizeMatch) {
+      const toBytes = (numStr: string, unit: string) => {
+        const num = parseFloat(numStr);
+        const u = unit.toUpperCase();
+        // 按照常见单位转换：kB=10^3, MB=10^6, GB=10^9（Docker输出通常使用十进制单位）
+        const map: Record<string, number> = { KB: 1e3, MB: 1e6, GB: 1e9 };
+        const factor = map[u] ?? 1; // B
+        return num * factor;
+      };
+
+      const cur = toBytes(sizeMatch[1], sizeMatch[2]);
+      const total = toBytes(sizeMatch[3], sizeMatch[4]);
+      if (total > 0) {
+        const pct = Math.min(100, Math.max(0, (cur / total) * 100));
+        return Math.round(pct);
+      }
+    }
+
+    return null;
+  }, []);
+
+  // WebSocket连接管理函数
+  const connectWebSocket = useCallback(() => {
+    if (!containerId || !xtermRef.current) return;
+
+    // 关闭现有连接
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const baseReconnectDelay = 1000;
+
+    const connect = () => {
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/terminal?container_id=${containerId}`;
+        
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          console.log('终端WebSocket连接已建立');
+          setIsConnected(true);
+          reconnectAttempts = 0;
+          
+          // 连接成功后立即调整终端大小
+          setTimeout(() => {
+            if (fitAddonRef.current) {
+              fitAddonRef.current.fit();
+            }
+          }, 100);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            
+            if (msg.type === 'output' && xtermRef.current) {
+              xtermRef.current.write(msg.data);
+            } else if (msg.type === 'error' && xtermRef.current) {
+              xtermRef.current.write(`\r\n\x1b[31m错误: ${msg.data}\x1b[0m\r\n`);
+            } else if (msg.type === 'image_pull_progress') {
+              // 修复数据解析：后端发送在 data 字段内
+              const payload = msg.data || {};
+              const imageName: string = payload.imageName || '未知镜像';
+              const status: string = payload.status || '正在拉取镜像...';
+              const progressText: string | undefined = payload.progress;
+              const errorText: string | undefined = payload.error;
+
+              // 解析百分比，便于确定型进度条显示
+              const percent = parseProgressPercent(progressText ?? undefined);
+
+              const progressData: ImagePullProgressMessage = {
+                imageName,
+                status,
+                progress: progressText,
+                error: errorText,
+                progressPercent: percent ?? undefined,
+                lastUpdated: Date.now(),
+              };
+
+              setImagePullProgress(progressData);
+              setShowProgress(true);
+
+              // 在终端中显示进度信息（防重复输出，阈值为1%或状态变化）
+              const statusChanged = lastStatusRef.current !== status;
+              const percentChanged = percent != null && (lastProgressRef.current == null || Math.abs(percent - (lastProgressRef.current ?? 0)) >= 1);
+              if (xtermRef.current && (statusChanged || percentChanged)) {
+                if (errorText) {
+                  xtermRef.current.write(`\r\n\x1b[31m❌ 镜像拉取失败: ${errorText}\x1b[0m\r\n`);
+                } else if (statusChanged) {
+                  xtermRef.current.write(`\r\n\x1b[36m[镜像拉取] ${status}${percent != null ? ` (${percent}%)` : ''}\x1b[0m\r\n`);
+                } else if (percentChanged) {
+                  xtermRef.current.write(`\r\n\x1b[34m📦 进度: ${progressText ?? ''}${percent != null ? ` | ${percent}%` : ''}\x1b[0m\r\n`);
+                }
+                lastStatusRef.current = status;
+                lastProgressRef.current = percent ?? lastProgressRef.current;
+              }
+
+              // 成功与完成判定，平滑隐藏覆盖层
+              const isSuccess = (
+                (status && (status.includes('拉取完成') || status.includes('Pull complete') || status.includes('Already exists'))) ||
+                false
+              );
+              if (isSuccess || errorText) {
+                setTimeout(() => {
+                  setShowProgress(false);
+                  setImagePullProgress(null);
+                  lastProgressRef.current = null;
+                  lastStatusRef.current = '';
+                }, 1200); // 轻微延迟以便用户可见
+              }
+            }
+          } catch (error) {
+            console.warn('解析WebSocket消息失败:', error);
+            // 如果不是JSON格式，直接作为输出处理
+            if (xtermRef.current) {
+              xtermRef.current.write(event.data);
+            }
+          }
+        };
+
+        ws.onclose = (event) => {
+          console.log('终端WebSocket连接已关闭', event.code, event.reason);
+          setIsConnected(false);
+          
+          if (xtermRef.current) {
+            xtermRef.current.write('\r\n\x1b[33m连接已断开\x1b[0m\r\n');
+          }
+          
+          // 守卫：如果容器ID缺失或页面已导航离开，则不再重连
+          const shouldStopReconnect = !containerId || document.visibilityState === 'hidden';
+          if (shouldStopReconnect) {
+            return;
+          }
+          
+          // 实现指数退避重连策略
+          if (reconnectAttempts < maxReconnectAttempts && !event.wasClean) {
+            const delay = baseReconnectDelay * Math.pow(2, reconnectAttempts);
+            console.log(`${delay}ms 后尝试重连 (第 ${reconnectAttempts + 1} 次)`);
+            
+            setTimeout(() => {
+              reconnectAttempts++;
+              connect();
+            }, delay);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error('终端WebSocket连接错误:', error);
+          setIsConnected(false);
+          
+          if (xtermRef.current) {
+            xtermRef.current.write('\r\n\x1b[31m连接错误\x1b[0m\r\n');
+          }
+        };
+
+      } catch (error) {
+        console.error('创建WebSocket连接失败:', error);
+        setIsConnected(false);
+      }
+    };
+
+    connect();
+  }, [containerId, parseProgressPercent]);
+
+  // 进度专用 WebSocket 连接（progress_only=true），用于容器启动阶段接收镜像拉取进度
+  const connectProgressOnly = useCallback(() => {
+    // 当容器ID未就绪时，建立进度专用连接
+    if (containerId) return;
+
+    // 关闭已有进度连接，避免重复
+    if (wsProgressRef.current) {
+      wsProgressRef.current.close();
+    }
+
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/terminal?progress_only=true`;
+      const ws = new WebSocket(wsUrl);
+      wsProgressRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('进度专用WebSocket连接已建立');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'image_pull_progress') {
+            const payload = msg.data || {};
+            const imageName: string = payload.imageName || '未知镜像';
+            const status: string = payload.status || '正在拉取镜像...';
+            const progressText: string | undefined = payload.progress;
+            const errorText: string | undefined = payload.error;
+
+            const percent = parseProgressPercent(progressText ?? undefined);
+
+            const progressData: ImagePullProgressMessage = {
+              imageName,
+              status,
+              progress: progressText,
+              error: errorText,
+              progressPercent: percent ?? undefined,
+              lastUpdated: Date.now(),
+            };
+
+            setImagePullProgress(progressData);
+            setShowProgress(true);
+
+            const statusChanged = lastStatusRef.current !== status;
+            const percentChanged = percent != null && (lastProgressRef.current == null || Math.abs(percent - (lastProgressRef.current ?? 0)) >= 1);
+            if (statusChanged || percentChanged) {
+              // 进度专用连接仅显示覆盖层，不输出到终端，避免重复
+              lastStatusRef.current = status;
+              lastProgressRef.current = percent ?? lastProgressRef.current;
+            }
+
+            const isSuccess = (
+              (status && (status.includes('拉取完成') || status.includes('Pull complete') || status.includes('Already exists'))) ||
+              false
+            );
+            if (isSuccess || errorText) {
+              setTimeout(() => {
+                setShowProgress(false);
+                setImagePullProgress(null);
+                lastProgressRef.current = null;
+                lastStatusRef.current = '';
+              }, 1200);
+            }
+          }
+        } catch (error) {
+          console.warn('解析进度专用WebSocket消息失败:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('进度专用WebSocket连接已关闭');
+      };
+
+      ws.onerror = (error) => {
+        console.error('进度专用WebSocket连接错误:', error);
+      };
+    } catch (error) {
+      console.error('创建进度专用WebSocket连接失败:', error);
+    }
+  }, [containerId, parseProgressPercent]);
 
   // 初始化终端
   useEffect(() => {
     if (!terminalRef.current) return;
 
-    // 创建终端实例并配置现代化样式和主题
+    // 创建终端实例 - 优化配置以确保输入正常工作
     const terminal = new XTerm({
       cursorBlink: true,
-      cursorStyle: 'block', // 块状光标
+      cursorStyle: 'block',
       fontSize: 14,
-      fontFamily: '"JetBrains Mono", "Fira Code", Monaco, Menlo, "Ubuntu Mono", "Cascadia Code", "SF Mono", Consolas, monospace',
-      fontWeight: '400',
-      fontWeightBold: '600',
-      lineHeight: 1.4,
-      letterSpacing: 0.5,
-      allowTransparency: true,
+      fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
       theme: {
-            background: '#0d1117',
-            foreground: '#f0f6fc',
-            cursor: '#58a6ff',
-            cursorAccent: '#0d1117',
-            black: '#484f58',
-            red: '#ff7b72',
-            green: '#7ee787',
-            yellow: '#f2cc60',
-            blue: '#58a6ff',
-            magenta: '#bc8cff',
-            cyan: '#39c5cf',
-            white: '#b1bac4',
-            brightBlack: '#6e7681',
-            brightRed: '#ffa198',
-            brightGreen: '#56d364',
-            brightYellow: '#e3b341',
-            brightBlue: '#79c0ff',
-            brightMagenta: '#d2a8ff',
-            brightCyan: '#56d4dd',
-            brightWhite: '#f0f6fc'
-          },
+        background: '#1a1a1a',
+        foreground: '#ffffff',
+        cursor: '#ffffff',
+        black: '#000000',
+        red: '#e06c75',
+        green: '#98c379',
+        yellow: '#d19a66',
+        blue: '#61afef',
+        magenta: '#c678dd',
+        cyan: '#56b6c2',
+        white: '#ffffff',
+        brightBlack: '#5c6370',
+        brightRed: '#e06c75',
+        brightGreen: '#98c379',
+        brightYellow: '#d19a66',
+        brightBlue: '#61afef',
+        brightMagenta: '#c678dd',
+        brightCyan: '#56b6c2',
+        brightWhite: '#ffffff'
+      },
+      allowTransparency: true,
+      convertEol: true,
       scrollback: 10000,
-        tabStopWidth: 4,
-        smoothScrollDuration: 120,
-        fastScrollModifier: 'alt',
-        fastScrollSensitivity: 5
+      tabStopWidth: 4
     });
 
-    // 创建并加载fit插件
+    // 创建并加载 FitAddon
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
 
     // 打开终端
     terminal.open(terminalRef.current);
-    fitAddon.fit();
 
-    // 保存引用
+    // 设置引用
     xtermRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
-     // 处理用户输入 - 发送JSON格式消息
-     terminal.onData((data) => {
-       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-         const message = {
-           type: 'input',
-           data: data
-         };
-         wsRef.current.send(JSON.stringify(message));
-       }
-     });
-
-     // 窗口大小变化时调整终端大小
-    const handleResize = () => {
-      if (fitAddonRef.current) {
-        fitAddonRef.current.fit();
+    // 设置输入处理 - 确保用户输入能正确发送到服务器
+    terminal.onData((data) => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        const message = {
+          type: 'input',
+          data: data
+        };
+        wsRef.current.send(JSON.stringify(message));
       }
-    };
-    window.addEventListener('resize', handleResize);
+    });
+
+    // 初始调整大小
+    setTimeout(() => {
+      fitAddon.fit();
+    }, 100);
+
+    // 设置 ResizeObserver 监听容器大小变化
+    if (terminalRef.current) {
+      resizeObserverRef.current = new ResizeObserver(debouncedResize);
+      resizeObserverRef.current.observe(terminalRef.current);
+    }
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', debouncedResize);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      terminal.dispose();
-    };
-  }, []);
-
-  // 简化的WebSocket连接
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // 如果没有containerId，使用特殊的连接来接收镜像拉取进度
-    const wsUrl = containerId 
-      ? `${protocol}//${window.location.host}/ws/terminal?container_id=${containerId}&session_id=${Date.now()}`
-      : `${protocol}//${window.location.host}/ws/terminal?session_id=${Date.now()}&progress_only=true`;
-    
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setIsConnected(true);
-      if (xtermRef.current) {
-        xtermRef.current.clear();
-        if (containerId) {
-          xtermRef.current.write('\r\n连接到容器终端...\r\n\r\n');
-        } else {
-          xtermRef.current.write('\r\n正在准备容器环境...\r\n\r\n');
-        }
-      }
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        if (xtermRef.current && message.type === 'output') {
-          xtermRef.current.write(message.data);
-        } else if (message.type === 'error') {
-          if (xtermRef.current) {
-            xtermRef.current.write(`\r\n错误: ${message.data}\r\n`);
-          }
-        } else if (message.type === 'image_pull_progress') {
-          // 处理镜像拉取进度消息
-          const progressData = message.data as ImagePullProgressMessage;
-          console.log('收到镜像拉取进度消息:', progressData); // 添加调试日志
-          
-          setImagePullProgress(progressData);
-          
-          // 判断是否为致命错误 - 优化错误处理逻辑
-          const isFatalError = progressData.error && (
-            progressData.status === '拉取失败' ||
-            progressData.status === '镜像不存在' ||
-            progressData.status === '网络错误' ||
-            progressData.error.includes('failed to pull') ||
-            progressData.error.includes('repository does not exist') ||
-            progressData.error.includes('connection refused') ||
-            progressData.error.includes('timeout')
-          );
-          
-          // 判断是否为成功消息
-          const isSuccessMessage = progressData.status === '拉取成功' || 
-            progressData.status === 'Pull complete' ||
-            progressData.status === '镜像已存在';
-          
-          // 判断是否为正常进度消息（非错误）
-          const isNormalProgress = !progressData.error && (
-            progressData.status?.includes('Downloading') ||
-            progressData.status?.includes('Extracting') ||
-            progressData.status?.includes('Pulling') ||
-            progressData.status?.includes('Waiting') ||
-            progressData.progress
-          );
-          
-          console.log('进度消息分析:', {
-            isFatalError,
-            isSuccessMessage,
-            isNormalProgress,
-            status: progressData.status,
-            error: progressData.error,
-            progress: progressData.progress
-          });
-          
-          // 显示进度界面
-          if (progressData.status === '开始拉取镜像' || isNormalProgress) {
-            setShowProgress(true);
-            console.log('开始显示镜像拉取进度界面');
-          } else if (progressData.status === '拉取完成' || isFatalError || isSuccessMessage) {
-            // 只有在拉取完成或遇到致命错误时才隐藏进度界面
-            console.log('镜像拉取完成或遇到致命错误，准备隐藏进度界面:', { 
-              status: progressData.status, 
-              isFatalError, 
-              error: progressData.error 
-            });
-            setTimeout(() => {
-              setShowProgress(false);
-              setImagePullProgress(null);
-            }, isFatalError ? 5000 : 2000); // 错误消息显示更长时间
-          }
-          
-          // 正常进度消息不自动隐藏，等待成功或错误消息
-          
-          // 在终端中也显示进度信息
-          if (xtermRef.current) {
-            let displayText = '';
-            
-            if (isFatalError) {
-              // 致命错误用红色显示
-              displayText = `\r\n\x1b[31m[错误] ${progressData.error}\x1b[0m`;
-            } else if (isSuccessMessage) {
-              // 成功消息用绿色显示
-              displayText = `\r\n\x1b[32m[成功] ${progressData.status}\x1b[0m`;
-            } else if (isNormalProgress) {
-              // 正常进度用蓝色显示
-              displayText = `\r\n\x1b[36m[进度] ${progressData.status}\x1b[0m`;
-              if (progressData.progress) {
-                displayText += ` - ${progressData.progress}`;
-              }
-            } else if (progressData.error) {
-              // 其他错误用黄色显示（警告级别）
-              displayText = `\r\n\x1b[33m[警告] ${progressData.error}\x1b[0m`;
-            } else if (progressData.status) {
-              // 其他状态消息用默认颜色
-              displayText = `\r\n\x1b[37m[信息] ${progressData.status}\x1b[0m`;
-            }
-            
-            if (displayText) {
-              xtermRef.current.write(displayText);
-            }
-          }
-        }
-      } catch {
-        // 如果不是JSON格式，直接显示原始数据
-        if (xtermRef.current) {
-          xtermRef.current.write(event.data);
-        }
-      }
-    };
-
-    ws.onclose = () => {
-      setIsConnected(false);
-      if (xtermRef.current) {
-        xtermRef.current.write('\r\n连接已断开\r\n');
-      }
-    };
-
-    ws.onerror = () => {
-      setIsConnected(false);
-      if (xtermRef.current) {
-        xtermRef.current.write('\r\n连接错误\r\n');
-      }
-    };
-  }, [containerId]);
-
-  // 发送命令到终端的方法
-  const sendCommand = useCallback((command: string) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const message = {
-        type: 'input',
-        data: command + '\r'
-      };
-      wsRef.current.send(JSON.stringify(message));
+      // 清理资源
+      window.removeEventListener('resize', debouncedResize);
       
-      // 在终端显示命令
-      // if (xtermRef.current) {
-      //   xtermRef.current.write(command + '\r\n');
-      // }
-    }
-  }, []);
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+      
+      if (terminal) {
+        terminal.dispose();
+      }
+    };
+  }, [debouncedResize]);
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
     sendCommand
   }), [sendCommand]);
 
-  // 自动连接WebSocket
+  // WebSocket连接管理
   useEffect(() => {
-    // 只要组件渲染就建立连接，用于接收镜像拉取进度或终端输出
-    connectWebSocket();
+    if (containerId && xtermRef.current) {
+      // 容器ID就绪：使用终端连接
+      connectWebSocket();
+      // 关闭进度专用连接，避免双连接
+      if (wsProgressRef.current) {
+        wsProgressRef.current.close();
+        wsProgressRef.current = null;
+      }
+    } else {
+      // 容器ID未就绪：建立进度专用连接以接收镜像拉取进度
+      connectProgressOnly();
+    }
     
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
       }
+      if (wsProgressRef.current) {
+        wsProgressRef.current.close();
+        wsProgressRef.current = null;
+      }
     };
-  }, [containerId, connectWebSocket]);
+  }, [containerId, connectWebSocket, connectProgressOnly]);
 
   // 组件卸载时清理
   useEffect(() => {
@@ -306,73 +487,88 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId }, ref) =
     };
   }, []);
 
-  return (
-    <div className="h-full w-full p-2 relative" style={{ backgroundColor: '#0d1117' }}>
-      {/* 镜像拉取进度显示界面 */}
-      {showProgress && imagePullProgress && (
-        <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="mb-4">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-600 rounded-full mb-3">
-                  {imagePullProgress.error ? (
-                    <span className="text-red-400 text-xl">❌</span>
+  // 镜像拉取进度组件 - 优化样式和动画
+  const ImagePullProgress = () => {
+    if (!showProgress || !imagePullProgress) return null;
+
+    const percent = imagePullProgress.progressPercent;
+    const widthStyle = percent != null ? { width: `${Math.max(0, Math.min(100, percent))}%` } : undefined;
+
+    return (
+      <div className="absolute inset-0 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
+        <div className="bg-gray-800 rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl border border-gray-700">
+          <div className="text-center">
+            <div className="mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/20 rounded-full mb-4">
+                {/* 旋转的加载图标 */}
+                <svg className="w-8 h-8 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">正在拉取镜像</h3>
+              <p className="text-gray-300 text-sm break-all">{imagePullProgress.imageName}</p>
+            </div>
+            
+            {imagePullProgress.error ? (
+              <div className="text-red-400 text-sm bg-red-500/10 rounded-lg p-3 border border-red-500/20">
+                <div className="font-medium mb-1">拉取失败</div>
+                <div className="text-xs opacity-80">{imagePullProgress.error}</div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {imagePullProgress.status && (
+                  <div className="text-blue-300 text-sm font-medium">
+                    {imagePullProgress.status} {percent != null && <span className="ml-1 text-gray-300">({percent}%)</span>}
+                  </div>
+                )}
+                {imagePullProgress.progress && (
+                  <div className="text-gray-400 text-xs font-mono bg-gray-700/50 rounded px-3 py-2">
+                    {imagePullProgress.progress}
+                  </div>
+                )}
+
+                <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                  {percent != null ? (
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-400 h-full rounded-full transition-all duration-200" style={widthStyle}></div>
                   ) : (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-400 h-full rounded-full animate-pulse"></div>
                   )}
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  {imagePullProgress.error ? '拉取失败' : '正在拉取镜像'}
-                </h3>
-                <p className="text-gray-300 text-sm mb-3">
-                  镜像: <span className="font-mono text-blue-400">{imagePullProgress.imageName}</span>
-                </p>
               </div>
-              
-              <div className="space-y-2">
-                <div className="text-sm text-gray-400">
-                  状态: <span className="text-white">{imagePullProgress.status || '正在处理...'}</span>
-                </div>
-                
-                {imagePullProgress.progress && (
-                  <div className="text-sm text-gray-400">
-                    进度: <span className="text-green-400">{imagePullProgress.progress}</span>
-                  </div>
-                )}
-                
-                {imagePullProgress.error && (
-                  <div className="text-sm text-red-400 bg-red-900 bg-opacity-20 p-2 rounded border border-red-700">
-                    错误: {imagePullProgress.error}
-                  </div>
-                )}
-                
-                {!imagePullProgress.error && (
-                  <div className="w-full bg-gray-700 rounded-full h-2 mt-3">
-                    <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
-                  </div>
-                )}
-              </div>
-              
-              {imagePullProgress.status === '拉取完成' && (
-                <div className="mt-4 text-green-400 text-sm">
-                  ✅ 镜像拉取成功，正在启动容器...
-                </div>
-              )}
-            </div>
+            )}
+          </div>
           </div>
         </div>
-      )}
-      
-      {/* 终端显示区域 */}
+    );
+  };
+
+  return (
+    <div className="relative w-full h-full flex flex-col bg-gray-900">
+      {/* 终端容器 - 优化布局以防止文本重叠 */}
       <div 
         ref={terminalRef} 
-        className="terminal-display terminal-font terminal-glow terminal-scrollbar rounded-lg border border-gray-700 bg-gray-800"
+        className="flex-1 w-full h-full overflow-hidden"
         style={{
-          height: '100%',
-          width: '100%',
-          backgroundColor: '#0d1117'
+          minHeight: '200px',
+          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+          fontSize: '14px',
+          lineHeight: '1.2',
+          letterSpacing: '0.5px'
         }}
       />
+      
+      {/* 镜像拉取进度覆盖层 */}
+      <ImagePullProgress />
+      
+      {/* 连接状态指示器 */}
+      {containerId && (
+        <div className="absolute top-2 right-2 z-10">
+          <div className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+            isConnected ? 'bg-green-500' : 'bg-red-500'
+          }`} title={isConnected ? '已连接' : '未连接'} />
+        </div>
+      )}
     </div>
   );
 });

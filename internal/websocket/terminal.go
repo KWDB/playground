@@ -85,13 +85,25 @@ func (tm *TerminalManager) CreateSession(sessionID, containerID string, conn *we
 
 // StartInteractiveSession 启动交互式终端会话 - 核心功能：docker exec -it /bin/bash
 func (ts *TerminalSession) StartInteractiveSession() error {
-	// 创建docker exec命令，直接进入bash交互式终端
-	cmd := exec.CommandContext(ts.ctx, "docker", "exec", "-it", ts.containerID, "/bin/bash")
+	// 优先尝试使用 /bin/bash，不存在时回退到 /bin/sh，提升不同基础镜像的兼容性
+	tryStart := func(shell string) (*exec.Cmd, *os.File, error) {
+		cmd := exec.CommandContext(ts.ctx, "docker", "exec", "-it", ts.containerID, shell)
+		ptyFile, err := pty.Start(cmd)
+		if err != nil {
+			return nil, nil, fmt.Errorf("启动伪终端失败(%s): %v", shell, err)
+		}
+		return cmd, ptyFile, nil
+	}
 
-	// 创建伪终端以支持交互式操作
-	ptyFile, err := pty.Start(cmd)
+	cmd, ptyFile, err := tryStart("/bin/bash")
 	if err != nil {
-		return fmt.Errorf("启动伪终端失败: %v", err)
+		// 记录日志并尝试回退到 /bin/sh
+		ts.logger.Warn("/bin/bash 不可用，尝试使用 /bin/sh，容器: %s，错误: %v", ts.containerID, err)
+		cmd, ptyFile, err = tryStart("/bin/sh")
+		if err != nil {
+			// 两种Shell均失败，返回错误，让上层进行错误处理与反馈
+			return fmt.Errorf("启动交互式终端失败(无可用Shell): %v", err)
+		}
 	}
 
 	ts.cmd = cmd

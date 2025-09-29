@@ -255,6 +255,8 @@ export function Learn() {
           setContainerStatus('stopped')
           setIsConnected(false)
           setConnectionError(null)
+          // 停止容器后清空容器ID，确保终端不再建立连接
+          setContainerId(null)
 
           // 停止状态监控
           if (statusCheckIntervalRef.current) {
@@ -274,6 +276,8 @@ export function Learn() {
       setContainerStatus('stopped')
       setIsConnected(false)
       setConnectionError(null)
+      // 停止容器后清空容器ID，确保终端不再建立连接
+      setContainerId(null)
 
     } catch (error) {
       console.error('停止容器异常:', error)
@@ -348,28 +352,18 @@ export function Learn() {
 
   useEffect(() => {
     return () => {
-      // 组件卸载时停止状态监控
-      if (statusCheckIntervalRef.current) {
-        console.log('组件卸载：停止定期状态监控')
-        clearInterval(statusCheckIntervalRef.current)
-        statusCheckIntervalRef.current = null
-      }
-
       // 组件卸载时停止容器（使用ref值避免闭包问题）
-      const currentCourseId = courseIdRef.current
-      const currentContainerStatus = containerStatusRef.current
-
-      if (currentCourseId && currentContainerStatus === 'running') {
-        console.log('组件卸载：停止容器，课程ID:', currentCourseId)
-        fetch(`/api/courses/${currentCourseId}/stop`, {
+      if (courseIdRef.current) {
+        console.log('组件卸载：停止容器，课程ID:', courseIdRef.current)
+        fetch(`/api/courses/${courseIdRef.current}/stop`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Content-Type': 'application/json' }
         }).catch(error => {
           console.error('组件卸载时停止容器失败:', error)
         })
       }
+      // 清空容器ID，避免卸载后残留导致重连
+      setContainerId(null)
     }
   }, [])
 
