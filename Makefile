@@ -67,6 +67,16 @@ dev: install-tools
 	@echo "Press Ctrl+C to stop the service"
 	SERVER_PORT=$(SERVER_PORT) air -c .air.toml
 
+# Playwright 专用服务器启动
+playwright:
+	@echo "🎭 Starting KWDB Playground for Playwright tests..."
+	@echo "Server will be available at http://localhost:$(SERVER_PORT)"
+	@echo "This mode disables hot reload and exits gracefully on SIGINT"
+	pnpm run build
+	@mkdir -p bin
+	go build -ldflags "$(LDFLAGS)" -o bin/$(APP_NAME) .
+	GIN_MODE=release LOG_LEVEL=warn LOG_FORMAT=text QUIET=true SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME) server
+
 # 构建前端
 frontend:
 	@echo "🏗️ Building frontend..."
@@ -228,6 +238,7 @@ help:
 	@echo ""
 	@echo "🚀 开发模式:"
 	@echo "  dev           - 启动统一开发服务器 (端口 $(SERVER_PORT))"
+	@echo "  playwright    - Playwright 专用服务器启动
 	@echo ""
 	@echo "🏗️ 构建和部署:"
 	@echo "  frontend      - 构建前端"

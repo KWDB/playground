@@ -29,9 +29,8 @@ type ServerConfig struct {
 	// Host 服务器监听地址，默认为localhost
 	Host string `json:"host" yaml:"host"` // 服务器监听地址
 	// Port 服务器监听端口，默认为8080
-	Port         int    `json:"port" yaml:"port"`                 // 服务器监听端口
-	Token        string `json:"token" yaml:"token"`               // API访问令牌
-	SessionLimit int    `json:"sessionLimit" yaml:"sessionLimit"` // 并发会话限制
+	Port         int `json:"port" yaml:"port"`                 // 服务器监听端口
+	SessionLimit int `json:"sessionLimit" yaml:"sessionLimit"` // 并发会话限制
 }
 
 // DockerConfig Docker容器相关配置
@@ -67,8 +66,8 @@ type LogConfig struct {
 // 返回完整的配置对象，如果配置验证失败会记录警告但不会中断程序
 func Load() *Config {
 	// 创建临时logger实例用于配置加载过程
-	tempLogger := logger.NewLogger(logger.DEBUG)
-	tempLogger.Debug("Loading application configuration...")
+	// 取消临时 DEBUG 输出，避免启动期噪声
+	_ = logger.NewLogger(logger.ERROR) // 保留占位，如需未来扩展可使用
 
 	// 计算嵌入模式的默认值：优先环境变量，若未设置则使用编译期注入的 BuildDefaultUseEmbed
 	defaultUseEmbed := (BuildDefaultUseEmbed == "true" || BuildDefaultUseEmbed == "1")
@@ -77,7 +76,6 @@ func Load() *Config {
 		Server: ServerConfig{
 			Host:         getEnv("SERVER_HOST", "localhost"),
 			Port:         getEnvInt("SERVER_PORT", 3006),
-			Token:        getEnv("TOKEN", ""),
 			SessionLimit: getEnvInt("SESSION_LIMIT", 1),
 		},
 		Docker: DockerConfig{
@@ -95,6 +93,9 @@ func Load() *Config {
 		},
 	}
 
+	// 应用全局日志级别覆盖，确保后续新建的 Logger 统一遵循配置
+	logger.SetGlobalLevel(logger.ParseLogLevel(config.Log.Level))
+
 	// 创建配置好的logger实例
 	configLogger := logger.NewLogger(logger.ParseLogLevel(config.Log.Level))
 
@@ -102,8 +103,6 @@ func Load() *Config {
 	if err := validateConfig(config, configLogger); err != nil {
 		configLogger.Warn("Configuration validation warning: %v", err)
 	}
-
-	tempLogger.Debug("Application configuration loaded successfully")
 
 	return config
 }
@@ -139,8 +138,8 @@ func validateConfig(cfg *Config, logger *logger.Logger) error {
 // getEnv 获取环境变量，如果不存在则返回默认值
 // 参数:
 //
-//	key: 环境变量名称
-//	defaultValue: 默认值
+// key: 环境变量名称
+// defaultValue: 默认值
 //
 // 返回: 环境变量值或默认值
 func getEnv(key, defaultValue string) string {
@@ -153,8 +152,8 @@ func getEnv(key, defaultValue string) string {
 // getEnvInt 获取整数类型的环境变量，如果不存在或转换失败则返回默认值
 // 参数:
 //
-//	key: 环境变量名称
-//	defaultValue: 默认值
+// key: 环境变量名称
+// defaultValue: 默认值
 //
 // 返回: 环境变量转换后的整数值或默认值
 func getEnvInt(key string, defaultValue int) int {
@@ -173,8 +172,8 @@ func getEnvInt(key string, defaultValue int) int {
 // getEnvBool 获取布尔类型的环境变量，如果不存在或转换失败则返回默认值
 // 参数:
 //
-//	key: 环境变量名称
-//	defaultValue: 默认值
+// key: 环境变量名称
+// defaultValue: 默认值
 //
 // 返回: 环境变量转换后的布尔值或默认值
 // 支持的布尔值格式: true, false, 1, 0, t, f, T, F, TRUE, FALSE

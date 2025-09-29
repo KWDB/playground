@@ -137,7 +137,8 @@ func (ts *TerminalSession) handleWebSocketInput() {
 		default:
 			var msg Message
 			if err := ts.conn.ReadJSON(&msg); err != nil {
-				ts.logger.Error("读取WebSocket消息失败: %v", err)
+				// 正常关闭连接时不作为错误打印，减少噪声
+				ts.logger.Debug("WebSocket连接结束或读取中断: %v", err)
 				return
 			}
 			// 只处理输入类型的消息
@@ -146,11 +147,11 @@ func (ts *TerminalSession) handleWebSocketInput() {
 				if dataStr, ok := msg.Data.(string); ok {
 					_, err := ts.pty.Write([]byte(dataStr))
 					if err != nil {
-						ts.logger.Error("写入终端失败: %v", err)
+						ts.logger.Warn("写入终端失败: %v", err)
 						return
 					}
 				} else {
-					ts.logger.Error("消息数据类型错误，期望string类型")
+					ts.logger.Warn("消息数据类型错误，期望string类型")
 				}
 			}
 		}
@@ -192,7 +193,7 @@ func (ts *TerminalSession) waitForTerminalExit() {
 	if ts.cmd != nil {
 		err := ts.cmd.Wait()
 		if err != nil {
-			ts.logger.Info("终端命令退出: %v", err)
+			ts.logger.Debug("终端命令退出: %v", err)
 			msg := Message{
 				Type: "error",
 				Data: fmt.Sprintf("终端会话结束: %v", err),

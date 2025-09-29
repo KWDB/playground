@@ -98,9 +98,12 @@ func Run(staticFiles embed.FS, args []string) error {
 	}
 	appLogger.Info("WebSocket终端管理器初始化完成")
 
-	// 设置 Gin 为发布模式
+	// GIN_MODE=release 设置 Gin 为发布模式
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+	if os.Getenv("GIN_MODE") == "release" {
+		r = gin.New()
+	}
 	r.Use(gin.Recovery())
 
 	// 静态文件服务（优先磁盘，回退嵌入）

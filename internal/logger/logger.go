@@ -25,16 +25,39 @@ var LogLevelNames = map[LogLevel]string{
 	ERROR: "ERROR",
 }
 
+// ----------------------------
+// 全局日志级别覆盖控制
+// ----------------------------
+// globalLevelOverride 若不为 nil，则所有新创建的 Logger 都使用该级别
+// 设计意图：便于通过配置/环境变量统一控制日志级别，避免模块各自硬编码级别导致不一致
+var globalLevelOverride *LogLevel
+
+// SetGlobalLevel 设置全局日志级别覆盖
+// 注意：并发场景下建议在应用启动阶段（单线程）调用一次即可
+func SetGlobalLevel(level LogLevel) {
+	// 赋值给指针，避免基本类型偏执，便于判断是否设置过
+	lvl := level
+	globalLevelOverride = &lvl
+}
+
+// GetGlobalLevel 获取当前全局日志级别覆盖（nil 表示未设置）
+func GetGlobalLevel() *LogLevel {
+	return globalLevelOverride
+}
+
 // Logger 日志记录器结构体
 type Logger struct {
 	level LogLevel // 当前日志级别
 }
 
 // NewLogger 创建新的日志记录器实例
+// 优先使用全局覆盖的日志级别，其次使用调用方提供的级别
 func NewLogger(level LogLevel) *Logger {
-	return &Logger{
-		level: level,
+	// 提前返回，减少嵌套，提升可读性
+	if gl := GetGlobalLevel(); gl != nil {
+		return &Logger{level: *gl}
 	}
+	return &Logger{level: level}
 }
 
 // ParseLogLevel 从字符串解析日志级别

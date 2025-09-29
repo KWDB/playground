@@ -27,7 +27,7 @@ dist-ssr
 .env
 .pytest_cache
 .qoder
-
+test-results
 tmp
 node_modules
 bin
