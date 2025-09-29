@@ -219,6 +219,8 @@ export function Learn() {
   // 使用useRef保存最新的状态值，避免闭包问题
   const courseIdRef = useRef(courseId)
   const containerStatusRef = useRef(containerStatus)
+  // 新增：保存最新容器ID，避免卸载时读到过期值
+  const containerIdRef = useRef(containerId)
 
   // 更新ref值
   useEffect(() => {
@@ -229,61 +231,68 @@ export function Learn() {
     containerStatusRef.current = containerStatus
   }, [containerStatus])
 
+  // 新增：同步最新容器ID
+  useEffect(() => {
+    containerIdRef.current = containerId
+  }, [containerId])
+
   const stopContainer = useCallback(async (courseId: string) => {
     console.log('停止容器请求开始，课程ID:', courseId)
-    console.log('请求URL:', `/api/courses/${courseId}/stop`)
+    console.log('当前页面容器ID:', containerId)
 
     try {
       // 立即设置容器状态为停止中，提供即时UI反馈
       setContainerStatus('stopping')
 
-      const response = await fetch(`/api/courses/${courseId}/stop`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      // 优先按容器ID停止，确保仅影响当前页面实例
+      if (containerId) {
+        const url = `/api/containers/${containerId}/stop`
+        console.log('按容器ID停止，URL:', url)
+        const response = await fetch(url, { method: 'POST' })
 
-      console.log('停止容器响应状态:', response.status)
-      console.log('停止容器响应URL:', response.url)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        // 如果是404错误，说明容器已经不存在，这是正常情况
-        if (response.status === 404) {
-          console.log('容器已不存在，停止操作完成:', errorText)
-          setContainerStatus('stopped')
-          setIsConnected(false)
-          setConnectionError(null)
-          // 停止容器后清空容器ID，确保终端不再建立连接
-          setContainerId(null)
-
-          // 停止状态监控
-          if (statusCheckIntervalRef.current) {
-            console.log('停止定期状态监控')
-            clearInterval(statusCheckIntervalRef.current)
-            statusCheckIntervalRef.current = null
+        if (!response.ok) {
+          const errorText = await response.text()
+          // 404 表示容器已不存在，视为正常
+          if (response.status === 404) {
+            console.log('容器已不存在，视为成功停止:', errorText)
+          } else {
+            throw new Error(`按容器ID停止失败: ${response.status} ${errorText}`)
           }
-          return // 正常返回，不抛出异常
         }
-        console.error('停止容器失败，响应内容:', errorText)
-        throw new Error(`停止容器失败: ${response.status} ${errorText}`)
+      } else {
+        // 回退：没有 containerId 时按课程ID停止（可能会停止同课程的其他页面容器，尽量避免）
+        const fallbackUrl = `/api/courses/${courseId}/stop`
+        console.log('缺少容器ID，回退按课程ID停止，URL:', fallbackUrl)
+        const response = await fetch(fallbackUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        if (!response.ok) {
+          const errorText = await response.text()
+          if (response.status !== 404) {
+            throw new Error(`按课程ID停止失败: ${response.status} ${errorText}`)
+          }
+        }
       }
 
-      const result = await response.json()
-      console.log('停止容器成功，响应:', result)
-
+      // 成功后的状态更新
       setContainerStatus('stopped')
       setIsConnected(false)
       setConnectionError(null)
-      // 停止容器后清空容器ID，确保终端不再建立连接
       setContainerId(null)
+
+      // 停止状态监控
+      if (statusCheckIntervalRef.current) {
+        console.log('停止定期状态监控')
+        clearInterval(statusCheckIntervalRef.current)
+        statusCheckIntervalRef.current = null
+      }
 
     } catch (error) {
       console.error('停止容器异常:', error)
       setError(error instanceof Error ? error.message : '停止容器失败')
     }
-  }, [])
+  }, [containerId])
 
   const fetchCourse = useCallback(async (id: string) => {
     try {
@@ -352,14 +361,21 @@ export function Learn() {
 
   useEffect(() => {
     return () => {
-      // 组件卸载时停止容器（使用ref值避免闭包问题）
-      if (courseIdRef.current) {
-        console.log('组件卸载：停止容器，课程ID:', courseIdRef.current)
+      // 组件卸载时优先按容器ID停止（使用ref避免闭包问题）
+      const id = containerIdRef.current
+      if (id) {
+        console.log('组件卸载：按容器ID停止容器，containerId:', id)
+        fetch(`/api/containers/${id}/stop`, { method: 'POST' }).catch(error => {
+          console.error('组件卸载时按容器ID停止容器失败:', error)
+        })
+      } else if (courseIdRef.current) {
+        // 回退逻辑：缺少容器ID时按课程ID停止
+        console.log('组件卸载：按课程ID停止容器，课程ID:', courseIdRef.current)
         fetch(`/api/courses/${courseIdRef.current}/stop`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         }).catch(error => {
-          console.error('组件卸载时停止容器失败:', error)
+          console.error('组件卸载时按课程ID停止容器失败:', error)
         })
       }
       // 清空容器ID，避免卸载后残留导致重连
@@ -1120,6 +1136,7 @@ export function Learn() {
                           <TerminalComponent
                             ref={terminalRef}
                             containerId={containerId}
+                            containerStatus={containerStatus}
                           />
                         ) : (
                           <div className="flex items-center justify-center h-full text-gray-500">
