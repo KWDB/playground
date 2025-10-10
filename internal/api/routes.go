@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"kwdb-playground/internal/check"
+	"kwdb-playground/internal/config"
 	"kwdb-playground/internal/course"
 	"kwdb-playground/internal/docker"
 	"kwdb-playground/internal/logger"
@@ -30,6 +32,9 @@ type Handler struct {
 	// logger 日志记录器实例，用于统一日志管理
 	logger *logger.Logger
 
+	// cfg 全局配置，用于环境检查等场景
+	cfg *config.Config
+
 	// containerMutex 容器操作互斥锁，防止并发创建/删除容器
 	containerMutex sync.Mutex
 }
@@ -48,12 +53,14 @@ func NewHandler(
 	dockerController docker.Controller,
 	terminalManager *ws.TerminalManager,
 	logger *logger.Logger,
+	cfg *config.Config,
 ) *Handler {
 	return &Handler{
 		courseService:    courseService,
 		dockerController: dockerController,
 		terminalManager:  terminalManager,
 		logger:           logger,
+		cfg:              cfg,
 	}
 }
 
@@ -68,6 +75,8 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 
 	api := r.Group("/api")
 	{
+		// 环境检测
+		api.GET("/check", h.envCheck)
 
 		// 课程相关路由
 		courses := api.Group("/courses")
@@ -104,6 +113,39 @@ func (h *Handler) healthCheck(c *gin.Context) {
 		"status":  "ok",
 		"message": "KWDB Playground is running",
 	})
+}
+
+// envCheck 环境检测，与 cmd/check 保持一致的检查逻辑但以 JSON 返回
+func (h *Handler) envCheck(c *gin.Context) {
+	if h.logger != nil {
+		h.logger.Info("Handling /api/check request")
+	}
+	if h.cfg == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "配置未初始化"})
+		return
+	}
+	// 使用共享的检查包进行检查，复用课程服务
+	items := make([]check.Item, 0, 4)
+
+	// Docker
+	dockerOK, dockerMsg := check.DockerEnv()
+	items = append(items, check.Item{Name: "Docker 环境", OK: dockerOK, Message: dockerMsg})
+
+	// 课程完整性（使用已加载的服务）
+	coursesOK, coursesMsg := check.CoursesIntegrity(h.courseService)
+	items = append(items, check.Item{Name: "课程加载与完整性", OK: coursesOK, Message: coursesMsg})
+
+	// 服务健康
+	serviceOK, serviceMsg := check.ServiceHealth(h.cfg.Server.Host, h.cfg.Server.Port)
+	items = append(items, check.Item{Name: fmt.Sprintf("服务健康检查 (%s:%d)", h.cfg.Server.Host, h.cfg.Server.Port), OK: serviceOK, Message: serviceMsg})
+
+	ok := true
+	for _, it := range items {
+		if !it.OK {
+			ok = false
+		}
+	}
+	c.JSON(http.StatusOK, check.Summary{OK: ok, Items: items})
 }
 
 // getCourses 获取所有课程
@@ -172,11 +214,11 @@ func (h *Handler) getCourse(c *gin.Context) {
 //	500: {"error": "容器启动失败: 错误信息"} - 容器启动失败
 func (h *Handler) startCourse(c *gin.Context) {
 	id := c.Param("id")
-	 h.logger.Debug("[startCourse] 开始启动课程容器，课程ID: %s", id)
+	h.logger.Debug("[startCourse] 开始启动课程容器，课程ID: %s", id)
 
 	// 验证课程ID不能为空
 	if strings.TrimSpace(id) == "" {
-		 h.logger.Error("[startCourse] 错误: 课程ID为空")
+		h.logger.Error("[startCourse] 错误: 课程ID为空")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "课程ID不能为空",
 		})
@@ -186,7 +228,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 	// 使用互斥锁防止并发创建容器
 	h.containerMutex.Lock()
 	defer h.containerMutex.Unlock()
-	 h.logger.Debug("[startCourse] 获取容器操作锁，课程ID: %s", id)
+	h.logger.Debug("[startCourse] 获取容器操作锁，课程ID: %s", id)
 
 	// 始终为每次调用创建一个新的容器实例，不再复用或跳过
 	ctx := context.Background()
@@ -310,10 +352,10 @@ func (h *Handler) startCourse(c *gin.Context) {
 //	500: {"error": "容器停止失败: 错误信息"} - 容器停止失败
 func (h *Handler) stopCourse(c *gin.Context) {
 	id := c.Param("id")
-	 h.logger.Info("[stopCourse] 开始停止课程容器，课程ID: %s", id)
+	h.logger.Info("[stopCourse] 开始停止课程容器，课程ID: %s", id)
 
 	if strings.TrimSpace(id) == "" {
-		 h.logger.Error("[stopCourse] 错误: 课程ID为空")
+		h.logger.Error("[stopCourse] 错误: 课程ID为空")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "课程ID不能为空",
 		})
@@ -323,7 +365,7 @@ func (h *Handler) stopCourse(c *gin.Context) {
 	// 使用互斥锁防止并发操作容器
 	h.containerMutex.Lock()
 	defer h.containerMutex.Unlock()
-	 h.logger.Debug("[stopCourse] 获取容器操作锁，课程ID: %s", id)
+	h.logger.Debug("[stopCourse] 获取容器操作锁，课程ID: %s", id)
 
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
@@ -335,11 +377,11 @@ func (h *Handler) stopCourse(c *gin.Context) {
 
 	// 查找课程对应的容器 - 使用精确的容器名称前缀（带连字符）
 	coursePrefix := fmt.Sprintf("kwdb-playground-%s-", id)
-	 h.logger.Debug("[stopCourse] 查找容器前缀: %s", coursePrefix)
+	h.logger.Debug("[stopCourse] 查找容器前缀: %s", coursePrefix)
 	ctx := context.Background()
 	containers, err := h.dockerController.ListContainers(ctx)
 	if err != nil {
-		 h.logger.Error("[stopCourse] 获取容器列表失败: %v", err)
+		h.logger.Error("[stopCourse] 获取容器列表失败: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": fmt.Sprintf("获取容器列表失败: %v", err),
 		})
@@ -349,22 +391,22 @@ func (h *Handler) stopCourse(c *gin.Context) {
 	// 优先选择运行中的容器；如果没有，则选择最新的一个
 	var target *docker.ContainerInfo
 	for _, container := range containers {
-		 h.logger.Debug("[stopCourse] 检查容器: %s", container.ID)
+		h.logger.Debug("[stopCourse] 检查容器: %s", container.ID)
 		if strings.HasPrefix(container.ID, coursePrefix) {
 			if container.State == docker.StateRunning || container.State == docker.StateStarting {
-				 target = container
-				 h.logger.Debug("[stopCourse] 找到匹配的运行中容器: %s (状态: %s)", container.ID, container.State)
+				target = container
+				h.logger.Debug("[stopCourse] 找到匹配的运行中容器: %s (状态: %s)", container.ID, container.State)
 				break
 			}
 			if target == nil || container.StartedAt.After(target.StartedAt) {
-				 target = container
-				 h.logger.Debug("[stopCourse] 找到候选容器: %s (状态: %s)", container.ID, container.State)
+				target = container
+				h.logger.Debug("[stopCourse] 找到候选容器: %s (状态: %s)", container.ID, container.State)
 			}
 		}
 	}
 
 	if target == nil {
-		 h.logger.Error("[stopCourse] 未找到课程 %s 的容器", id)
+		h.logger.Error("[stopCourse] 未找到课程 %s 的容器", id)
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "未找到课程对应的容器",
 		})
@@ -372,27 +414,27 @@ func (h *Handler) stopCourse(c *gin.Context) {
 	}
 
 	// 停止容器
-	 h.logger.Debug("[stopCourse] 正在停止容器: %s", target.ID)
+	h.logger.Debug("[stopCourse] 正在停止容器: %s", target.ID)
 	err = h.dockerController.StopContainer(ctx, target.ID)
 	if err != nil {
 		// 停止失败也继续尝试删除容器，处理“已停止”或“状态不明确”的场景
-		 h.logger.Warn("[stopCourse] 停止容器失败，将继续尝试删除容器: %v", err)
+		h.logger.Warn("[stopCourse] 停止容器失败，将继续尝试删除容器: %v", err)
 	} else {
-		 h.logger.Info("[stopCourse] 容器停止成功: %s", target.ID)
+		h.logger.Info("[stopCourse] 容器停止成功: %s", target.ID)
 	}
 
 	// 删除容器以彻底清理资源（无论停止是否成功都尝试删除）
-	 h.logger.Debug("[stopCourse] 正在删除容器: %s", target.ID)
+	h.logger.Debug("[stopCourse] 正在删除容器: %s", target.ID)
 	err = h.dockerController.RemoveContainer(ctx, target.ID)
 	if err != nil {
 		// 删除失败时记录日志并返回 500
-		 h.logger.Error("[stopCourse] 删除容器失败: %v", err)
+		h.logger.Error("[stopCourse] 删除容器失败: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": fmt.Sprintf("容器删除失败: %v", err),
 		})
 		return
 	}
-	 h.logger.Debug("[stopCourse] 容器删除成功: %s", target.ID)
+	h.logger.Debug("[stopCourse] 容器删除成功: %s", target.ID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "课程容器停止成功",
@@ -713,20 +755,20 @@ func (h *Handler) handleTerminalWebSocket(c *gin.Context) {
 // stopContainerByID 按容器ID停止并删除容器
 // 路径参数:
 //
-//  id: 容器ID
+//	id: 容器ID
 //
 // 响应:
 //
-//  200: {"message": "容器停止成功", "containerId": id} - 停止并删除成功
-//  400: {"error": "容器ID不能为空"} - 容器ID为空
-//  404: {"error": "容器不存在"} - 容器不存在
-//  500: {"error": "容器操作失败: 错误信息"} - 停止或删除失败
+//	200: {"message": "容器停止成功", "containerId": id} - 停止并删除成功
+//	400: {"error": "容器ID不能为空"} - 容器ID为空
+//	404: {"error": "容器不存在"} - 容器不存在
+//	500: {"error": "容器操作失败: 错误信息"} - 停止或删除失败
 func (h *Handler) stopContainerByID(c *gin.Context) {
 	id := c.Param("id")
-	 h.logger.Info("[stopContainerByID] 开始停止容器，容器ID: %s", id)
+	h.logger.Info("[stopContainerByID] 开始停止容器，容器ID: %s", id)
 
 	if strings.TrimSpace(id) == "" {
-		 h.logger.Error("[stopContainerByID] 错误: 容器ID为空")
+		h.logger.Error("[stopContainerByID] 错误: 容器ID为空")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "容器ID不能为空"})
 		return
 	}
@@ -743,12 +785,12 @@ func (h *Handler) stopContainerByID(c *gin.Context) {
 	ctx := context.Background()
 	// 尝试停止容器
 	if err := h.dockerController.StopContainer(ctx, id); err != nil {
-		 h.logger.Warn("[stopContainerByID] 停止容器失败，继续删除: %v", err)
+		h.logger.Warn("[stopContainerByID] 停止容器失败，继续删除: %v", err)
 	}
 
 	// 删除容器
 	if err := h.dockerController.RemoveContainer(ctx, id); err != nil {
-		 h.logger.Error("[stopContainerByID] 删除容器失败: %v", err)
+		h.logger.Error("[stopContainerByID] 删除容器失败: %v", err)
 		// 针对不存在的容器返回404
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "No such container") {
 			c.JSON(http.StatusNotFound, gin.H{"error": "容器不存在"})

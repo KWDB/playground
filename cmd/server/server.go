@@ -132,8 +132,13 @@ func Run(staticFiles embed.FS, args []string) error {
 	})
 
 	// API 路由
-	apiHandler := api.NewHandler(courseService, dockerController, terminalManager, appLogger)
+	apiHandler := api.NewHandler(courseService, dockerController, terminalManager, appLogger, cfg)
 	apiHandler.SetupRoutes(r)
+
+	// 调试：列出所有已注册路由
+	for _, ri := range r.Routes() {
+		appLogger.Debug("Route registered: %s %s", ri.Method, ri.Path)
+	}
 
 	// 前端路由（index.html）
 	r.NoRoute(func(c *gin.Context) {
