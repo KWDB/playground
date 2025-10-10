@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BookOpen, Play, Terminal } from 'lucide-react'
+import EnvCheckPanel from '@/components/EnvCheckPanel'
 
 export function Home() {
   return (
@@ -11,7 +12,7 @@ export function Home() {
         <p className="text-xl text-gray-600 mb-8">
           本地离线交互式课程学习平台，通过容器化环境实时练习命令
         </p>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-md">
             <BookOpen className="h-12 w-12 text-blue-600 mx-auto mb-4" />
@@ -34,11 +35,16 @@ export function Home() {
         
         <Link
           to="/courses"
-          className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+          className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors mb-8"
         >
           <BookOpen className="h-5 w-5 mr-2" />
           开始学习
         </Link>
+
+        {/* 环境检测面板 */}
+        <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-gray-200 mb-8">
+          <EnvCheckPanel />
+        </div>
       </div>
     </div>
   )
