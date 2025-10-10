@@ -1,0 +1,175 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Go module cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Check env & quick validation
+        run: |
+          make check
+          pnpm run build
+          go test -v ./...
+
+  build_and_release:
+    name: Build and publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build release binaries (Linux/macOS/Windows)
+        run: |
+          make release-all
+          ls -lh bin/
+
+      - name: Generate checksums
+        run: |
+          cd bin
+          sha256sum kwdb-playground-* > checksums.txt
+          ls -lh
+
+      - name: Create distribution packages (zip/tar.gz)
+        run: |
+          set -e
+          mkdir -p dist
+          
+          # 准备 README 摘要（简版）
+          cat > dist/README.txt << 'EOF'
+          KWDB Playground - 快速开始
+          
+          1) 解压本包
+          2) 确保 Docker 已启动
+          3) 运行：
+             - Linux/macOS: ./kwdb-playground server
+             - Windows: kwdb-playground.exe server
+          4) 打开 http://localhost:3006
+          
+          可选环境变量：SERVER_PORT, SERVER_HOST, COURSE_DIR, COURSES_USE_EMBED
+          详情参见项目 README.md。
+          EOF
+          
+          # 如果仓库存在 LICENSE 文件则使用，否则生成占位说明
+          if [ -f LICENSE ]; then
+            cp LICENSE dist/LICENSE
+          else
+            cat > dist/LICENSE << 'EOF'
+            License: see repository policy
+            
+            本仓库未检测到顶层 LICENSE 文件。请参考 GitHub 项目主页或组织内授权策略。
+            EOF
+          fi
+          
+          # Linux amd64 tar.gz
+          pkg_linux=kwdb-playground-linux-amd64
+          mkdir -p "$pkg_linux"
+          cp bin/kwdb-playground-linux-amd64 "$pkg_linux"/kwdb-playground
+          cp dist/README.txt "$pkg_linux"/
+          cp dist/LICENSE "$pkg_linux"/
+          tar -czf dist/kwdb-playground-linux-amd64.tar.gz "$pkg_linux"/
+          
+          # macOS arm64 tar.gz
+          pkg_darwin=kwdb-playground-darwin-arm64
+          mkdir -p "$pkg_darwin"
+          cp bin/kwdb-playground-darwin-arm64 "$pkg_darwin"/kwdb-playground
+          cp dist/README.txt "$pkg_darwin"/
+          cp dist/LICENSE "$pkg_darwin"/
+          tar -czf dist/kwdb-playground-darwin-arm64.tar.gz "$pkg_darwin"/
+          
+          # Windows amd64 zip
+          pkg_win=kwdb-playground-windows-amd64
+          mkdir -p "$pkg_win"
+          cp bin/kwdb-playground-windows-amd64.exe "$pkg_win"/kwdb-playground.exe
+          cp dist/README.txt "$pkg_win"/
+          cp dist/LICENSE "$pkg_win"/
+          (cd "$pkg_win" && zip -r ../dist/kwdb-playground-windows-amd64.zip .)
+          
+          # 为分发包生成校验文件
+          (cd dist && sha256sum *.tar.gz *.zip > distribution-checksums.txt)
+          ls -lh dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            bin/kwdb-playground-linux-amd64
+            bin/kwdb-playground-darwin-arm64
+            bin/kwdb-playground-windows-amd64.exe
+            bin/checksums.txt
+            dist/kwdb-playground-linux-amd64.tar.gz
+            dist/kwdb-playground-darwin-arm64.tar.gz
+            dist/kwdb-playground-windows-amd64.zip
+            dist/distribution-checksums.txt
+          tag_name: ${{ github.ref_name }}
+          name: KWDB Playground ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
