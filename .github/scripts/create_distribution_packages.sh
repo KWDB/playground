@@ -15,7 +15,9 @@ KWDB Playground - 快速开始
    - Windows: kwdb-playground.exe server
 4) 打开 http://localhost:3006
 
-可选环境变量：SERVER_PORT, SERVER_HOST, COURSE_DIR, COURSES_USE_EMBED
+可以使用 `server -d` 选项将应用作为守护进程运行，更多命令可以使用 `server --help` 查看。
+
+可选环境变量：SERVER_PORT, SERVER_HOST
 详情参见项目 README.md。
 EOF
 
