@@ -10,6 +10,7 @@ interface Course {
   estimatedMinutes: number
   tags: string[]
   dockerImage: string
+  sqlTerminal?: boolean
 }
 
 export function CourseList() {
@@ -112,6 +113,10 @@ export function CourseList() {
                     <div className="flex items-center text-sm text-gray-500">
                       <Clock className="w-3 h-3 mr-1 text-blue-500" />
                       <span className="font-medium">{course.estimatedMinutes} 分钟</span>
+                      {/* Shell/SQL 标签 */}
+                      <span className={`ml-3 px-2 py-0.5 rounded border text-xs ${course.sqlTerminal ? 'border-blue-400 text-blue-600 bg-blue-50' : 'border-emerald-400 text-emerald-600 bg-emerald-50'}`}>
+                        {course.sqlTerminal ? 'SQL' : 'Shell'}
+                      </span>
                     </div>
                   </div>
                   <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm flex-shrink-0 ${

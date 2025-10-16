@@ -174,7 +174,7 @@ func (s *Service) LoadCourses() error {
 // coursePath: 课程目录的完整路径
 // 返回完整的课程对象或错误信息
 func (s *Service) loadCourse(courseID, coursePath string) (*Course, error) {
-	configPath := filepath.Join(coursePath, "index.yaml")
+    configPath := filepath.Join(coursePath, "index.yaml")
 
 	// 检查配置文件是否存在
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -192,11 +192,21 @@ func (s *Service) loadCourse(courseID, coursePath string) (*Course, error) {
 		return nil, fmt.Errorf("course config file is empty: %s", configPath)
 	}
 
-	// 解析YAML配置
-	var course Course
-	if err := yaml.Unmarshal(configData, &course); err != nil {
-		return nil, fmt.Errorf("failed to parse course config: %w", err)
-	}
+    // 解析YAML配置
+    var course Course
+    if err := yaml.Unmarshal(configData, &course); err != nil {
+        return nil, fmt.Errorf("failed to parse course config: %w", err)
+    }
+
+    // 兼容误拼写键 slqTerminal：若yaml中存在且为true，则置位SqlTerminal
+    var raw map[string]interface{}
+    if err := yaml.Unmarshal(configData, &raw); err == nil {
+        if v, ok := raw["slqTerminal"]; ok {
+            if b, okb := v.(bool); okb && b {
+                course.SqlTerminal = true
+            }
+        }
+    }
 
 	// 设置课程ID和基础信息
 	course.ID = courseID
@@ -217,7 +227,7 @@ func (s *Service) loadCourse(courseID, coursePath string) (*Course, error) {
 // coursePath: 课程在FS中的目录路径（使用/分隔）
 // 返回完整的课程对象或错误信息
 func (s *Service) loadCourseFromFS(courseID, coursePath string) (*Course, error) {
-	configPath := path.Join(coursePath, "index.yaml")
+    configPath := path.Join(coursePath, "index.yaml")
 
 	// 读取课程配置文件（FS内）
 	configData, err := fs.ReadFile(s.coursesFS, configPath)
@@ -230,11 +240,21 @@ func (s *Service) loadCourseFromFS(courseID, coursePath string) (*Course, error)
 		return nil, fmt.Errorf("course config file is empty: %s", configPath)
 	}
 
-	// 解析YAML配置
-	var course Course
-	if err := yaml.Unmarshal(configData, &course); err != nil {
-		return nil, fmt.Errorf("failed to parse course config: %w", err)
-	}
+    // 解析YAML配置
+    var course Course
+    if err := yaml.Unmarshal(configData, &course); err != nil {
+        return nil, fmt.Errorf("failed to parse course config: %w", err)
+    }
+
+    // 兼容误拼写键 slqTerminal：若yaml中存在且为true，则置位SqlTerminal
+    var raw map[string]interface{}
+    if err := yaml.Unmarshal(configData, &raw); err == nil {
+        if v, ok := raw["slqTerminal"]; ok {
+            if b, okb := v.(bool); okb && b {
+                course.SqlTerminal = true
+            }
+        }
+    }
 
 	// 设置课程ID和基础信息
 	course.ID = courseID

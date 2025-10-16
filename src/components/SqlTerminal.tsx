@@ -1,0 +1,548 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+
+type Props = {
+  courseId: string
+  port: number
+  // 容器状态：用于控制自动连接与刷新逻辑
+  // 约定：running/starting/stopped/exited 等
+  containerStatus?: string
+}
+
+type SqlInfo = {
+  version?: string
+  port?: number
+  connected?: boolean
+}
+
+// 执行结果类型
+type ExecutionResult = {
+  type: 'success' | 'query' | 'error'
+  message?: string
+  rowsAffected?: number
+  columns?: string[]
+  rows?: (string | number | boolean | null)[][]
+}
+
+// SQL 终端引用接口
+export interface SqlTerminalRef {
+  sendCommand: (command: string) => void
+}
+
+// SQL 语法高亮编辑器组件
+const SqlHighlightEditor = ({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  className
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  disabled?: boolean
+  className?: string
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const highlightRef = useRef<HTMLDivElement>(null)
+  const [isFocused, setIsFocused] = useState(false)
+
+  // 处理输入变化
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(e.target.value)
+  }
+
+  // 处理滚动同步
+  const handleScroll = () => {
+    if (highlightRef.current && textareaRef.current) {
+      highlightRef.current.scrollTop = textareaRef.current.scrollTop
+      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft
+    }
+  }
+
+  // 自定义样式，确保与终端主题协调
+  const customStyle = {
+    ...vscDarkPlus,
+    'pre[class*="language-"]': {
+      ...vscDarkPlus['pre[class*="language-"]'],
+      background: 'transparent',
+      margin: 0,
+      padding: '8px',
+      fontSize: '14px',
+      lineHeight: '1.5',
+      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+    },
+    'code[class*="language-"]': {
+      ...vscDarkPlus['code[class*="language-"]'],
+      background: 'transparent',
+      fontSize: '14px',
+      lineHeight: '1.5',
+      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+    }
+  }
+
+  return (
+    <div className={`relative ${className}`}>
+      {/* 语法高亮显示层 */}
+      <div
+        ref={highlightRef}
+        className="absolute inset-0 pointer-events-none overflow-auto rounded scrollbar-hide"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
+        <SyntaxHighlighter
+          language="sql"
+          style={customStyle}
+          customStyle={{
+            background: 'transparent',
+            margin: 0,
+            padding: '8px',
+            fontSize: '14px',
+            lineHeight: '1.5',
+            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+          codeTagProps={{
+            style: {
+              background: 'transparent',
+              fontSize: '14px',
+              lineHeight: '1.5',
+              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }
+          }}
+        >
+          {value || ' '}
+        </SyntaxHighlighter>
+      </div>
+
+      {/* 透明输入层 */}
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={handleChange}
+        onScroll={handleScroll}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={`
+          relative z-10 w-full h-full resize-none bg-transparent text-transparent caret-gray-200
+          p-2 border border-gray-700/50 rounded overflow-auto
+          focus:outline-none focus:ring-2 focus:ring-blue-500
+          font-mono text-sm leading-relaxed
+          ${disabled ? 'cursor-not-allowed' : ''}
+        `}
+        style={{
+          fontSize: '14px',
+          lineHeight: '1.5',
+          fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+        spellCheck={false}
+      />
+
+      {/* 占位符显示 */}
+      {!value && placeholder && !isFocused && (
+        <div className="absolute inset-0 pointer-events-none p-2 text-gray-500 text-sm font-mono z-20">
+          {placeholder}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus }, ref) => {
+  const [info, setInfo] = useState<SqlInfo | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // WebSocket 相关状态
+  const [wsConnected, setWsConnected] = useState(false)
+  const [queryText, setQueryText] = useState<string>('')
+  const [columns, setColumns] = useState<string[]>([])
+  type Cell = string | number | boolean | null
+  const [rows, setRows] = useState<Cell[][]>([])
+  const [executing, setExecuting] = useState(false)
+  const [lastExecutionResult, setLastExecutionResult] = useState<ExecutionResult | null>(null)
+
+  const wsRef = useRef<WebSocket | null>(null)
+
+  // 拼接信息接口 URL
+  const infoUrl = useMemo(() => `/api/sql/info?courseId=${encodeURIComponent(courseId)}`, [courseId])
+
+  // 组装 WebSocket URL（根据当前协议决定 ws/wss）
+  const wsUrl = useMemo(() => {
+    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
+    return `${scheme}://${window.location.host}/ws/sql`
+  }, [])
+
+  // 发送 SQL 命令到 textarea
+  const sendCommand = useCallback((command: string) => {
+    // 将接收到的 SQL 命令自动填充到 textarea 中
+    setQueryText(command)
+    // 清除之前的错误信息和执行结果，提供更好的用户体验
+    setError(null)
+    setLastExecutionResult(null)
+    setColumns([])
+    setRows([])
+
+    // 自动执行 SQL 命令 - 实现无缝交互体验
+    // 只有在 WebSocket 连接正常且未在执行其他命令时才自动执行
+    if (wsRef.current &&
+      wsRef.current.readyState === WebSocket.OPEN &&
+      !executing &&
+      command.trim()) {
+
+      // 设置执行状态
+      setExecuting(true)
+
+      // 发送 SQL 命令到后端执行
+      const qid = `q_${Date.now()}`
+      const msg = { type: 'query', queryId: qid, sql: command }
+      wsRef.current.send(JSON.stringify(msg))
+    } else if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      // WebSocket 未连接时显示错误提示
+      setError('WS 未连接，无法执行命令')
+    } else if (executing) {
+      // 正在执行其他命令时显示提示
+      setError('正在执行其他命令，请稍后再试')
+    }
+  }, [executing])
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    sendCommand
+  }), [sendCommand])
+
+  // 加载连接信息
+  const fetchInfo = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(infoUrl)
+      if (!res.ok) throw new Error(`加载连接信息失败: ${res.status}`)
+      const data = await res.json()
+      setInfo(data)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(msg || '未知错误')
+    } finally {
+      setLoading(false)
+    }
+  }, [infoUrl])
+
+  useEffect(() => {
+    fetchInfo()
+  }, [fetchInfo])
+
+  // 通过 ref 持有最新的 fetchInfo，避免在 WebSocket 回调中闭包过期
+  const fetchInfoRef = useRef<() => void>(() => { })
+  useEffect(() => {
+    fetchInfoRef.current = fetchInfo
+  }, [fetchInfo])
+
+  // 建立 WebSocket 连接
+  // 根据容器状态建立或关闭 WebSocket
+  useEffect(() => {
+    // 容器未运行时关闭 WS 并退出
+    if (containerStatus !== 'running') {
+      if (wsRef.current) {
+        try { wsRef.current.close() } catch { /* 忽略关闭异常 */ }
+        wsRef.current = null
+      }
+      setWsConnected(false)
+      return
+    }
+
+    // 容器运行中且尚未建立 WS，则创建连接
+    if (wsRef.current) return
+    const ws = new WebSocket(wsUrl)
+    wsRef.current = ws
+
+    // 连接打开后发送 init
+    ws.onopen = () => {
+      setWsConnected(true)
+      const initMsg = { type: 'init', courseId }
+      ws.send(JSON.stringify(initMsg))
+    }
+
+    // 接收服务端消息
+    ws.onmessage = (ev) => {
+      try {
+        type WsMessage = { type: string;[key: string]: unknown }
+        const msg: WsMessage = JSON.parse(ev.data)
+
+        if (msg.type === 'ready') {
+          // SQL 通道就绪：主动刷新连接信息，无需用户点击"刷新"
+          fetchInfoRef.current()
+          return
+        }
+
+        if (msg.type === 'info') {
+          // 更新连接信息面板，使状态即时反映
+          setInfo({
+            version: typeof msg.version === 'string' ? msg.version : undefined,
+            port: typeof msg.port === 'number' ? msg.port : undefined,
+            connected: Boolean(msg.connected),
+          })
+          setLoading(false)
+          setError(null)
+          return
+        }
+
+        if (msg.type === 'result') {
+          // 基于后端响应数据判断操作类型，而不是解析 SQL 语句
+          const columns = Array.isArray(msg.columns) ? msg.columns : []
+          const rows = Array.isArray(msg.rows) ? msg.rows : []
+          const rowCount = typeof msg.rowCount === 'number' ? msg.rowCount : 0
+
+          // 判断操作类型
+          const hasColumns = columns.length > 0
+          const hasRows = rows.length > 0
+
+          if (hasColumns) {
+            // 查询操作（SELECT）- 有列定义，显示结果表格
+            setColumns(columns)
+            setRows(rows)
+            setLastExecutionResult({
+              type: 'query',
+              columns,
+              rows,
+              message: `查询完成，返回 ${hasRows ? rows.length : 0} 行数据`
+            })
+          } else {
+            // 非查询操作 - 无列定义，显示成功消息
+            setColumns([])
+            setRows([])
+
+            let successMessage = ''
+
+            if (rowCount > 0) {
+              // 数据操作（INSERT/UPDATE/DELETE）- 影响了行数
+              successMessage = `操作成功，影响 ${rowCount} 行数据`
+            } else {
+              // 结构操作（CREATE/DROP/ALTER）- 未影响数据行
+              successMessage = '操作成功'
+            }
+
+            setLastExecutionResult({
+              type: 'success',
+              message: successMessage,
+              rowsAffected: rowCount
+            })
+          }
+
+          // 设置执行完成状态
+          setExecuting(false)
+          return
+        }
+
+        // 处理成功消息（用于建表、插入等操作）
+        if (msg.type === 'success') {
+          setExecuting(false)
+          const rowsAffected = typeof msg.rowsAffected === 'number' ? msg.rowsAffected : undefined
+          const message = typeof msg.message === 'string' ? msg.message : '操作成功'
+
+          // 清除查询结果表格（因为这不是查询操作）
+          setColumns([])
+          setRows([])
+
+          setLastExecutionResult({
+            type: 'success',
+            message,
+            rowsAffected
+          })
+          return
+        }
+
+        if (msg.type === 'error') {
+          setExecuting(false)
+          // 运行时类型收敛，避免 unknown 直接赋值导致 TS 报错
+          const message = typeof (msg as { message?: unknown }).message === 'string'
+            ? (msg as { message?: string }).message
+            : '执行错误'
+          setError(message)
+          setLastExecutionResult({
+            type: 'error',
+            message
+          })
+          return
+        }
+      } catch (e) {
+        console.error('WS 消息解析失败:', e)
+        setExecuting(false)
+      }
+    }
+
+    ws.onclose = () => {
+      setWsConnected(false)
+      wsRef.current = null
+      setExecuting(false)
+    }
+
+    return () => {
+      ws.close()
+      wsRef.current = null
+    }
+  }, [wsUrl, courseId, containerStatus])
+
+  // 未连接时自动重试：周期性发送 init 并刷新连接信息
+  // 设计意图：容器刚启动到数据库就绪有短暂窗口，避免用户手动点击"刷新"
+  useEffect(() => {
+    // 仅在容器运行且未连接时进行自动重试
+    if (containerStatus !== 'running' || info?.connected) return
+
+    const timer = setInterval(() => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        const initMsg = { type: 'init', courseId }
+        wsRef.current.send(JSON.stringify(initMsg))
+        fetchInfoRef.current()
+      }
+    }, 1200)
+
+    return () => { clearInterval(timer) }
+  }, [courseId, info?.connected, containerStatus])
+
+  // 发送查询
+  const runQuery = () => {
+    // 清除之前的结果和错误信息
+    setError(null)
+    setLastExecutionResult(null)
+    setColumns([])
+    setRows([])
+
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      setError('WS 未连接，无法执行')
+      return
+    }
+
+    // 设置执行状态
+    setExecuting(true)
+
+    const qid = `q_${Date.now()}`
+    const msg = { type: 'query', queryId: qid, sql: queryText }
+    wsRef.current.send(JSON.stringify(msg))
+  }
+
+  return (
+    <div className="h-full flex flex-col" style={{ backgroundColor: '#0d1117' }}>
+      {/* 顶部状态与操作栏 */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-700/50" style={{ backgroundColor: '#161b22' }}>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">SQL</span>
+          <span className="text-gray-300">端口: {port}</span>
+        </div>
+        <button
+          onClick={fetchInfo}
+          className="px-3 py-1.5 text-sm rounded bg-gray-800/60 text-gray-200 hover:bg-gray-700/80 border border-gray-600/50"
+        >刷新</button>
+      </div>
+
+      {/* 连接信息面板 */}
+      <div className="p-4 space-y-3 text-gray-200 overflow-auto">
+        {loading && containerStatus === 'running' && <div className="text-gray-400 text-sm">正在加载连接信息...</div>}
+        {error && <div className="text-red-400 text-sm">{error}</div>}
+        {!loading && !error && containerStatus === 'running' && (
+          <div className="grid grid-cols-1 gap-3">
+            <div className="rounded border border-gray-700/50 bg-gray-900/50 p-3">
+              <div className="text-xs text-gray-400 mb-1">KWDB 版本</div>
+              <div className="text-sm">{info?.version || '未知'}</div>
+            </div>
+          </div>
+        )}
+
+        {/* 容器未运行时的提示信息 */}
+        {containerStatus !== 'running' && (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            请启动容器以连接终端
+          </div>
+        )}
+
+        {/* 执行区 */}
+        {containerStatus === 'running' && (
+          <div className="rounded border border-gray-700/50 bg-gray-900/40 p-3 mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-gray-400">执行区</div>
+              <div className={`text-xs ${wsConnected ? 'text-emerald-400' : 'text-yellow-400'}`}>{wsConnected ? 'WS 已连接' : 'WS 未连接'}</div>
+            </div>
+            {/* SQL 语法高亮输入框 */}
+            <SqlHighlightEditor
+              value={queryText}
+              onChange={setQueryText}
+              placeholder="输入 SQL，按下方按钮执行"
+              className="w-full h-24 bg-gray-800/60"
+              disabled={executing}
+            />
+            <div className="mt-2 flex justify-end">
+              <button
+                onClick={runQuery}
+                disabled={executing || !wsConnected}
+                className={`px-3 py-1.5 text-sm rounded ${executing || !wsConnected
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+              >
+                {executing ? '执行中...' : '执行'}
+              </button>
+            </div>
+
+            {/* 执行结果反馈 */}
+            {lastExecutionResult && (
+              <div className="mt-3">
+                {lastExecutionResult.type === 'success' && (
+                  <div className="rounded border border-emerald-600/40 bg-emerald-900/20 p-3">
+                    <div className="text-sm text-emerald-300">
+                      {lastExecutionResult.message}
+                    </div>
+                  </div>
+                )}
+
+                {lastExecutionResult.type === 'error' && (
+                  <div className="rounded border border-red-600/40 bg-red-900/20 p-3">
+                    <div className="text-sm text-red-300">{lastExecutionResult.message}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 结果表格（仅查询操作显示） */}
+            {columns.length > 0 && (
+              <div className="mt-3 overflow-auto">
+                <div className="text-xs text-gray-400 mb-2">查询结果</div>
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      {columns.map((col) => (
+                        <th key={col} className="px-3 py-1 text-left text-gray-300 border-b border-gray-700/50">{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, idx) => (
+                      <tr key={idx} className="border-b border-gray-800/50">
+                        {r.map((cell, cidx) => (
+                          <td key={cidx} className="px-3 py-1 text-gray-200">{String(cell)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+})
+
+// 设置组件显示名称，便于调试
+SqlTerminal.displayName = 'SqlTerminal'
+
+export default SqlTerminal

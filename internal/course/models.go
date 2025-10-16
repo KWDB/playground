@@ -4,14 +4,16 @@ import "time"
 
 // Course 课程模型
 type Course struct {
-	ID               string       `json:"id" yaml:"id"`
-	Title            string       `json:"title" yaml:"title"`
-	Description      string       `json:"description" yaml:"description"`
-	Details          CourseDetail `json:"details" yaml:"details"`
-	Backend          Backend      `json:"backend" yaml:"backend"`
-	Difficulty       string       `json:"difficulty" yaml:"difficulty"`
-	EstimatedMinutes int          `json:"estimatedMinutes" yaml:"estimatedMinutes"`
-	Tags             []string     `json:"tags" yaml:"tags"`
+    ID               string       `json:"id" yaml:"id"`
+    Title            string       `json:"title" yaml:"title"`
+    Description      string       `json:"description" yaml:"description"`
+    Details          CourseDetail `json:"details" yaml:"details"`
+    Backend          Backend      `json:"backend" yaml:"backend"`
+    Difficulty       string       `json:"difficulty" yaml:"difficulty"`
+    EstimatedMinutes int          `json:"estimatedMinutes" yaml:"estimatedMinutes"`
+    Tags             []string     `json:"tags" yaml:"tags"`
+    // SqlTerminal 是否启用SQL终端（互斥显示）
+    SqlTerminal      bool         `json:"sqlTerminal" yaml:"sqlTerminal"`
 }
 
 // CourseDetail 课程详细信息
@@ -36,10 +38,12 @@ type CourseFile struct {
 
 // Backend 后端配置
 type Backend struct {
-	ImageID    string   `json:"imageid" yaml:"imageid"`
-	Workspace  string   `json:"workspace" yaml:"workspace"`
-	Cmd        []string `json:"cmd" yaml:"cmd"`
-	Privileged bool     `json:"privileged" yaml:"privileged"`
+    ImageID    string   `json:"imageid" yaml:"imageid"`
+    Workspace  string   `json:"workspace" yaml:"workspace"`
+    Cmd        []string `json:"cmd" yaml:"cmd"`
+    Privileged bool     `json:"privileged" yaml:"privileged"`
+    // Port KWDB服务端口（主机映射端口）
+    Port       int      `json:"port" yaml:"port"`
 }
 
 // UserProgress 用户课程进度

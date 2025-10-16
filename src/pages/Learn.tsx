@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Terminal, Database, Server } from 'lucide-react'
+import { ArrowLeft, Server } from 'lucide-react'
+import SqlTerminal, { SqlTerminalRef } from '../components/SqlTerminal'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -11,6 +12,7 @@ import TerminalComponent, { TerminalRef } from '../components/Terminal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StatusIndicator, { StatusType } from '../components/StatusIndicator';
 import CourseContentPanel from '../components/CourseContentPanel';
+import PortConflictHandler from '../components/PortConflictHandler';
 import '../styles/markdown.css';
 
 interface Course {
@@ -22,6 +24,8 @@ interface Course {
     steps: Array<{ title: string; content: string }>
     finish: { content: string }
   }
+  sqlTerminal?: boolean
+  backend?: { port?: number }
 }
 
 export function Learn() {
@@ -29,15 +33,17 @@ export function Learn() {
   const navigate = useNavigate()
   const [course, setCourse] = useState<Course | null>(null)
   const [currentStep, setCurrentStep] = useState(-1)
-  const [activeTab, setActiveTab] = useState<'shell' | 'sql'>('shell')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false)
   const [containerId, setContainerId] = useState<string | null>(null)
   const [containerStatus, setContainerStatus] = useState<string>('stopped')
   const [isStartingContainer, setIsStartingContainer] = useState<boolean>(false)
-  // 移除未使用的状态变量
   const terminalRef = useRef<TerminalRef>(null)
+  const sqlTerminalRef = useRef<SqlTerminalRef>(null)
+
+  // 端口冲突处理相关状态
+  const [showPortConflictHandler, setShowPortConflictHandler] = useState<boolean>(false)
 
   // 定期状态检查的引用
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -45,9 +51,6 @@ export function Learn() {
   // 简化状态管理
   const [, setIsConnected] = useState(false)
   const [, setConnectionError] = useState<string | null>(null)
-
-  // 已移除全局 hasExecMeta，改为在代码块渲染时按块检测，避免跨渲染的状态污染
-  // let hasExecMeta = false;
 
   // 监听容器状态变化，当容器停止时清除连接错误
   useEffect(() => {
@@ -97,7 +100,7 @@ export function Learn() {
     }
   }, [containerStatus])
 
-  // 简化的WebSocket连接处理
+  // WebSocket 连接处理
   const connectToTerminal = useCallback((containerId: string) => {
     if (!containerId) {
       setConnectionError('容器ID为空')
@@ -142,7 +145,7 @@ export function Learn() {
 
       setContainerId(data.containerId)
 
-      // 等待容器完全启动的函数 - 增强版本
+      // 等待容器完全启动的函数
       const waitForContainerReady = async (containerId: string, maxRetries = 15, retryInterval = 1500) => {
         console.log(`开始等待容器启动，最大重试次数: ${maxRetries}，检查间隔: ${retryInterval}ms`);
 
@@ -208,18 +211,51 @@ export function Learn() {
 
     } catch (error) {
       console.error('启动容器失败:', error)
-      setError(error instanceof Error ? error.message : '启动容器失败')
-      setContainerStatus('error')
-      setConnectionError('容器启动失败，无法建立连接')
+      const errorMessage = error instanceof Error ? error.message : '启动容器失败'
+      
+      // 检测是否为端口冲突错误
+      const isPortConflictError = errorMessage.toLowerCase().includes('port') && 
+        (errorMessage.toLowerCase().includes('already') || 
+         errorMessage.toLowerCase().includes('in use') ||
+         errorMessage.toLowerCase().includes('bind') ||
+         errorMessage.toLowerCase().includes('occupied'))
+      
+      if (isPortConflictError) {
+        console.log('检测到端口冲突错误，显示智能处理组件')
+        setShowPortConflictHandler(true)
+        setContainerStatus('error')
+      } else {
+        setError(errorMessage)
+        setContainerStatus('error')
+        setConnectionError('容器启动失败，无法建立连接')
+      }
     } finally {
       setIsStartingContainer(false)
     }
   }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal])
 
+  // 端口冲突处理回调函数
+  const handlePortConflictClose = useCallback(() => {
+    setShowPortConflictHandler(false)
+  }, [])
+
+  const handlePortConflictRetry = useCallback(() => {
+    if (course?.id) {
+      console.log('端口冲突处理完成，重试启动容器')
+      startCourseContainer(course.id)
+    }
+  }, [course?.id, startCourseContainer])
+
+  const handlePortConflictSuccess = useCallback(() => {
+    console.log('端口冲突处理成功')
+    setError(null)
+    setConnectionError(null)
+  }, [setConnectionError])
+
   // 使用useRef保存最新的状态值，避免闭包问题
   const courseIdRef = useRef(courseId)
   const containerStatusRef = useRef(containerStatus)
-  // 新增：保存最新容器ID，避免卸载时读到过期值
+  // 保存最新容器ID，避免卸载时读到过期值
   const containerIdRef = useRef(containerId)
 
   // 更新ref值
@@ -231,7 +267,7 @@ export function Learn() {
     containerStatusRef.current = containerStatus
   }, [containerStatus])
 
-  // 新增：同步最新容器ID
+  // 同步最新容器ID
   useEffect(() => {
     containerIdRef.current = containerId
   }, [containerId])
@@ -400,9 +436,6 @@ export function Learn() {
   const currentTitle = useMemo(() => getCurrentTitle(), [course, currentStep])
   const currentContent = useMemo(() => getCurrentContent(), [course, currentStep])
 
-  // =============================
-  // Markdown 工具函数（仅在本组件内部使用）
-  // =============================
   // 将 ReactNode 提取为纯文本（用于从 <code> children 中获取命令字符串）
   const extractTextFromNode = useCallback((n: React.ReactNode): string => {
     if (n == null) return ''
@@ -456,16 +489,27 @@ export function Learn() {
     if (button) {
       const command = button.getAttribute('data-command')
       if (command && containerId && containerStatus === 'running') {
-        if (terminalRef.current) {
-          terminalRef.current.sendCommand(command)
+        // 根据课程类型选择不同的处理方式
+        if (course?.sqlTerminal) {
+          // SQL 终端类型：将命令填充到 textarea
+          if (sqlTerminalRef.current) {
+            sqlTerminalRef.current.sendCommand(command)
+          } else {
+            console.warn('SQL Terminal组件未准备就绪')
+          }
         } else {
-          console.warn('Terminal组件未准备就绪')
+          // Shell 终端类型：发送命令到终端执行
+          if (terminalRef.current) {
+            terminalRef.current.sendCommand(command)
+          } else {
+            console.warn('Terminal组件未准备就绪')
+          }
         }
       } else if (containerStatus !== 'running') {
         alert('请先启动容器后再执行命令')
       }
     }
-  }, [containerId, containerStatus])
+  }, [containerId, containerStatus, course?.sqlTerminal])
 
   // =============================
   // Markdown 渲染：基于 ReactMarkdown + 代码高亮
@@ -647,7 +691,6 @@ export function Learn() {
     return (
       <div className="bg-white border-b border-gray-100 px-6 py-3">
         <div className="flex items-center space-x-4 max-w-4xl mx-auto">
-          {/* 极简进度指示器 */}
           <div className="flex items-center space-x-2 text-xs text-gray-500">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
             <div className="font-medium">
@@ -655,7 +698,6 @@ export function Learn() {
             </div>
           </div>
 
-          {/* 极简进度线 */}
           <div className="flex-1 relative">
             <div className="h-0.5 bg-gray-100 rounded-full"></div>
             <div
@@ -666,7 +708,6 @@ export function Learn() {
             ></div>
           </div>
 
-          {/* 极简步骤导航 */}
           <div className="flex items-center space-x-1">
             {steps.map((step) => {
               const isCompleted = currentStep > step.id
@@ -706,7 +747,7 @@ export function Learn() {
     )
   }
 
-  // 简化的退出课程函数
+  // 退出课程函数
   const exitCourse = async () => {
     if (containerStatus === 'running' && course?.id) {
       await stopContainer(course.id)
@@ -1098,39 +1139,13 @@ export function Learn() {
           {/* 右侧终端面板 */}
           <Panel defaultSize={50} minSize={30}>
             <div className="h-full text-white flex flex-col" style={{ backgroundColor: '#0d1117' }}>
-              {/* 终端标签页 - 现代化设计 */}
-              <div className="flex flex-wrap gap-2 p-3 border-b border-gray-700/50" style={{ backgroundColor: '#161b22' }}>
-                <button
-                  onClick={() => setActiveTab('shell')}
-                  className={`px-3 lg:px-4 py-2 lg:py-2.5 flex items-center space-x-1.5 text-sm font-medium rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 ${activeTab === 'shell'
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 border border-emerald-400/30'
-                    : 'bg-gray-800/60 text-gray-300 hover:bg-gray-700/80 hover:text-white border border-gray-600/50 backdrop-blur-sm'
-                    }`}
-                >
-                  <Terminal className="h-4 w-4" />
-                  <span className="hidden sm:inline font-semibold">Shell</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('sql')}
-                  className={`px-3 lg:px-4 py-2 lg:py-2.5 flex items-center space-x-1.5 text-sm font-medium rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 ${activeTab === 'sql'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400/30'
-                    : 'bg-gray-800/60 text-gray-300 hover:bg-gray-700/80 hover:text-white border border-gray-600/50 backdrop-blur-sm'
-                    }`}
-                >
-                  <Database className="h-4 w-4" />
-                  <span className="hidden sm:inline font-semibold">SQL</span>
-                </button>
-              </div>
-
-
-
-              {/* 终端内容区域 - 优化滚动和布局 */}
+              {/* 终端内容区域 - 移除内边距，确保完全填充可用空间 */}
               <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex-1 p-4 overflow-hidden">
+                <div className="flex-1 overflow-hidden">
                   <div
-                    className="h-full max-h-[calc(100vh-200px)] overflow-y-auto terminal-scrollbar"
+                    className="h-full overflow-y-auto terminal-scrollbar"
                   >
-                    {activeTab === 'shell' && (
+                    {!(course?.sqlTerminal) && (
                       <div className="h-full">
                         {(containerStatus === 'running' || containerStatus === 'starting' || isStartingContainer) ? (
                           <TerminalComponent
@@ -1145,13 +1160,9 @@ export function Learn() {
                         )}
                       </div>
                     )}
-                    {activeTab === 'sql' && (
-                      <div className="flex items-center justify-center h-full text-gray-400">
-                        <div className="text-center">
-                          <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                          <p className="text-sm">SQL 终端功能开发中...</p>
-                        </div>
-                      </div>
+                    {course?.sqlTerminal && course?.backend?.port && course?.id && (
+                      // 将容器状态传入 SQL 终端，驱动其自动连接/停止逻辑
+                      <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} />
                     )}
                   </div>
                 </div>
@@ -1172,6 +1183,18 @@ export function Learn() {
         onCancel={handleCancelExit}
         variant="warning"
       />
+
+      {/* 端口冲突处理组件 */}
+      {course?.id && course?.backend?.port && (
+        <PortConflictHandler
+          courseId={course.id}
+          port={course.backend.port}
+          isVisible={showPortConflictHandler}
+          onClose={handlePortConflictClose}
+          onRetry={handlePortConflictRetry}
+          onSuccess={handlePortConflictSuccess}
+        />
+      )}
     </div>
   )
 }

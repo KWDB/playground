@@ -105,7 +105,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
           {/* 对话框内容 */}
           <div className="px-6 pb-6">
-            <p className="text-gray-600 leading-relaxed text-sm">
+            <p className="text-gray-600 text-sm">
               {message}
             </p>
           </div>
