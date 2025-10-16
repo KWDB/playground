@@ -27,6 +27,8 @@ type ContainerInfo struct {
 	Env        map[string]string `json:"env,omitempty"`
 	Ports      map[string]string `json:"ports,omitempty"`
 	Privileged bool              `json:"privileged,omitempty"`
+	Name       string            `json:"name,omitempty"`       // 容器名称
+	Port       int               `json:"port,omitempty"`       // 占用的端口号
 }
 
 // ContainerConfig 容器配置结构体
@@ -40,6 +42,20 @@ type ContainerConfig struct {
 	MemoryLimit int64             `json:"memoryLimit,omitempty"`
 	CPULimit    float64           `json:"cpuLimit,omitempty"`
 	Privileged  bool              `json:"privileged,omitempty"`
+}
+
+// PortConflictInfo 端口冲突信息结构体
+type PortConflictInfo struct {
+	HasConflict       bool           `json:"hasConflict"`       // 是否存在端口冲突
+	IsCourseContainer bool           `json:"isCourseContainer"` // 是否为课程容器占用
+	ConflictContainer *ContainerInfo `json:"conflictContainer,omitempty"` // 冲突容器信息
+}
+
+// CleanupResult 清理结果结构体
+type CleanupResult struct {
+	Success           bool             `json:"success"`           // 清理是否成功
+	Message           string           `json:"message"`           // 清理结果消息
+	CleanedContainers []*ContainerInfo `json:"cleanedContainers"` // 已清理的容器列表
 }
 
 // containerStateCache 缓存容器状态信息以减少API调用

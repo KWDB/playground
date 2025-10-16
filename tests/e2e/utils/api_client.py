@@ -84,3 +84,15 @@ class APIClient:
             return time.time() - start_time
         except:
             return -1.0
+    
+    def check_port_conflict(self, course_id: str, port: int) -> Dict[str, Any]:
+        """检查端口冲突"""
+        response = self.session.get(f"{self.base_url}/api/courses/{course_id}/check-port-conflict?port={port}")
+        response.raise_for_status()
+        return response.json()
+    
+    def cleanup_course_containers(self, course_id: str) -> Dict[str, Any]:
+        """清理课程容器"""
+        response = self.session.post(f"{self.base_url}/api/courses/{course_id}/cleanup-containers")
+        response.raise_for_status()
+        return response.json()

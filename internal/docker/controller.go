@@ -426,20 +426,95 @@ func (d *dockerController) StopContainer(ctx context.Context, containerID string
 	return nil
 }
 
-// cleanupCourseContainers 清理指定课程的所有容器
-func (d *dockerController) cleanupCourseContainers(ctx context.Context, courseID string) error {
+// CheckPortConflict 检查指定端口是否被课程容器占用
+func (d *dockerController) CheckPortConflict(ctx context.Context, courseID string, port int) (*PortConflictInfo, error) {
+	d.logger.Info("检查课程 %s 的端口 %d 冲突情况", courseID, port)
+
+	// 获取所有容器列表
+	containers, err := d.client.ContainerList(ctx, client.ContainerListOptions{All: true})
+	if err != nil {
+		d.logger.Error("获取容器列表失败: %v", err)
+		return nil, fmt.Errorf("failed to list containers: %w", err)
+	}
+
+	// 查找匹配课程前缀的容器
+	coursePrefix := fmt.Sprintf("kwdb-playground-%s-", courseID)
+	var conflictContainer *ContainerInfo
+
+	for _, container := range containers {
+		// 检查容器名称是否匹配课程前缀
+		isMatchingCourse := false
+		containerName := ""
+		for _, name := range container.Names {
+			// 容器名称以 / 开头，需要去掉
+			cleanName := strings.TrimPrefix(name, "/")
+			if strings.HasPrefix(cleanName, coursePrefix) {
+				isMatchingCourse = true
+				containerName = cleanName
+				break
+			}
+		}
+
+		if !isMatchingCourse {
+			continue
+		}
+
+		// 检查容器的端口映射
+		for _, portMapping := range container.Ports {
+			if portMapping.PublicPort != 0 && int(portMapping.PublicPort) == port {
+				d.logger.Info("发现端口冲突: 容器 %s 占用端口 %d", containerName, port)
+				
+				// 构建容器信息
+				conflictContainer = &ContainerInfo{
+					ID:       container.ID,
+					CourseID: courseID,
+					DockerID: container.ID,
+					Name:     containerName,
+					Port:     port,
+					State:    d.mapDockerStateFromString(container.State),
+					Message:  fmt.Sprintf("Container using port %d", port),
+				}
+				break
+			}
+		}
+		
+		// 如果找到冲突容器，跳出外层循环
+		if conflictContainer != nil {
+			break
+		}
+	}
+
+	// 构建端口冲突信息
+	conflictInfo := &PortConflictInfo{
+		HasConflict:       conflictContainer != nil,
+		IsCourseContainer: conflictContainer != nil,
+		ConflictContainer: conflictContainer,
+	}
+
+	if conflictContainer != nil {
+		d.logger.Info("端口 %d 存在冲突，占用容器: %s", port, conflictContainer.Name)
+	} else {
+		d.logger.Info("端口 %d 无冲突", port)
+	}
+
+	return conflictInfo, nil
+}
+
+// CleanupCourseContainers 清理指定课程的所有容器（公开方法）
+func (d *dockerController) CleanupCourseContainers(ctx context.Context, courseID string) (*CleanupResult, error) {
 	d.logger.Info("开始清理课程 %s 的所有容器", courseID)
 
 	// 获取所有容器列表
 	containers, err := d.client.ContainerList(ctx, client.ContainerListOptions{All: true})
 	if err != nil {
 		d.logger.Error("获取容器列表失败: %v", err)
-		return fmt.Errorf("failed to list containers: %w", err)
+		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
 
 	// 查找匹配课程前缀的容器
 	coursePrefix := fmt.Sprintf("kwdb-playground-%s-", courseID)
-	cleanedCount := 0
+	cleanedContainers := make([]*ContainerInfo, 0)
+	var cleanupErrors []string
 
 	for _, container := range containers {
 		for _, name := range container.Names {
@@ -453,16 +528,20 @@ func (d *dockerController) cleanupCourseContainers(ctx context.Context, courseID
 					d.logger.Info("停止运行中的容器: %s", container.ID[:12])
 					timeout := 10
 					if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
-						d.logger.Error("停止容器 %s 失败: %v", container.ID[:12], err)
-						return fmt.Errorf("failed to stop container %s: %w", container.ID, err)
+						errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
+						d.logger.Error(errMsg)
+						cleanupErrors = append(cleanupErrors, errMsg)
+						continue
 					}
 				}
 
 				// 删除容器
 				d.logger.Info("删除容器: %s", container.ID[:12])
 				if err := d.client.ContainerRemove(ctx, container.ID, client.ContainerRemoveOptions{Force: true}); err != nil {
-					d.logger.Error("删除容器 %s 失败: %v", container.ID[:12], err)
-					return fmt.Errorf("failed to remove container %s: %w", container.ID, err)
+					errMsg := fmt.Sprintf("删除容器 %s 失败: %v", container.ID[:12], err)
+					d.logger.Error(errMsg)
+					cleanupErrors = append(cleanupErrors, errMsg)
+					continue
 				}
 
 				// 从内存中移除容器信息
@@ -476,14 +555,76 @@ func (d *dockerController) cleanupCourseContainers(ctx context.Context, courseID
 				}
 				d.mu.Unlock()
 
-				cleanedCount++
+				// 构建已清理的容器信息
+				containerInfo := &ContainerInfo{
+					ID:       container.ID,
+					CourseID: courseID,
+					DockerID: container.ID,
+					Name:     cleanName,
+					State:    d.mapDockerStateFromString(container.State),
+					Message:  "Container cleaned up",
+				}
+				cleanedContainers = append(cleanedContainers, containerInfo)
 				break
 			}
 		}
 	}
 
-	d.logger.Info("课程 %s 容器清理完成，共清理 %d 个容器", courseID, cleanedCount)
+	// 构建清理结果
+	var message string
+	if len(cleanupErrors) == 0 {
+		message = fmt.Sprintf("成功清理 %d 个容器", len(cleanedContainers))
+	} else {
+		message = fmt.Sprintf("清理 %d 个容器，%d 个错误", len(cleanedContainers), len(cleanupErrors))
+	}
+
+	result := &CleanupResult{
+		Success:           len(cleanupErrors) == 0,
+		Message:           message,
+		CleanedContainers: cleanedContainers,
+	}
+
+	if result.Success {
+		d.logger.Info("课程 %s 容器清理完成，共清理 %d 个容器", courseID, len(cleanedContainers))
+	} else {
+		d.logger.Error("课程 %s 容器清理部分失败，清理 %d 个容器，%d 个错误", courseID, len(cleanedContainers), len(cleanupErrors))
+	}
+
+	return result, nil
+}
+
+// cleanupCourseContainers 清理指定课程的所有容器（私有方法，保持向后兼容）
+func (d *dockerController) cleanupCourseContainers(ctx context.Context, courseID string) error {
+	result, err := d.CleanupCourseContainers(ctx, courseID)
+	if err != nil {
+		return err
+	}
+	if !result.Success {
+		return fmt.Errorf("cleanup failed: %s", result.Message)
+	}
 	return nil
+}
+
+// mapDockerStateFromString 将 Docker 状态字符串映射为 ContainerState
+func (d *dockerController) mapDockerStateFromString(state string) ContainerState {
+	switch state {
+	case "running":
+		return StateRunning
+	case "exited":
+		return StateExited
+	case "created":
+		return StateCreating
+	case "restarting":
+		return StateStarting
+	case "removing":
+		return StateExited
+	case "paused":
+		return StateExited
+	case "dead":
+		return StateError
+	default:
+		return StateError
+	}
 }
 
 // updateContainerState 更新容器状态

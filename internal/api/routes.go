@@ -14,6 +14,7 @@ import (
 	"kwdb-playground/internal/course"
 	"kwdb-playground/internal/docker"
 	"kwdb-playground/internal/logger"
+	sql "kwdb-playground/internal/sql"
 	ws "kwdb-playground/internal/websocket"
 
 	"github.com/gin-gonic/gin"
@@ -34,6 +35,9 @@ type Handler struct {
 
 	// cfg 全局配置，用于环境检查等场景
 	cfg *config.Config
+
+	// sqlDriver KWDB 连接驱动（SQL 终端使用）
+	sqlDriver *sql.Driver
 
 	// containerMutex 容器操作互斥锁，防止并发创建/删除容器
 	containerMutex sync.Mutex
@@ -61,6 +65,7 @@ func NewHandler(
 		terminalManager:  terminalManager,
 		logger:           logger,
 		cfg:              cfg,
+		sqlDriver:        &sql.Driver{},
 	}
 }
 
@@ -82,27 +87,118 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		courses := api.Group("/courses")
 		{
 			courses.GET("", h.getCourses)
-			// 修正：Gin 路径参数应为 `/:id`
 			courses.GET("/:id", h.getCourse)
 			courses.POST("/:id/start", h.startCourse)
 			courses.POST("/:id/stop", h.stopCourse)
+			// 端口冲突检查和容器清理接口
+			courses.GET("/:id/check-port-conflict", h.checkPortConflict)
+			courses.POST("/:id/cleanup-containers", h.cleanupCourseContainers)
 		}
 
 		// 容器相关路由
 		containers := api.Group("/containers")
 		{
-			// 修正：Gin 路径参数应为 `/:id`
 			containers.GET("/:id/status", h.getContainerStatus)
 			containers.GET("/:id/logs", h.getContainerLogs)
 			containers.POST("/:id/restart", h.restartContainer)
-			// 新增：按容器ID停止并删除容器
 			containers.POST("/:id/stop", h.stopContainerByID)
 		}
 
+		// SQL 信息与健康（REST 信息类）
+		api.GET("/sql/info", h.sqlInfo)
+		api.GET("/sql/health", h.sqlHealth)
 	}
 
 	// WebSocket路由
 	r.GET("/ws/terminal", h.handleTerminalWebSocket)
+	// SQL WebSocket 路由（与Shell终端操作方式一致）
+	r.GET("/ws/sql", h.handleSqlWebSocket)
+}
+
+// sqlInfo 返回KWDB连接信息（版本、端口、架构、编译时间、连接状态）
+func (h *Handler) sqlInfo(c *gin.Context) {
+	// 简化实现：依据课程ID获取端口并尝试连接
+	courseID := c.Query("courseId")
+	if courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少 courseId"})
+		return
+	}
+	courseObj, exists := h.courseService.GetCourse(courseID)
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "课程不存在"})
+		return
+	}
+	port := courseObj.Backend.Port
+	if port <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "课程未配置 backend.port"})
+		return
+	}
+	// 确保连接池就绪
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := h.sqlDriver.EnsureReady(ctx, courseObj, h.dockerController); err != nil {
+		// 调整为返回200并标记未连接，避免前端出现“加载失败”红色错误
+		c.JSON(http.StatusOK, gin.H{
+			"connected": false,
+			"port":      port,
+			"version":   "",
+			"arch":      "",
+			"buildTime": "",
+			"message":   fmt.Sprintf("KWDB未就绪: %v", err),
+		})
+		return
+	}
+	// 查询版本信息
+	pool := h.sqlDriver.Pool()
+	var version string
+	var arch string
+	var buildTime string
+	// 优先 SELECT version()
+	if err := pool.QueryRow(ctx, "SELECT version()").Scan(&version); err == nil {
+		// 简化解析：不做复杂正则分解，直接返回完整字符串；前端可展示原始信息
+	} else {
+		// 兼容查询（如果支持）
+		_ = err
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"version":   version,
+		"port":      port,
+		"arch":      arch,
+		"buildTime": buildTime,
+		"connected": true,
+	})
+}
+
+// sqlHealth 返回连通性探测结果
+func (h *Handler) sqlHealth(c *gin.Context) {
+	courseID := c.Query("courseId")
+	if courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少 courseId"})
+		return
+	}
+	courseObj, exists := h.courseService.GetCourse(courseID)
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "课程不存在"})
+		return
+	}
+	port := courseObj.Backend.Port
+	if port <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "课程未配置 backend.port"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := h.sqlDriver.EnsureReady(ctx, courseObj, h.dockerController); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "down", "message": err.Error(), "port": port})
+		return
+	}
+	start := time.Now()
+	var one int
+	if err := h.sqlDriver.Pool().QueryRow(ctx, "SELECT 1").Scan(&one); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "latencyMs": time.Since(start).Milliseconds(), "port": port})
 }
 
 // healthCheck 健康检查
@@ -276,8 +372,19 @@ func (h *Handler) startCourse(c *gin.Context) {
 
 	cmd := []string{"/bin/bash", "-c", "while true; do sleep 3600; done"} // 默认 Cmd
 	if course.Backend.Cmd != nil {
-		cmd = course.Backend.Cmd
-		h.logger.Debug("[startCourse] 使用课程配置的Cmd: %v", cmd)
+		// 修复：当 YAML 中以单个字符串提供整行命令时（包含空格），Docker 会将其视为可执行文件路径，导致找不到文件。
+		// 处理策略：若仅有一个元素且包含空格，则通过 /bin/bash -lc 包裹执行；否则按数组形式直接执行。
+		if len(course.Backend.Cmd) == 1 {
+			single := strings.TrimSpace(course.Backend.Cmd[0])
+			if strings.Contains(single, " ") {
+				cmd = []string{"/bin/bash", "-lc", single}
+			} else {
+				cmd = course.Backend.Cmd
+			}
+		} else {
+			cmd = course.Backend.Cmd
+		}
+		h.logger.Debug("[startCourse] 使用课程配置的Cmd(规范化后): %v", cmd)
 	} else {
 		h.logger.Debug("[startCourse] 使用默认Cmd: %v", cmd)
 	}
@@ -288,6 +395,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 		WorkingDir: workingDir,                // 使用配置的工作目录
 		Cmd:        cmd,                       // 根据课程配置的Cmd启动容器
 		Privileged: course.Backend.Privileged, // 根据课程配置的Privileged启动容器
+		Ports:      map[string]string{"26257": fmt.Sprintf("%d", course.Backend.Port)},
 	}
 
 	h.logger.Debug("[startCourse] 创建容器配置完成，镜像: %s，工作目录: %s，Cmd: %v, Privileged: %v",
@@ -476,43 +584,38 @@ func (h *Handler) getContainerStatus(c *gin.Context) {
 		return
 	}
 
-	// 获取容器信息 - 先尝试直接查找，如果失败则通过列表查找
+	// 获取容器信息 - 先尝试直接查找，如果失败则通过列表查找（兜底：查询Docker守护进程）
 	ctx := context.Background()
 	h.logger.Debug("开始获取容器信息: %s", id)
 	containerInfo, err := h.dockerController.GetContainer(ctx, id)
 	if err != nil {
-		h.logger.Debug("直接获取容器失败: %v，尝试通过列表查找", err)
+		h.logger.Debug("直接获取容器失败: %v，尝试通过列表查找并兜底", err)
 		// 如果直接查找失败，尝试通过容器列表查找匹配的容器
 		containers, listErr := h.dockerController.ListContainers(ctx)
-		if listErr != nil {
-			h.logger.Error("获取容器列表失败: %v", listErr)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "获取容器列表失败",
-			})
-			return
-		}
-
-		// 查找匹配的容器（通过容器名称或ID匹配）
-		h.logger.Debug("在容器列表中查找匹配的容器，总数: %d", len(containers))
-		var foundContainer *docker.ContainerInfo
-		for _, container := range containers {
-			h.logger.Debug("检查容器: ID=%s, 状态=%s", container.ID, container.State)
-			if container.ID == id || strings.Contains(container.ID, id) {
-				foundContainer = container
-				h.logger.Debug("找到匹配的容器: %s", container.ID)
-				break
+		if listErr == nil {
+			// 查找匹配的容器（通过容器名称前缀匹配）
+			h.logger.Debug("在容器列表中查找匹配的容器，总数: %d", len(containers))
+			var foundContainer *docker.ContainerInfo
+			for _, container := range containers {
+				h.logger.Debug("检查容器: ID=%s, 状态=%s", container.ID, container.State)
+				if container.ID == id || strings.HasPrefix(container.ID, id) || strings.Contains(container.ID, id) {
+					foundContainer = container
+					h.logger.Debug("找到匹配的容器: %s", container.ID)
+					break
+				}
+			}
+			if foundContainer != nil {
+				containerInfo = foundContainer
 			}
 		}
-
-		if foundContainer == nil {
-			h.logger.Error("未找到匹配的容器: %s", id)
+		if containerInfo == nil {
+			// 进一步兜底：提示容器可能刚创建尚未注册到内存，返回明确的错误信息
+			h.logger.Error("未找到匹配的容器，可能尚未注册到内存或已被清理: %s", id)
 			c.JSON(http.StatusNotFound, gin.H{
-				"error": "容器不存在",
+				"error": "容器不存在或尚未就绪，请稍后重试",
 			})
 			return
 		}
-
-		containerInfo = foundContainer
 	} else {
 		h.logger.Debug("直接获取容器成功: ID=%s, 状态=%s", containerInfo.ID, containerInfo.State)
 	}
@@ -801,4 +904,424 @@ func (h *Handler) stopContainerByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "容器停止成功", "containerId": id})
+}
+
+// isSelectQuery 判断 SQL 语句是否为查询操作
+// 支持跳过各种类型的注释（单行注释 --、多行注释 /* */）
+// 能够识别：SELECT、SHOW、DESCRIBE、DESC、EXPLAIN、WITH（CTE）
+func isSelectQuery(sqlText string) bool {
+	// 移除所有注释并获取第一个有效的 SQL 关键词
+	cleanSQL := removeComments(sqlText)
+
+	// 去除空白字符并转为大写
+	cleanSQL = strings.TrimSpace(strings.ToUpper(cleanSQL))
+
+	if cleanSQL == "" {
+		return false
+	}
+
+	// 检查是否为查询操作
+	queryKeywords := []string{"SELECT", "SHOW", "DESCRIBE", "DESC", "EXPLAIN", "WITH"}
+
+	for _, keyword := range queryKeywords {
+		if strings.HasPrefix(cleanSQL, keyword) {
+			// 确保关键词后面是空白字符或结束，避免误匹配（如 SELECTALL）
+			if len(cleanSQL) == len(keyword) ||
+				(len(cleanSQL) > len(keyword) && isWhitespace(rune(cleanSQL[len(keyword)]))) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// removeComments 移除 SQL 语句中的注释
+// 支持单行注释（--）和多行注释（/* */）
+func removeComments(sql string) string {
+	var result strings.Builder
+	runes := []rune(sql)
+	i := 0
+
+	for i < len(runes) {
+		// 检查单行注释 --
+		if i < len(runes)-1 && runes[i] == '-' && runes[i+1] == '-' {
+			// 跳过到行尾
+			for i < len(runes) && runes[i] != '\n' && runes[i] != '\r' {
+				i++
+			}
+			// 保留换行符
+			if i < len(runes) && (runes[i] == '\n' || runes[i] == '\r') {
+				result.WriteRune(' ') // 用空格替换换行，保持语句结构
+				i++
+			}
+			continue
+		}
+
+		// 检查多行注释 /* */
+		if i < len(runes)-1 && runes[i] == '/' && runes[i+1] == '*' {
+			i += 2 // 跳过 /*
+			// 寻找注释结束 */
+			for i < len(runes)-1 {
+				if runes[i] == '*' && runes[i+1] == '/' {
+					i += 2 // 跳过 */
+					break
+				}
+				i++
+			}
+			result.WriteRune(' ') // 用空格替换注释
+			continue
+		}
+
+		// 检查字符串字面量，避免在字符串内误判注释
+		if runes[i] == '\'' || runes[i] == '"' {
+			quote := runes[i]
+			result.WriteRune(runes[i])
+			i++
+
+			// 处理字符串内容，直到找到匹配的引号
+			for i < len(runes) {
+				if runes[i] == quote {
+					result.WriteRune(runes[i])
+					i++
+					break
+				}
+				// 处理转义字符
+				if runes[i] == '\\' && i < len(runes)-1 {
+					result.WriteRune(runes[i])
+					i++
+					if i < len(runes) {
+						result.WriteRune(runes[i])
+						i++
+					}
+				} else {
+					result.WriteRune(runes[i])
+					i++
+				}
+			}
+			continue
+		}
+
+		// 普通字符
+		result.WriteRune(runes[i])
+		i++
+	}
+
+	return result.String()
+}
+
+// isWhitespace 检查字符是否为空白字符
+func isWhitespace(r rune) bool {
+	return r == ' ' || r == '\t' || r == '\n' || r == '\r' || r == '\f' || r == '\v'
+}
+
+// handleSqlWebSocket 处理 SQL 终端的 WebSocket 通道
+// 协议：
+//   - 客户端发送 {type:"init", courseId:"..."} 进行初始化
+//   - 客户端发送 {type:"query", queryId:"uuid", sql:"SELECT 1"} 执行查询（简版，返回完整结果）
+//   - 客户端发送 {type:"ping"} 保活
+//   - 服务端返回 ready/info/result/complete/error/pong
+func (h *Handler) handleSqlWebSocket(c *gin.Context) {
+	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		h.logger.Error("SQL WebSocket升级失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "WebSocket连接升级失败"})
+		return
+	}
+	defer conn.Close()
+
+	var courseObj *course.Course
+	ctx := context.Background()
+
+	for {
+		var msg map[string]interface{}
+		if err := conn.ReadJSON(&msg); err != nil {
+			h.logger.Debug("SQL WebSocket读取结束或错误: %v", err)
+			return
+		}
+		t, _ := msg["type"].(string)
+		switch t {
+		case "init":
+			courseID, _ := msg["courseId"].(string)
+			if strings.TrimSpace(courseID) == "" {
+				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "缺少 courseId"})
+				continue
+			}
+			if co, ok := h.courseService.GetCourse(courseID); ok {
+				courseObj = co
+			} else {
+				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "课程不存在"})
+				continue
+			}
+			// 确保连接池就绪
+			if err := h.sqlDriver.EnsureReady(ctx, courseObj, h.dockerController); err != nil {
+				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": fmt.Sprintf("KWDB未就绪: %v", err)})
+				continue
+			}
+			// ready + info
+			_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
+			_ = conn.WriteJSON(map[string]interface{}{"type": "info", "port": courseObj.Backend.Port, "connected": true})
+		case "query":
+			if courseObj == nil || h.sqlDriver.Pool() == nil {
+				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "连接未初始化"})
+				continue
+			}
+			sqlText, _ := msg["sql"].(string)
+			qid, _ := msg["queryId"].(string)
+			if strings.TrimSpace(sqlText) == "" {
+				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": "SQL不能为空"})
+				continue
+			}
+
+			// 判断 SQL 语句类型：使用优化的函数检查是否为查询操作
+			// 支持跳过注释，能处理以注释开头的 SQL 语句
+			if isSelectQuery(sqlText) {
+				// 查询操作：使用 Query() 方法
+				rows, err := h.sqlDriver.Pool().Query(ctx, sqlText)
+				if err != nil {
+					_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": err.Error()})
+					continue
+				}
+				defer rows.Close()
+
+				// 获取列信息
+				fieldDescs := rows.FieldDescriptions()
+				cols := make([]string, 0, len(fieldDescs))
+				for _, f := range fieldDescs {
+					cols = append(cols, string(f.Name))
+				}
+
+				// 获取行数据
+				outRows := make([][]interface{}, 0, 128)
+				for rows.Next() {
+					vals, err := rows.Values()
+					if err != nil {
+						_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": err.Error()})
+						break
+					}
+					outRows = append(outRows, vals)
+				}
+
+				// 返回查询结果（包含列和行数据）
+				_ = conn.WriteJSON(map[string]interface{}{
+					"type":     "result",
+					"queryId":  qid,
+					"columns":  cols,
+					"rows":     outRows,
+					"rowCount": len(outRows),
+					"hasMore":  false,
+				})
+			} else {
+				// 数据修改操作：使用 Exec() 方法
+				commandTag, err := h.sqlDriver.Pool().Exec(ctx, sqlText)
+				if err != nil {
+					_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": err.Error()})
+					continue
+				}
+
+				// 获取受影响的行数
+				rowsAffected := commandTag.RowsAffected()
+
+				// 返回执行结果（无列数据，但包含受影响的行数）
+				_ = conn.WriteJSON(map[string]interface{}{
+					"type":     "result",
+					"queryId":  qid,
+					"columns":  []string{},
+					"rows":     [][]interface{}{},
+					"rowCount": int(rowsAffected),
+					"hasMore":  false,
+				})
+			}
+
+			_ = conn.WriteJSON(map[string]interface{}{"type": "complete", "queryId": qid})
+		case "ping":
+			_ = conn.WriteJSON(map[string]interface{}{"type": "pong"})
+		default:
+			_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "未知消息类型"})
+		}
+	}
+}
+
+// checkPortConflict 检查端口冲突
+// 检查指定课程的端口是否被其他容器占用
+// 路径参数:
+//   id: 课程ID
+// 查询参数:
+//   port: 要检查的端口号
+// 响应:
+//   200: 端口冲突检查结果
+//   400: 参数错误
+//   404: 课程不存在
+//   500: 检查失败
+func (h *Handler) checkPortConflict(c *gin.Context) {
+	courseID := c.Param("id")
+	port := c.Query("port")
+	
+	h.logger.Info("[checkPortConflict] 开始检查端口冲突，课程ID: %s, 端口: %s", courseID, port)
+
+	// 验证参数
+	if strings.TrimSpace(courseID) == "" {
+		h.logger.Error("[checkPortConflict] 错误: 课程ID为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "课程ID不能为空",
+		})
+		return
+	}
+
+	if strings.TrimSpace(port) == "" {
+		h.logger.Error("[checkPortConflict] 错误: 端口号为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "端口号不能为空",
+		})
+		return
+	}
+
+	// 将端口字符串转换为整数并验证格式
+	portInt, err := strconv.Atoi(strings.TrimSpace(port))
+	if err != nil {
+		h.logger.Error("[checkPortConflict] 错误: 端口号格式无效，端口: %s, 错误: %v", port, err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "端口号格式无效，必须是有效的整数",
+		})
+		return
+	}
+
+	// 验证端口号范围
+	if portInt <= 0 || portInt > 65535 {
+		h.logger.Error("[checkPortConflict] 错误: 端口号超出有效范围，端口: %d", portInt)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "端口号必须在 1-65535 范围内",
+		})
+		return
+	}
+
+	// 验证课程是否存在
+	_, exists := h.courseService.GetCourse(courseID)
+	if !exists {
+		h.logger.Error("[checkPortConflict] 错误: 课程不存在，课程ID: %s", courseID)
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "课程不存在",
+		})
+		return
+	}
+
+	// 检查Docker控制器是否可用
+	if h.dockerController == nil {
+		h.logger.Error("[checkPortConflict] 错误: Docker控制器未初始化")
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Docker服务暂不可用",
+		})
+		return
+	}
+
+	// 调用Docker控制器检查端口冲突（使用整数类型的端口）
+	ctx := context.Background()
+	conflictInfo, err := h.dockerController.CheckPortConflict(ctx, courseID, portInt)
+	if err != nil {
+		h.logger.Error("[checkPortConflict] 端口冲突检查失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("端口冲突检查失败: %v", err),
+		})
+		return
+	}
+
+	h.logger.Info("[checkPortConflict] 端口冲突检查完成，课程ID: %s, 端口: %d, 是否冲突: %v", 
+		courseID, portInt, conflictInfo.HasConflict)
+
+	// 构建前端期望的响应格式
+	var conflictContainers []map[string]interface{}
+	if conflictInfo.ConflictContainer != nil {
+		conflictContainers = []map[string]interface{}{
+			{
+				"id":       conflictInfo.ConflictContainer.ID,
+				"name":     conflictInfo.ConflictContainer.Name,
+				"courseId": conflictInfo.ConflictContainer.CourseID,
+				"port":     fmt.Sprintf("%d", conflictInfo.ConflictContainer.Port),
+				"state":    string(conflictInfo.ConflictContainer.State),
+			},
+		}
+	} else {
+		conflictContainers = []map[string]interface{}{}
+	}
+
+	// 返回检查结果
+	c.JSON(http.StatusOK, gin.H{
+		"courseId":          courseID,
+		"port":              fmt.Sprintf("%d", portInt),
+		"isConflicted":      conflictInfo.HasConflict,
+		"conflictContainers": conflictContainers,
+	})
+}
+
+// cleanupCourseContainers 清理课程容器
+// 清理指定课程的所有容器
+// 路径参数:
+//   id: 课程ID
+// 响应:
+//   200: 清理结果
+//   400: 参数错误
+//   404: 课程不存在
+//   500: 清理失败
+func (h *Handler) cleanupCourseContainers(c *gin.Context) {
+	courseID := c.Param("id")
+	
+	h.logger.Info("[cleanupCourseContainers] 开始清理课程容器，课程ID: %s", courseID)
+
+	// 验证参数
+	if strings.TrimSpace(courseID) == "" {
+		h.logger.Error("[cleanupCourseContainers] 错误: 课程ID为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "课程ID不能为空",
+		})
+		return
+	}
+
+	// 验证课程是否存在
+	_, exists := h.courseService.GetCourse(courseID)
+	if !exists {
+		h.logger.Error("[cleanupCourseContainers] 错误: 课程不存在，课程ID: %s", courseID)
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "课程不存在",
+		})
+		return
+	}
+
+	// 检查Docker控制器是否可用
+	if h.dockerController == nil {
+		h.logger.Error("[cleanupCourseContainers] 错误: Docker控制器未初始化")
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Docker服务暂不可用",
+		})
+		return
+	}
+
+	// 使用互斥锁防止并发操作容器
+	h.containerMutex.Lock()
+	defer h.containerMutex.Unlock()
+	h.logger.Debug("[cleanupCourseContainers] 获取容器操作锁，课程ID: %s", courseID)
+
+	// 调用Docker控制器清理容器
+	ctx := context.Background()
+	cleanupResult, err := h.dockerController.CleanupCourseContainers(ctx, courseID)
+	if err != nil {
+		h.logger.Error("[cleanupCourseContainers] 容器清理失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("容器清理失败: %v", err),
+		})
+		return
+	}
+
+	h.logger.Info("[cleanupCourseContainers] 容器清理完成，课程ID: %s, 成功: %v, 清理数量: %d", 
+		courseID, cleanupResult.Success, len(cleanupResult.CleanedContainers))
+
+	// 返回清理结果
+	c.JSON(http.StatusOK, gin.H{
+		"courseId":         courseID,
+		"success":          cleanupResult.Success,
+		"totalCleaned":     len(cleanupResult.CleanedContainers),
+		"cleanedContainers": cleanupResult.CleanedContainers,
+		"errors":           []string{}, // 错误信息现在包含在 Message 中
+		"message":          cleanupResult.Message,
+	})
 }

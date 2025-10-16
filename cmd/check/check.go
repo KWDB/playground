@@ -1,16 +1,16 @@
 package check
 
 import (
-    "embed"
-    "fmt"
-    "io"
-    "log"
-    "os"
+	"embed"
+	"fmt"
+	"io"
+	"log"
+	"os"
 
-    "github.com/spf13/cobra"
+	"github.com/spf13/cobra"
 
-    envcheck "kwdb-playground/internal/check"
-    "kwdb-playground/internal/config"
+	envcheck "kwdb-playground/internal/check"
+	"kwdb-playground/internal/config"
 )
 
 // NewCommand 创建 check 子命令：
@@ -28,11 +28,11 @@ func NewCommand(staticFiles embed.FS) *cobra.Command {
 		useEmbed   bool
 	)
 
-    cmd := &cobra.Command{
-        Use:   "check",
-        Short: "检查本地开发环境（Docker、端口占用、课程加载、服务健康）",
-        Long:  "全面检查本地开发环境：\n1) Docker 环境是否可用\n2) 指定端口是否被占用\n3) 课程资源加载与数据完整性\n4) Playground 服务运行与健康状态",
-        RunE: func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{
+		Use:   "check",
+		Short: "检查本地开发环境",
+		Long:  "全面检查本地开发环境：\n1) Docker 环境是否可用\n2) 指定端口是否被占用\n3) 课程资源加载与数据完整性\n4) Playground 服务运行与健康状态",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			// 静默模式：禁用标准库日志输出，避免内部模块在检查期间输出日志
 			// 注意：仅影响该命令的执行周期，结束后通过 defer 恢复，避免影响其他命令
 			log.SetOutput(io.Discard)
@@ -59,22 +59,22 @@ func NewCommand(staticFiles embed.FS) *cobra.Command {
 				effectiveUseEmbed = useEmbed
 			}
 
-            // 组装生效配置并调用共享检查逻辑
-            eff := cfg
-            eff.Server.Host = effectiveHost
-            eff.Server.Port = effectivePort
-            eff.Course.Dir = effectiveCoursesDir
-            eff.Course.UseEmbed = effectiveUseEmbed
+			// 组装生效配置并调用共享检查逻辑
+			eff := cfg
+			eff.Server.Host = effectiveHost
+			eff.Server.Port = effectivePort
+			eff.Course.Dir = effectiveCoursesDir
+			eff.Course.UseEmbed = effectiveUseEmbed
 
-            summary := envcheck.RunFromConfig(staticFiles, eff)
-            fmt.Println(envcheck.RenderSummaryCLI(summary))
+			summary := envcheck.RunFromConfig(staticFiles, eff)
+			fmt.Println(envcheck.RenderSummaryCLI(summary))
 
-            if !summary.OK {
-                return fmt.Errorf("环境检查存在失败项，请根据提示修复后重试")
-            }
-            return nil
-        },
-    }
+			if !summary.OK {
+				return fmt.Errorf("环境检查存在失败项，请根据提示修复后重试")
+			}
+			return nil
+		},
+	}
 
 	// Flags（仅在用户显式设置时覆盖配置）
 	cmd.Flags().StringVar(&host, "host", "", "指定服务主机（默认从环境变量/配置读取）")

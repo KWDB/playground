@@ -87,6 +87,15 @@ type Controller interface {
 
 	// IsContainerRunning 检查容器是否正在运行
 	IsContainerRunning(containerID string) (bool, error)
+
+	// CheckPortConflict 检查端口冲突
+	// 检查指定端口是否被其他容器占用，并判断是否为课程容器
+	CheckPortConflict(ctx context.Context, courseID string, port int) (*PortConflictInfo, error)
+
+	// CleanupCourseContainers 清理课程容器
+	// 停止并删除指定课程的所有容器
+	CleanupCourseContainers(ctx context.Context, courseID string) (*CleanupResult, error)
+
 	// Close 关闭控制器
 	Close() error
 }

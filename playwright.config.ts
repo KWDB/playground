@@ -21,7 +21,7 @@ export default defineConfig({
     command: 'make playwright',
     url: 'http://localhost:3006',
     timeout: 180_000,
-    reuseExistingServer: false,
+    reuseExistingServer: true,
   },
   projects: [
     {
