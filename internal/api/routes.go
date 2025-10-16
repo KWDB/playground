@@ -136,7 +136,7 @@ func (h *Handler) sqlInfo(c *gin.Context) {
 	// 确保连接池就绪
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := h.sqlDriver.EnsureReady(ctx, courseObj, h.dockerController); err != nil {
+	if err := h.sqlDriver.EnsureReady(ctx, courseObj); err != nil {
 		// 调整为返回200并标记未连接，避免前端出现“加载失败”红色错误
 		c.JSON(http.StatusOK, gin.H{
 			"connected": false,
@@ -188,7 +188,7 @@ func (h *Handler) sqlHealth(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := h.sqlDriver.EnsureReady(ctx, courseObj, h.dockerController); err != nil {
+	if err := h.sqlDriver.EnsureReady(ctx, courseObj); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "down", "message": err.Error(), "port": port})
 		return
 	}
@@ -1055,7 +1055,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 				continue
 			}
 			// 确保连接池就绪
-			if err := h.sqlDriver.EnsureReady(ctx, courseObj, h.dockerController); err != nil {
+			if err := h.sqlDriver.EnsureReady(ctx, courseObj); err != nil {
 				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": fmt.Sprintf("KWDB未就绪: %v", err)})
 				continue
 			}
@@ -1146,18 +1146,23 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 // checkPortConflict 检查端口冲突
 // 检查指定课程的端口是否被其他容器占用
 // 路径参数:
-//   id: 课程ID
+//
+//	id: 课程ID
+//
 // 查询参数:
-//   port: 要检查的端口号
+//
+//	port: 要检查的端口号
+//
 // 响应:
-//   200: 端口冲突检查结果
-//   400: 参数错误
-//   404: 课程不存在
-//   500: 检查失败
+//
+//	200: 端口冲突检查结果
+//	400: 参数错误
+//	404: 课程不存在
+//	500: 检查失败
 func (h *Handler) checkPortConflict(c *gin.Context) {
 	courseID := c.Param("id")
 	port := c.Query("port")
-	
+
 	h.logger.Info("[checkPortConflict] 开始检查端口冲突，课程ID: %s, 端口: %s", courseID, port)
 
 	// 验证参数
@@ -1226,7 +1231,7 @@ func (h *Handler) checkPortConflict(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info("[checkPortConflict] 端口冲突检查完成，课程ID: %s, 端口: %d, 是否冲突: %v", 
+	h.logger.Info("[checkPortConflict] 端口冲突检查完成，课程ID: %s, 端口: %d, 是否冲突: %v",
 		courseID, portInt, conflictInfo.HasConflict)
 
 	// 构建前端期望的响应格式
@@ -1247,9 +1252,9 @@ func (h *Handler) checkPortConflict(c *gin.Context) {
 
 	// 返回检查结果
 	c.JSON(http.StatusOK, gin.H{
-		"courseId":          courseID,
-		"port":              fmt.Sprintf("%d", portInt),
-		"isConflicted":      conflictInfo.HasConflict,
+		"courseId":           courseID,
+		"port":               fmt.Sprintf("%d", portInt),
+		"isConflicted":       conflictInfo.HasConflict,
 		"conflictContainers": conflictContainers,
 	})
 }
@@ -1257,15 +1262,18 @@ func (h *Handler) checkPortConflict(c *gin.Context) {
 // cleanupCourseContainers 清理课程容器
 // 清理指定课程的所有容器
 // 路径参数:
-//   id: 课程ID
+//
+//	id: 课程ID
+//
 // 响应:
-//   200: 清理结果
-//   400: 参数错误
-//   404: 课程不存在
-//   500: 清理失败
+//
+//	200: 清理结果
+//	400: 参数错误
+//	404: 课程不存在
+//	500: 清理失败
 func (h *Handler) cleanupCourseContainers(c *gin.Context) {
 	courseID := c.Param("id")
-	
+
 	h.logger.Info("[cleanupCourseContainers] 开始清理课程容器，课程ID: %s", courseID)
 
 	// 验证参数
@@ -1312,16 +1320,16 @@ func (h *Handler) cleanupCourseContainers(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info("[cleanupCourseContainers] 容器清理完成，课程ID: %s, 成功: %v, 清理数量: %d", 
+	h.logger.Info("[cleanupCourseContainers] 容器清理完成，课程ID: %s, 成功: %v, 清理数量: %d",
 		courseID, cleanupResult.Success, len(cleanupResult.CleanedContainers))
 
 	// 返回清理结果
 	c.JSON(http.StatusOK, gin.H{
-		"courseId":         courseID,
-		"success":          cleanupResult.Success,
-		"totalCleaned":     len(cleanupResult.CleanedContainers),
+		"courseId":          courseID,
+		"success":           cleanupResult.Success,
+		"totalCleaned":      len(cleanupResult.CleanedContainers),
 		"cleanedContainers": cleanupResult.CleanedContainers,
-		"errors":           []string{}, // 错误信息现在包含在 Message 中
-		"message":          cleanupResult.Message,
+		"errors":            []string{}, // 错误信息现在包含在 Message 中
+		"message":           cleanupResult.Message,
 	})
 }
