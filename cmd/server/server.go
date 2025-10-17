@@ -131,6 +131,42 @@ func Run(staticFiles embed.FS, args []string) error {
 		c.Data(http.StatusOK, contentType, data)
 	})
 
+	// 兼容根级静态文件（favicon、manifest等）
+	// 单独路由以支持 /favicon.ico 和 /favicon.svg 等常见路径
+	r.GET("/favicon.ico", func(c *gin.Context) {
+		// 优先读取磁盘
+		if !cfg.Course.UseEmbed {
+			if data, err := os.ReadFile("dist/favicon.ico"); err == nil {
+				c.Header("Cache-Control", "public, max-age=31536000")
+				c.Data(http.StatusOK, "image/x-icon", data)
+				return
+			}
+		}
+		// 回退到嵌入资源
+		if data, err := staticFiles.ReadFile("dist/favicon.ico"); err == nil {
+			c.Header("Cache-Control", "public, max-age=31536000")
+			c.Data(http.StatusOK, "image/x-icon", data)
+			return
+		}
+		c.Status(http.StatusNotFound)
+	})
+
+	r.GET("/favicon.svg", func(c *gin.Context) {
+		if !cfg.Course.UseEmbed {
+			if data, err := os.ReadFile("dist/favicon.svg"); err == nil {
+				c.Header("Cache-Control", "public, max-age=31536000")
+				c.Data(http.StatusOK, "image/svg+xml", data)
+				return
+			}
+		}
+		if data, err := staticFiles.ReadFile("dist/favicon.svg"); err == nil {
+			c.Header("Cache-Control", "public, max-age=31536000")
+			c.Data(http.StatusOK, "image/svg+xml", data)
+			return
+		}
+		c.Status(http.StatusNotFound)
+	})
+
 	// API 路由
 	apiHandler := api.NewHandler(courseService, dockerController, terminalManager, appLogger, cfg)
 	apiHandler.SetupRoutes(r)
