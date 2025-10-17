@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "pw:install": "pnpm exec playwright install --with-deps",
-    "test:pw": "pnpm exec playwright test"
+    "test:pw": "pnpm exec playwright test",
+    "pw:codegen": "npx playwright codegen --output=tests/playwright/new-test.ts http://localhost:3006"
   },
   "dependencies": {
     "@types/react-syntax-highlighter": "^15.5.13",

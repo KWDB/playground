@@ -17,6 +17,6 @@ test('首页加载并展示核心文案', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('本地离线交互式课程学习平台')).toBeVisible();
   await expect(page.getByRole('link', { name: '课程列表' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '环境检测' })).toBeVisible();
-  await expect(page.locator('div').filter({ hasText: /^3\/3$/ }).locator('svg')).toBeVisible();
+  await page.getByRole('button', { name: '环境检测 所有项目通过 3/' }).click();
+  await expect(page.getByText('所有检测项目通过')).toBeVisible();
 });
