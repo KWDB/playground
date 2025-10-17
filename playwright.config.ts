@@ -36,5 +36,13 @@ export default defineConfig({
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
     },
+    // 为端口冲突测试文件专门创建单独项目，并限制为 1 个 worker
+    {
+      name: 'port-conflict-serial',
+      testMatch: ['tests/playwright/port-conflict.spec.ts'],
+      workers: 1,
+      fullyParallel: false,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 });

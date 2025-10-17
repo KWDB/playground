@@ -1,12 +1,12 @@
-title: SQL 终端
-description: 欢迎来到 KWDB 课程，本场景将引导您快速体验在 KWDB 中执行您的第一个查询。
+title: 5 分钟快速体验 KWDB
+description: 通过这个示例，您可以了解 KWDB 如何同时处理时序数据和关系数据，以及如何利用其强大的跨模查询能力。
 details:
   intro:
     text: intro.md
   steps:
-    - title: Install
+    - title: 创建数据库
       text: step1.md
-    - title: Exec
+    - title: 插入&查询
       text: step2.md
   finish:
     text: finish.md
