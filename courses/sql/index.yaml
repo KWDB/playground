@@ -1,5 +1,5 @@
-title: 5 分钟快速体验 KWDB
-description: 通过这个示例，您可以了解 KWDB 如何同时处理时序数据和关系数据，以及如何利用其强大的跨模查询能力。
+title: SQL 终端快速体验 KWDB
+description: 了解 KWDB 如何同时处理时序数据和关系数据，以及如何利用其强大的跨模查询能力。
 details:
   intro:
     text: intro.md

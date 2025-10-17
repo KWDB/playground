@@ -1,5 +1,5 @@
 title: 单节点部署
-description: 使用官网脚本一键部署 KWDB 单节点
+description: 在 ubuntu 20.04 中使用官方脚本一键部署单节点 KWDB。
 details:
   intro:
     text: intro.md
