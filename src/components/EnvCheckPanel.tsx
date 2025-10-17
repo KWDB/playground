@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react'
+import { CheckCircle2, AlertCircle } from 'lucide-react'
 
 type CheckItem = {
   name: string
@@ -13,11 +13,11 @@ type Summary = {
   items: CheckItem[]
 }
 
-export default function EnvCheckPanel() {
+// 增加可选属性以支持弹窗模式：alwaysExpanded 在弹窗内始终展开
+export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpanded?: boolean }) {
   const [data, setData] = useState<Summary | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isExpanded, setIsExpanded] = useState(false) // 默认折叠状态
 
   const load = async () => {
     setLoading(true)
@@ -36,60 +36,11 @@ export default function EnvCheckPanel() {
 
   useEffect(() => { load() }, [])
 
-  // 切换展开/折叠状态
-  const toggleExpanded = () => {
-    setIsExpanded(!isExpanded)
-  }
-
-  // 计算状态摘要
-  const getStatusSummary = () => {
-    if (!data) return null
-    const totalItems = data.items.length
-    const passedItems = data.items.filter(item => item.ok).length
-    return {
-      total: totalItems,
-      passed: passedItems,
-      allPassed: data.ok
-    }
-  }
-
-  const statusSummary = getStatusSummary()
-
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-4 p-3 rounded-lg">
-        <div 
-          className="flex items-center space-x-3 cursor-pointer rounded-md p-2 -m-2 transition-colors flex-1"
-          onClick={toggleExpanded}
-        >
-          <ChevronDown 
-            className={`h-4 w-4 text-gray-500 transition-transform ${
-              isExpanded ? 'rotate-180' : 'rotate-0'
-            }`}
-          />
-          <h3 className="text-lg font-semibold text-gray-900">环境检测</h3>
-          
-          {/* 状态摘要紧跟在标题后面 */}
-          {statusSummary && !loading && (
-            <div className={`inline-flex items-center px-3 py-1 rounded text-xs font-medium ${
-              statusSummary.allPassed 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-red-100 text-red-800'
-            }`}>
-              {statusSummary.allPassed ? (
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-              ) : (
-                <AlertCircle className="h-3 w-3 mr-1" />
-              )}
-              {statusSummary.passed}/{statusSummary.total}
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* 可展开的内容区域 */}
       <div className={`transition-all duration-300 overflow-hidden ${
-        isExpanded ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'
+        alwaysExpanded ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'
       }`}>
         {/* 错误提示 */}
         {error && (

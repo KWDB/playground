@@ -37,7 +37,7 @@ function isAbortError(err: unknown): boolean {
 // API 辅助函数
 async function apiRequest(endpoint: string, options: RequestInit = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 增加到60秒超时
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 增加到 120秒超时
   
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
