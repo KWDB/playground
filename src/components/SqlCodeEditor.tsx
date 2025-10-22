@@ -177,7 +177,7 @@ export default function SqlCodeEditor({
       backdropFilter: 'blur(8px)',
       overflow: 'hidden',
       // 大幅提升 z-index 确保不被任何元素遮挡
-      zIndex: '2147483647 !important', // 使用最大安全整数值
+      zIndex: '9999 !important', // 使用最大安全整数值
       position: 'fixed !important',
       // 确保工具提示不受父容器的 transform 影响
       transform: 'translateZ(0)',
