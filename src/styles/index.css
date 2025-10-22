@@ -230,3 +230,60 @@
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
   }
 }
+
+/* CodeMirror 6 主题变量（根据站点主题自动适配） */
+:root {
+  --cm-bg: transparent;
+  --cm-foreground: #f8fafc; /* 强对比文本颜色（浅色） */
+  --cm-muted: #6b7280; /* gray-500 */
+  --cm-accent: #3b82f6; /* blue-500 */
+  --cm-selection: rgba(59, 130, 246, 0.15);
+  --cm-border: #e5e7eb; /* gray-200 */
+  --cm-tooltip-bg: #ffffff;
+  --cm-tooltip-border: #e5e7eb;
+  --cm-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --cm-list-hover-bg: #f3f4f6; /* gray-100 */
+  --cm-list-selected-bg: rgba(59, 130, 246, 0.12);
+}
+
+.dark {
+  --cm-bg: transparent;
+  --cm-foreground: #f8fafc; /* 强对比文本颜色（浅色） */
+  --cm-muted: #9ca3af; /* gray-400 */
+  --cm-accent: #7dd3fc; /* sky-300 */
+  --cm-selection: #1f2937; /* gray-800 */
+  --cm-border: #374151; /* gray-700 */
+  --cm-tooltip-bg: #0f172a; /* slate-900 */
+  --cm-tooltip-border: #374151;
+  --cm-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+  --cm-list-hover-bg: #111827; /* gray-900 */
+  --cm-list-selected-bg: rgba(125, 211, 252, 0.14);
+}
+
+/* 补全面板与签名提示的入场动画 */
+@keyframes cm-fade-in {
+  0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 减少动画偏好时禁用 */
+@media (prefers-reduced-motion: reduce) {
+  .cm-tooltip { animation: none !important; }
+}
+
+/* 补全列表滚动条样式（与终端一致） */
+.cm-tooltip-autocomplete .cm-completionList::-webkit-scrollbar {
+  width: 8px;
+}
+.cm-tooltip-autocomplete .cm-completionList::-webkit-scrollbar-track {
+  background: #21262d;
+  border-radius: 4px;
+}
+.cm-tooltip-autocomplete .cm-completionList::-webkit-scrollbar-thumb {
+  background: var(--cm-accent);
+  border-radius: 4px;
+  border: 1px solid #21262d;
+}
+.cm-tooltip-autocomplete .cm-completionList::-webkit-scrollbar-thumb:hover {
+  filter: brightness(1.1);
+}
