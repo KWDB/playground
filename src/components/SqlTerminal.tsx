@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import EnhancedSqlEditor from './EnhancedSqlEditor'
 
 type Props = {
   courseId: string
@@ -31,133 +30,6 @@ export interface SqlTerminalRef {
 }
 
 // SQL 语法高亮编辑器组件
-const SqlHighlightEditor = ({
-  value,
-  onChange,
-  placeholder,
-  disabled,
-  className
-}: {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  disabled?: boolean
-  className?: string
-}) => {
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const highlightRef = useRef<HTMLDivElement>(null)
-  const [isFocused, setIsFocused] = useState(false)
-
-  // 处理输入变化
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(e.target.value)
-  }
-
-  // 处理滚动同步
-  const handleScroll = () => {
-    if (highlightRef.current && textareaRef.current) {
-      highlightRef.current.scrollTop = textareaRef.current.scrollTop
-      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft
-    }
-  }
-
-  // 自定义样式，确保与终端主题协调
-  const customStyle = {
-    ...vscDarkPlus,
-    'pre[class*="language-"]': {
-      ...vscDarkPlus['pre[class*="language-"]'],
-      background: 'transparent',
-      margin: 0,
-      padding: '8px',
-      fontSize: '14px',
-      lineHeight: '1.5',
-      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-    },
-    'code[class*="language-"]': {
-      ...vscDarkPlus['code[class*="language-"]'],
-      background: 'transparent',
-      fontSize: '14px',
-      lineHeight: '1.5',
-      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-    }
-  }
-
-  return (
-    <div className={`relative ${className}`}>
-      {/* 语法高亮显示层 */}
-      <div
-        ref={highlightRef}
-        className="absolute inset-0 pointer-events-none overflow-auto rounded scrollbar-hide"
-        style={{
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-        }}
-      >
-        <SyntaxHighlighter
-          language="sql"
-          style={customStyle}
-          customStyle={{
-            background: 'transparent',
-            margin: 0,
-            padding: '8px',
-            fontSize: '14px',
-            lineHeight: '1.5',
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-          codeTagProps={{
-            style: {
-              background: 'transparent',
-              fontSize: '14px',
-              lineHeight: '1.5',
-              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }
-          }}
-        >
-          {value || ' '}
-        </SyntaxHighlighter>
-      </div>
-
-      {/* 透明输入层 */}
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={handleChange}
-        onScroll={handleScroll}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className={`
-          relative z-10 w-full h-full resize-none bg-transparent text-transparent caret-gray-200
-          p-2 border border-gray-700/50 rounded overflow-auto
-          focus:outline-none focus:ring-2 focus:ring-blue-500
-          font-mono text-sm leading-relaxed
-          ${disabled ? 'cursor-not-allowed' : ''}
-        `}
-        style={{
-          fontSize: '14px',
-          lineHeight: '1.5',
-          fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-        }}
-        spellCheck={false}
-      />
-
-      {/* 占位符显示 */}
-      {!value && placeholder && !isFocused && (
-        <div className="absolute inset-0 pointer-events-none p-2 text-gray-500 text-sm font-mono z-20">
-          {placeholder}
-        </div>
-      )}
-    </div>
-  )
-}
-
 const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus }, ref) => {
   const [info, setInfo] = useState<SqlInfo | null>(null)
   const [loading, setLoading] = useState(false)
@@ -471,12 +343,12 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
               <div className="text-xs text-gray-400">执行区</div>
               <div className={`text-xs ${wsConnected ? 'text-emerald-400' : 'text-yellow-400'}`}>{wsConnected ? 'WS 已连接' : 'WS 未连接'}</div>
             </div>
-            {/* SQL 语法高亮输入框 */}
-            <SqlHighlightEditor
+            {/* SQL 编辑器（增强版，支持语法高亮） */}
+            <EnhancedSqlEditor
               value={queryText}
               onChange={setQueryText}
               placeholder="输入 SQL，按下方按钮执行"
-              className="w-full h-24 bg-gray-800/60"
+              className="w-full bg-gray-800/60"
               disabled={executing}
             />
             <div className="mt-2 flex justify-end">

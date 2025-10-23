@@ -1185,7 +1185,7 @@ export function Learn() {
       />
 
       {/* 端口冲突处理组件 */}
-      {course?.id && course?.backend?.port && (
+      {course?.id && course?.backend?.port != null && (
         <PortConflictHandler
           courseId={course.id}
           port={course.backend.port}
