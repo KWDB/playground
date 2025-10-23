@@ -38,7 +38,7 @@ KWDB Playground 是一个面向学习与演示的交互式课程平台，支持�
 - 适用场景：数据库入门、查询语言练习、示例数据探查等课程。
 - 常见操作：启动课程 → 启动容器 → 输入语句（如 `SELECT 1`）→ 查看结果区输出。
 
-![SQL 终端类型](./docs/images/SQLTerminal.gif)
+![SQL 终端类型](./docs/images/SqlTerminal.gif)
 
 ## 快速开始
 
