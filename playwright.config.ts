@@ -26,14 +26,17 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: ['tests/playwright/port-conflict.spec.ts'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'firefox',
+      testIgnore: ['tests/playwright/port-conflict.spec.ts'],
       use: { ...devices['Desktop Firefox'] },
     },
     {
       name: 'webkit',
+      testIgnore: ['tests/playwright/port-conflict.spec.ts'],
       use: { ...devices['Desktop Safari'] },
     },
     // 为端口冲突测试文件专门创建单独项目，并限制为 1 个 worker
