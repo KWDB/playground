@@ -1,298 +1,75 @@
-# KWDB Playground
+# KWDB Playground 交互式课程学习平台
 
-KWDB Playground 提供了一个实践环境，以便用户可以轻松地探索 KWDB 的功能。
+KWDB Playground 是一个面向学习与演示的交互式课程平台，支持在同一页面中浏览课程、启动容器、执行命令或运行 SQL，帮助你在几分钟内完成从零到一的体验。
 
-本项目采用 Go 与 Node.js 构建，帮助用户在 Docker 容器中快速体验 KWDB。
+## 界面预览与说明
 
-## 启动说明
+### 首页
 
-### 1. 安装依赖项
+- 用途：平台入口，展示项目简介与主要功能入口。
+- 关键元素：顶部导航、进入课程的入口区域。
+- 到达方式：启动服务后访问 `http://localhost:3006`。
 
-请先安装以下基础环境：
-- Go 1.23
-- Node.js ≥ 18 与 pnpm ≥ 8
-- Docker
+![首页](./docs/images/home.png)
 
-安装项目依赖：
+### 课程列表
 
-```bash
-# 前端依赖
-pnpm install
+- 用途：浏览所有可用课程，包含课程标题与简介。
+- 操作方式：点击任意课程卡片进入该课程的学习详情页。
+- 到达方式：在首页点击“课程”入口或导航菜单进入课程列表。
 
-# 若使用 Python 运行 e2e 测试（可选）
-pip install -r requirements.txt
-```
+![课程列表](./docs/images/courses.png)
 
-### 2. 必要的环境配置
+### 课程详情
 
-项目支持从环境变量进行配置。你可以在项目根目录创建 `.env` 文件（可选）：
+课程详情页根据课程类型提供不同的交互区域，主要有 **Shell 终端型** 与 **SQL 终端型** 两类。
 
-```env
-# 服务器监听地址与端口
-SERVER_HOST=0.0.0.0
-SERVER_PORT=3006
+#### Shell 终端型
 
-# 课程内容目录（开发模式）
-COURSE_DIR=./courses
+- 用途：在浏览器内进行命令行交互（如 `echo`, `ls`, 包管理等）。
+- 适用场景：练习安装 KWDB 及相关工具、配置环境、执行系统命令等。
+- 常见操作：启动课程 → 启动容器 → 在终端输入命令并查看输出。
 
-# 是否使用嵌入式课程与前端资源（发布模式建议开启）
-COURSES_USE_EMBED=0
+![Shell 终端类型](./docs/images/ShellTerminal.gif)
 
-# 是否启用课程热重载（开发模式更友好）
-COURSES_RELOAD=1
-```
+#### SQL 终端型
 
-说明：
-- 开发模式：`COURSES_USE_EMBED=0`，课程与前端资源从磁盘读取，利于本地调试与热更新。
-- 发布模式：`COURSES_USE_EMBED=1`，课程与前端资源打包进单一二进制，便于部署分发。
+- 用途：在浏览器内执行 SQL 语句并查看查询结果。
+- 适用场景：数据库入门、查询语言练习、示例数据探查等课程。
+- 常见操作：启动课程 → 启动容器 → 输入语句（如 `SELECT 1`）→ 查看结果区输出。
 
-### 3. 运行项目的具体命令
+![SQL 终端类型](./docs/images/SqlTerminal.gif)
 
-本地开发启动：
+## 快速开始
 
-```bash
-# 启动后端与前端静态资源服务（端口 http://localhost:3006）
-make dev
-```
+### 发布版使用（推荐）
 
-构建并启动（非守护）：
-
-```bash
-# 构建前后端
-make build
-
-# 启动二进制
-./bin/kwdb-playground server
-```
-
-访问地址：
-- 本地页面：http://localhost:3006
-
-## 编译指南
+- 在 [Release 页面](https://github.com/kwdb/playground/releases) 下载最新版本的 `kwdb-playground` 二进制文件。
+- 启动服务：
+  ```bash
+  kwdb-playground server
+  ```
+- 打开浏览器访问 `http://localhost:3006`，进入课程列表并开始交互体验。
 
-### 1. 编译所需工具与环境
-- Go 1.23（建议 `go env` 验证）
-- Node.js ≥ 18 与 pnpm ≥ 8
-- macOS / Linux / Windows（编译平台，对应交叉编译目标见发布流程）
+### 开发版使用
 
-### 2. 分步骤编译过程
+- 克隆仓库并安装前端依赖：
+  ```bash
+  git clone https://github.com/kwdb/playground.git
+  cd playground
+  make install
+  ```
+- 启动后端与前端：
+  ```bash
+  # 前后端同时启动
+  make dev
+  ```
+- 访问 `http://localhost:3006` 进行体验。
 
-```bash
-# 前端构建（产物将生成到 dist/）
-pnpm run build
+> 进阶用法（环境变量配置与 Docker 依赖等）请参阅完整使用指南 [`docs/usage-guide.md`](./docs/usage-guide.md)。
 
-# 后端构建（默认生成 kwdb-playground 二进制）
-make backend
+## 相关文档
 
-# 或者一键构建前后端
-make build
-```
+- 开发指南：`docs/usage-guide.md`（系统要求、安装部署、功能使用、配置参数、常见问题）。
+- 测试说明：`tests/README.md`（Playwright 与 PyTest E2E 的运行与排障）。
 
-生成的二进制默认位于 `bin/kwdb-playground`
-
-### 3. 常见编译问题与解决方案
-- 构建后运行报错：找不到前端资源或课程
-  - 解决：确保已执行 `pnpm run build` 并生成 `dist/`；开发模式下确认 `COURSE_DIR` 指向 `./courses`。
-- `pnpm` 命令不存在或版本过低
-  - 解决：安装或升级 pnpm（https://pnpm.io/）；确保 Node.js 版本 ≥ 18。
-- Go 版本不匹配
-  - 解决：安装 Go 1.23，并使用 `go env` 确认环境。必要时调整 `PATH` 指向正确的 Go 安装目录。
-- 端口被占用（3006）
-  - 解决：修改 `SERVER_PORT` 或释放占用进程。
-- Docker 功能不可用
-  - 解决：确保本机 Docker 服务已启动；如不需要容器功能，可忽略相关警告。
-
-## 发布流程
-
-### 1. 发布自动化（GitHub Release）
-- 本仓库已配置 GitHub Actions 自动发布工作流：`.github/workflows/release.yml`
-- 触发方式：推送语义化版本标签到远程，例如 `v1.2.0`
-- 工作流内容：
-  - 验证构建（`make check`、前端 `pnpm run build`、Go 测试 `go test -v ./...`）
-  - 跨平台构建（Linux amd64、macOS arm64、Windows amd64），启用嵌入模式打包前端与课程
-  - 生成 `sha256` 校验文件并上传到 Release
-  - 生成分发包（zip/tar.gz），每包包含二进制、`LICENSE` 与 `README` 摘要，并附 `distribution-checksums.txt`
-  - 自动生成 Release Notes 并发布二进制制品
-
-#### 使用步骤
-1) 本地创建版本标签并推送：
-```bash
-git tag v1.2.0
-git push origin v1.2.0
-```
-2) 等待 GitHub Actions 完成，访问 Releases 页面下载对应平台的二进制：
-- `kwdb-playground-linux-amd64`
-- `kwdb-playground-darwin-arm64`
-- `kwdb-playground-windows-amd64.exe`
-- `checksums.txt`（包含上述文件的 SHA256）
- 或下载打包分发物：
- - `kwdb-playground-linux-amd64.tar.gz`
- - `kwdb-playground-darwin-arm64.tar.gz`
- - `kwdb-playground-windows-amd64.zip`
- - `distribution-checksums.txt`（包含上述压缩包的 SHA256）
-
-#### 校验下载文件
-```bash
-# 以 Linux 为例
-sha256sum -c checksums.txt | grep linux-amd64
-
-# 校验分发包
-sha256sum -c distribution-checksums.txt | grep linux-amd64
-```
-
-#### 预发布（prerelease）标签
-- 若标签包含后缀 `-alpha`、`-beta` 或 `-rc`，会自动标记为 Pre-release。
-
-#### 注意事项
-- 工作流使用 `Go 1.23` 与 `Node.js 18 + pnpm 8`，确保依赖版本兼容。
-- 构建过程启用 `COURSES_USE_EMBED=true` 与 `CGO_ENABLED=0`，可在 Linux Runner 上跨平台生成 macOS/Windows 二进制。
-
-### 2. 手动发布（本地）
-单平台发布：
-```bash
-# 生成发布版二进制（嵌入静态资源与课程）
-COURSES_USE_EMBED=1 make release
-
-# 运行发布版
-COURSES_USE_EMBED=1 make release-run
-```
-
-跨平台构建：
-```bash
-# Linux AMD64
-COURSES_USE_EMBED=1 make release-linux-amd64
-
-# macOS ARM64（Apple Silicon）
-COURSES_USE_EMBED=1 make release-darwin-arm64
-
-# Windows AMD64
-COURSES_USE_EMBED=1 make release-windows-amd64
-
-# 一键构建所有目标
-COURSES_USE_EMBED=1 make release-all
-```
-
-## 守护进程模式
-
-项目支持通过 `--daemon` 或 `-d` 以守护进程模式运行，自动 fork + detach、管理 PID 文件，标准输出与错误重定向到守护日志文件。
-
-### 使用方法
-
-```bash
-# 开发模式（磁盘资源）后台运行
-./bin/kwdb-playground server -d
-
-# 发布模式（嵌入资源）后台运行
-COURSES_USE_EMBED=1 ./bin/kwdb-playground server -d
-
-# 查看日志
- tail -f logs/daemon.log
-
-# 查看 PID
- cat tmp/kwdb-playground.pid
-
-# 优雅停止（清理 PID 文件）
- kill -TERM $(cat tmp/kwdb-playground.pid)
-# 或发送 SIGINT
- kill -INT $(cat tmp/kwdb-playground.pid)
-```
-
-说明：
-- 守护模式当前针对类 Unix 系统（macOS/Linux）设计；Windows 下建议以服务方式运行或使用任务计划实现后台运行。
-- 若存在陈旧 PID 文件或端口占用，将拒绝重复启动并给出提示。
-
-## 自检命令（check）
-
-该命令用于快速诊断本地环境与服务状态。
-
-检查内容：
-- 端口占用：可区分“被本服务占用（正常）”与“被其他进程占用（冲突）”，仅在实际端口冲突时提示错误。
-- 服务状态：检测 TCP 可达性与 HTTP 健康检查（/health）。
-- Docker 环境：检测本机 Docker 客户端与服务是否可用。
-- 课程资源：检测课程索引与可用性。
-
-用法示例：
-```bash
-# 开发模式：从源码直接运行
-go run . check
-
-# 二进制运行
-./bin/kwdb-playground check
-
-# 指定主机与端口（默认从环境变量 SERVER_HOST/SERVER_PORT 读取，端口默认 3006）
-./bin/kwdb-playground check --host localhost --port 3006
-```
-
-端口占用判定规则：
-- 若检测到端口被占用，将主动请求 `http://<host>:<port>/health`。
-- 若返回符合 KWDB Playground 的健康响应（例如 status: ok 等特征），判定为“被本服务使用（正常）”，不会报错。
-- 若健康端点不可达或响应不符合预期，则判定为“被其他进程占用（冲突）”，会给出错误提示。
-
-示例输出（仅示意）：
-```
-================ 环境检查开始 ================
-[✅] Docker 环境：Docker 客户端与守护进程连接正常
-[✅] 端口占用 (localhost:3006)：端口被本服务使用（正常）
-[✅] 课程加载与完整性：课程加载成功，共 2 门，数据完整性检查通过
-[✅] 服务健康检查 (localhost:3006)：服务正在运行且健康（/health 返回 200）
-================ 环境检查结束 ================
-```
-
-## e2e 测试
-
-### 1. 测试环境准备
-
-```bash
-# 安装测试环境
-./scripts/setup_e2e_env.sh
-
-# 启动应用服务
-make dev
-```
-
-### 2. 执行测试
-
-```bash
-# 完整测试套件
-./scripts/run_e2e_tests.sh
-
-# 快速核心测试
-./scripts/quick_e2e_test.sh
-
-# 单独执行特定测试
-source e2e_test_env/bin/activate
-pytest tests/e2e/test_user_journey.py -v
-```
-
-## Release 自动化设计说明
-
-- 版本规范：采用语义化版本（SemVer），示例：`vMAJOR.MINOR.PATCH`，如 `v1.2.0`
-- 触发策略：仅当推送 `v*` 标签时执行发布工作流，避免普通 CI 与发布互相影响
-- 构建策略：通过 Makefile 的 `release-all` 目标统一进行跨平台嵌入式构建，确保产物一致性
-- 制品清单：包含三个平台二进制与 `checksums.txt`，用于快速下载安装与校验
- 以及三种平台的压缩分发包（含 `LICENSE` 与 `README` 摘要）与 `distribution-checksums.txt`
-- 安全策略：GitHub Actions 使用默认的 `GITHUB_TOKEN` 发布 Release，权限仅限当前仓库内容
-- 可扩展性：如需添加其他架构（例如 `linux/arm64`），可仿照 Makefile 现有目标新增，并在工作流中追加上传
-
-如需在企业内部 GitLab 等环境复用，可参考本工作流迁移到对应 CI 平台，并保持 Makefile 目标一致以降低迁移成本。
-
-### 3. 查看结果
-
-```bash
-# 查看HTML测试报告
-open tests/reports/e2e_report.html
-
-# 查看测试截图
-ls tests/screenshots/
-```
-
-## 常见问题与故障排除
-
-- 启动后页面空白或资源 404
-  - 检查 `dist/` 是否存在；开发模式下 `make dev` 是否已启动；发布模式下是否设置了 `COURSES_USE_EMBED=1`。
-- 课程列表为空或内容无法阅读
-  - 检查 `COURSE_DIR` 配置（开发模式）；确认 `courses/` 目录结构完整（含 `index.yaml` 与 Markdown 内容）。
-- 守护模式无法启动或日志未写入
-  - 检查 `logs/` 与 `tmp/` 目录是否有写权限；确认未有旧的 PID 持有与端口占用。
-- Docker 相关功能不可用
-  - 确认 Docker 服务运行正常；若不需要该功能，可忽略相关警告。
