@@ -54,7 +54,8 @@ import { fetchJson } from '../lib/http'
   // 端口冲突处理相关状态
   const [showPortConflictHandler, setShowPortConflictHandler] = useState<boolean>(false)
 
-  // 定期状态检查的引用
+  // 确认弹窗模式：区分来源以动态文案
+  const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const statusAbortControllerRef = useRef<AbortController | null>(null)
   const startAbortControllerRef = useRef<AbortController | null>(null)
@@ -766,13 +767,20 @@ import { fetchJson } from '../lib/http'
   }
 
   // 退出课程并跳转到课程列表
-  const exitCourseAndNavigate = async () => {
-    await exitCourse()
-    navigate('/courses')
-  }
+  // const exitCourseAndNavigate = async () => {
+  //   await exitCourse()
+  //   navigate('/courses')
+  // }
 
   // 处理返回按钮点击事件，显示确认对话框
   const handleBackClick = () => {
+    setConfirmDialogMode('back')
+    setShowConfirmDialog(true)
+  }
+
+  // 处理“退出课程”按钮点击事件，复用返回逻辑但更简短提示
+  const handleExitClick = () => {
+    setConfirmDialogMode('exit')
     setShowConfirmDialog(true)
   }
 
@@ -1141,7 +1149,7 @@ import { fetchJson } from '../lib/http'
               onNext={goToNext}
               canPrev={canGoPrevious()}
               canNext={canGoNext()}
-              onExit={exitCourseAndNavigate}
+              onExit={handleExitClick}
             />
           </Panel>
 
@@ -1187,8 +1195,8 @@ import { fetchJson } from '../lib/http'
       <ConfirmDialog
         isOpen={showConfirmDialog}
         title="确认退出课程"
-        message="返回课程列表将停止课程容器并丢失所有课程进度，确定要继续吗？"
-        confirmText="确定退出"
+        message={confirmDialogMode === 'exit' ? '确认要退出当前课程吗？' : '返回课程列表将停止课程容器并丢失所有课程进度，确定要继续吗？'}
+        confirmText={confirmDialogMode === 'exit' ? '确定' : '确定退出'}
         cancelText="取消"
         onConfirm={handleConfirmExit}
         onCancel={handleCancelExit}
