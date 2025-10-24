@@ -121,7 +121,7 @@ import { fetchJson } from '../lib/http'
       try {
         // 取消上一轮未完成的请求，避免堆积
         statusAbortControllerRef.current?.abort()
-         startAbortControllerRef.current?.abort()
+
       const controller = new AbortController()
         statusAbortControllerRef.current = controller
         const statusData = await checkContainerStatus(id, false, controller.signal)

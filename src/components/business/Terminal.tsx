@@ -48,6 +48,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
   // 记录上一次的进度与状态，减少终端内重复输出，避免闪烁
   const lastProgressRef = useRef<number | null>(null);
   const lastStatusRef = useRef<string>('');
+  const debounceTimeoutRef = useRef<number | null>(null);
   
   // 状态管理
   const [isConnected, setIsConnected] = useState(false);
@@ -57,18 +58,15 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
   // 防抖函数用于窗口大小调整（浏览器友好类型）
   /** 简单防抖：适配浏览器定时器类型，避免频繁 resize 导致布局抖动 */
 const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, wait: number) => {
-    let timeoutId: number | null = null;
-    const later = (...args: Parameters<T>) => {
-      if (timeoutId !== null) {
-        clearTimeout(timeoutId);
-      }
-      func(...args);
-    };
     return (...args: Parameters<T>) => {
-      if (timeoutId !== null) {
-        clearTimeout(timeoutId);
+      const tid = debounceTimeoutRef.current;
+      if (tid !== null) {
+        clearTimeout(tid);
       }
-      timeoutId = window.setTimeout(() => later(...args), wait);
+      debounceTimeoutRef.current = window.setTimeout(() => {
+        func(...args);
+        debounceTimeoutRef.current = null; // 执行后清空，确保下一轮正常工作
+      }, wait);
     };
   }, []);
 
