@@ -5,7 +5,7 @@ import { sql } from '@codemirror/lang-sql'
 import { autocompletion, CompletionContext, Completion } from '@codemirror/autocomplete'
 import { syntaxTree } from '@codemirror/language'
 import { lintGutter } from '@codemirror/lint'
-import { ensureContrast, suggestMuted, suggestAccent, setCssVars } from '../lib/contrast'
+import { ensureContrast, suggestMuted, suggestAccent, setCssVars } from '@/lib/contrast'
 
 // 美化版 SQL 编辑器（CodeMirror 6）
 // 目标：提供现代化、美观的 SQL 编辑体验

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import EnhancedSqlEditor from './EnhancedSqlEditor'
+import { fetchJson } from '@/lib/http'
 
 type Props = {
   courseId: string
@@ -44,6 +45,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   const [lastExecutionResult, setLastExecutionResult] = useState<ExecutionResult | null>(null)
 
   const wsRef = useRef<WebSocket | null>(null)
+  const infoAbortControllerRef = useRef<AbortController | null>(null)
 
   // 拼接信息接口 URL
   const infoUrl = useMemo(() => `/api/sql/info?courseId=${encodeURIComponent(courseId)}`, [courseId])
@@ -93,15 +95,15 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   }), [sendCommand])
 
   // 加载连接信息
-  const fetchInfo = useCallback(async () => {
+  const fetchInfo = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(infoUrl)
-      if (!res.ok) throw new Error(`加载连接信息失败: ${res.status}`)
-      const data = await res.json()
+      const data = await fetchJson<SqlInfo>(infoUrl, { signal })
       setInfo(data)
     } catch (e) {
+      const maybeAbort = e as { name?: string }
+      if (maybeAbort?.name === 'AbortError') return
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg || '未知错误')
     } finally {
@@ -110,13 +112,29 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   }, [infoUrl])
 
   useEffect(() => {
-    fetchInfo()
+    // 中止上一轮信息请求并启动新一轮
+    infoAbortControllerRef.current?.abort()
+    const controller = new AbortController()
+    infoAbortControllerRef.current = controller
+    fetchInfo(controller.signal)
+
+    // 依赖变化或卸载时中止当前信息请求
+    return () => {
+      infoAbortControllerRef.current?.abort()
+      infoAbortControllerRef.current = null
+    }
   }, [fetchInfo])
 
   // 通过 ref 持有最新的 fetchInfo，避免在 WebSocket 回调中闭包过期
   const fetchInfoRef = useRef<() => void>(() => { })
   useEffect(() => {
-    fetchInfoRef.current = fetchInfo
+    fetchInfoRef.current = () => {
+      // 中止上一轮信息请求，避免并发
+      infoAbortControllerRef.current?.abort()
+      const controller = new AbortController()
+      infoAbortControllerRef.current = controller
+      fetchInfo(controller.signal)
+    }
   }, [fetchInfo])
 
   // 建立 WebSocket 连接
@@ -129,6 +147,9 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
         wsRef.current = null
       }
       setWsConnected(false)
+      // 终止当前信息请求并清理引用
+      infoAbortControllerRef.current?.abort()
+      infoAbortControllerRef.current = null
       return
     }
 
@@ -281,6 +302,14 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     return () => { clearInterval(timer) }
   }, [courseId, info?.connected, containerStatus])
 
+  // 组件卸载时中止可能仍在进行的信息请求
+  useEffect(() => {
+    return () => {
+      infoAbortControllerRef.current?.abort()
+      infoAbortControllerRef.current = null
+    }
+  }, [])
+
   // 发送查询
   const runQuery = () => {
     // 清除之前的结果和错误信息
@@ -311,7 +340,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
           <span className="text-gray-300">端口: {port}</span>
         </div>
         <button
-          onClick={fetchInfo}
+          onClick={() => fetchInfoRef.current()}
           className="px-3 py-1.5 text-sm rounded bg-gray-800/60 text-gray-200 hover:bg-gray-700/80 border border-gray-600/50"
         >刷新</button>
       </div>

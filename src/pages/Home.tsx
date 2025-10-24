@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, Play, Terminal, X } from 'lucide-react'
-import EnvCheckPanel from '@/components/EnvCheckPanel'
-import EnvCheckButton from '@/components/EnvCheckButton'
+import EnvCheckPanel from '@/components/business/EnvCheckPanel'
+import EnvCheckButton from '@/components/business/EnvCheckButton'
 
 export function Home() {
   // 控制环境检测弹窗显示的状态

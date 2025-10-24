@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, u
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
+import ImagePullProgressOverlay from './terminal/ImagePullProgressOverlay';
+import ConnectionIndicator from './terminal/ConnectionIndicator';
 
 // 镜像拉取进度消息接口
 interface ImagePullProgressMessage {
@@ -15,16 +17,23 @@ interface ImagePullProgressMessage {
 }
 
 // 终端组件属性接口
+// 更精确的容器状态类型，便于类型收敛与代码可读性
+/** 容器生命周期状态，驱动终端 WS 连接策略与进度显示 */
+export type ContainerStatus = 'running' | 'starting' | 'stopping' | 'stopped' | 'exited' | 'completed' | 'unknown' | 'error';
+
+/** Terminal 组件入参：通过 containerId 与 containerStatus 控制连接与显示 */
 interface TerminalProps {
-  containerId?: string; // 改为可选参数，支持容器启动过程中的显示
-  containerStatus?: string; // 新增：容器状态，用于控制WS连接策略（running/starting/stopped）
+  containerId?: string; // 可选：支持容器启动过程中的显示
+  containerStatus?: ContainerStatus; // 容器状态：控制WS连接策略与进度连接
 }
 
 // 终端引用接口
+/** Terminal 暴露的外部方法，供父组件向容器终端发送命令 */
 export interface TerminalRef {
   sendCommand: (command: string) => void;
 }
 
+/** XTerm 终端组件：管理容器命令 WebSocket 与镜像进度 WebSocket，提供 sendCommand 能力 */
 const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containerStatus }, ref) => {
   // 引用和状态管理
   const xtermRef = useRef<XTerm | null>(null);
@@ -45,16 +54,21 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
   const [imagePullProgress, setImagePullProgress] = useState<ImagePullProgressMessage | null>(null);
   const [showProgress, setShowProgress] = useState(false);
 
-  // 防抖函数用于窗口大小调整
-  const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, wait: number) => {
-    let timeout: NodeJS.Timeout;
-    return function executedFunction(...args: Parameters<T>) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
+  // 防抖函数用于窗口大小调整（浏览器友好类型）
+  /** 简单防抖：适配浏览器定时器类型，避免频繁 resize 导致布局抖动 */
+const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, wait: number) => {
+    let timeoutId: number | null = null;
+    const later = (...args: Parameters<T>) => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+      func(...args);
+    };
+    return (...args: Parameters<T>) => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = window.setTimeout(() => later(...args), wait);
     };
   }, []);
 
@@ -131,6 +145,60 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
     return null;
   }, []);
 
+  // 统一处理镜像拉取进度（终端输出与覆盖层显示）
+  /** 统一处理镜像拉取进度：更新覆盖层并可选输出到终端，成功/失败后自动隐藏 */
+const handleImagePullProgress = useCallback((payload: { imageName?: string; status?: string; progress?: string; error?: string }, echoToTerminal: boolean) => {
+    const imageName: string = payload.imageName || '未知镜像';
+    const status: string = payload.status || '正在拉取镜像...';
+    const progressText: string | undefined = payload.progress;
+    const errorText: string | undefined = payload.error;
+
+    const percent = parseProgressPercent(progressText ?? undefined);
+
+    const progressData: ImagePullProgressMessage = {
+      imageName,
+      status,
+      progress: progressText,
+      error: errorText,
+      progressPercent: percent ?? undefined,
+      lastUpdated: Date.now(),
+    };
+
+    setImagePullProgress(progressData);
+    setShowProgress(true);
+
+    const statusChanged = lastStatusRef.current !== status;
+    const percentChanged = percent != null && (lastProgressRef.current == null || Math.abs(percent - (lastProgressRef.current ?? 0)) >= 1);
+
+    if (echoToTerminal && xtermRef.current && (statusChanged || percentChanged)) {
+      if (errorText) {
+        xtermRef.current.write(`\r\n\x1b[31m❌ 镜像拉取失败: ${errorText}\x1b[0m\r\n`);
+      } else if (statusChanged) {
+        xtermRef.current.write(`\r\n\x1b[36m[镜像拉取] ${status}${percent != null ? ` (${percent}%)` : ''}\x1b[0m\r\n`);
+      } else if (percentChanged) {
+        xtermRef.current.write(`\r\n\x1b[34m📦 进度: ${progressText ?? ''}${percent != null ? ` | ${percent}%` : ''}\x1b[0m\r\n`);
+      }
+    }
+
+    lastStatusRef.current = status;
+    if (percent != null) {
+      lastProgressRef.current = percent;
+    }
+
+    const isSuccess = (
+      (status && (status.includes('拉取完成') || status.includes('Pull complete') || status.includes('Already exists'))) ||
+      false
+    );
+    if (isSuccess || errorText) {
+      setTimeout(() => {
+        setShowProgress(false);
+        setImagePullProgress(null);
+        lastProgressRef.current = null;
+        lastStatusRef.current = '';
+      }, 1200);
+    }
+  }, [parseProgressPercent]);
+
   // WebSocket连接管理函数
   const connectWebSocket = useCallback(() => {
     if (!containerId || !xtermRef.current) return;
@@ -181,54 +249,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
             } else if (msg.type === 'image_pull_progress') {
               // 修复数据解析：后端发送在 data 字段内
               const payload = msg.data || {};
-              const imageName: string = payload.imageName || '未知镜像';
-              const status: string = payload.status || '正在拉取镜像...';
-              const progressText: string | undefined = payload.progress;
-              const errorText: string | undefined = payload.error;
-
-              // 解析百分比，便于确定型进度条显示
-              const percent = parseProgressPercent(progressText ?? undefined);
-
-              const progressData: ImagePullProgressMessage = {
-                imageName,
-                status,
-                progress: progressText,
-                error: errorText,
-                progressPercent: percent ?? undefined,
-                lastUpdated: Date.now(),
-              };
-
-              setImagePullProgress(progressData);
-              setShowProgress(true);
-
-              // 在终端中显示进度信息（防重复输出，阈值为1%或状态变化）
-              const statusChanged = lastStatusRef.current !== status;
-              const percentChanged = percent != null && (lastProgressRef.current == null || Math.abs(percent - (lastProgressRef.current ?? 0)) >= 1);
-              if (xtermRef.current && (statusChanged || percentChanged)) {
-                if (errorText) {
-                  xtermRef.current.write(`\r\n\x1b[31m❌ 镜像拉取失败: ${errorText}\x1b[0m\r\n`);
-                } else if (statusChanged) {
-                  xtermRef.current.write(`\r\n\x1b[36m[镜像拉取] ${status}${percent != null ? ` (${percent}%)` : ''}\x1b[0m\r\n`);
-                } else if (percentChanged) {
-                  xtermRef.current.write(`\r\n\x1b[34m📦 进度: ${progressText ?? ''}${percent != null ? ` | ${percent}%` : ''}\x1b[0m\r\n`);
-                }
-                lastStatusRef.current = status;
-                lastProgressRef.current = percent ?? lastProgressRef.current;
-              }
-
-              // 成功与完成判定，平滑隐藏覆盖层
-              const isSuccess = (
-                (status && (status.includes('拉取完成') || status.includes('Pull complete') || status.includes('Already exists'))) ||
-                false
-              );
-              if (isSuccess || errorText) {
-                setTimeout(() => {
-                  setShowProgress(false);
-                  setImagePullProgress(null);
-                  lastProgressRef.current = null;
-                  lastStatusRef.current = '';
-                }, 1200); // 轻微延迟以便用户可见
-              }
+              handleImagePullProgress(payload, true);
             }
           } catch (error) {
             console.warn('解析WebSocket消息失败:', error);
@@ -283,7 +304,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
     };
 
     connect();
-  }, [containerId, containerStatus, parseProgressPercent]);
+  }, [containerId, containerStatus, handleImagePullProgress]);
 
   // 进度专用 WebSocket 连接（progress_only=true），用于容器启动阶段接收镜像拉取进度
   const connectProgressOnly = useCallback(() => {
@@ -310,45 +331,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
           const msg = JSON.parse(event.data);
           if (msg.type === 'image_pull_progress') {
             const payload = msg.data || {};
-            const imageName: string = payload.imageName || '未知镜像';
-            const status: string = payload.status || '正在拉取镜像...';
-            const progressText: string | undefined = payload.progress;
-            const errorText: string | undefined = payload.error;
-
-            const percent = parseProgressPercent(progressText ?? undefined);
-
-            const progressData: ImagePullProgressMessage = {
-              imageName,
-              status,
-              progress: progressText,
-              error: errorText,
-              progressPercent: percent ?? undefined,
-              lastUpdated: Date.now(),
-            };
-
-            setImagePullProgress(progressData);
-            setShowProgress(true);
-
-            const statusChanged = lastStatusRef.current !== status;
-            const percentChanged = percent != null && (lastProgressRef.current == null || Math.abs(percent - (lastProgressRef.current ?? 0)) >= 1);
-            if (statusChanged || percentChanged) {
-              // 进度专用连接仅显示覆盖层，不输出到终端，避免重复
-              lastStatusRef.current = status;
-              lastProgressRef.current = percent ?? lastProgressRef.current;
-            }
-
-            const isSuccess = (
-              (status && (status.includes('拉取完成') || status.includes('Pull complete') || status.includes('Already exists'))) ||
-              false
-            );
-            if (isSuccess || errorText) {
-              setTimeout(() => {
-                setShowProgress(false);
-                setImagePullProgress(null);
-                lastProgressRef.current = null;
-                lastStatusRef.current = '';
-              }, 1200);
-            }
+            handleImagePullProgress(payload, false); // 仅覆盖层显示，不输出到终端
           }
         } catch (error) {
           console.warn('解析进度专用WebSocket消息失败:', error);
@@ -365,7 +348,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
     } catch (error) {
       console.error('创建进度专用WebSocket连接失败:', error);
     }
-  }, [containerStatus, parseProgressPercent]);
+  }, [containerStatus, handleImagePullProgress]);
 
   // 初始化终端
   useEffect(() => {
@@ -459,54 +442,64 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
     sendCommand
   }), [sendCommand]);
 
-  // WebSocket连接管理：根据容器状态决定连接策略
+  // WebSocket连接管理：根据容器状态 + 页面可见性
   useEffect(() => {
-    const isRunning = containerStatus === 'running';
-    const isStarting = containerStatus === 'starting';
+    /** 按容器状态建立/清理 WS 连接；在页面可见性变化时协同处理重连 */
+const connectByStatus = () => {
+      const isRunning = containerStatus === 'running';
+      const isStarting = containerStatus === 'starting';
 
-    if (isRunning && containerId && xtermRef.current) {
-      // 容器运行中：使用终端连接
-      connectWebSocket();
-      // 关闭进度专用连接，避免双连接
-      if (wsProgressRef.current) {
-        wsProgressRef.current.close();
-        wsProgressRef.current = null;
+      // 页面隐藏时主动清理并停止重连
+      if (document.visibilityState === 'hidden') {
+        if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+        if (wsProgressRef.current) { wsProgressRef.current.close(); wsProgressRef.current = null; }
+        if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+        return;
       }
-    } else if (isStarting) {
-      // 容器启动中：建立进度专用连接以接收镜像拉取进度
-      connectProgressOnly();
-    } else {
-      // 其他状态（stopped/exited/undefined）：确保关闭所有连接并隐藏进度
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
+
+      if (isRunning && containerId && xtermRef.current) {
+        // 容器运行中：使用终端连接
+        connectWebSocket();
+        // 关闭进度专用连接，避免双连接
+        if (wsProgressRef.current) {
+          wsProgressRef.current.close();
+          wsProgressRef.current = null;
+        }
+      } else if (isStarting) {
+        // 容器启动中：建立进度专用连接以接收镜像拉取进度
+        connectProgressOnly();
+      } else {
+        // 其他状态（stopped/exited/undefined）：确保关闭所有连接并隐藏进度
+        if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+        if (wsProgressRef.current) { wsProgressRef.current.close(); wsProgressRef.current = null; }
+        if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+        setShowProgress(false);
+        setImagePullProgress(null);
+        lastProgressRef.current = null;
+        lastStatusRef.current = '';
       }
-      if (wsProgressRef.current) {
-        wsProgressRef.current.close();
-        wsProgressRef.current = null;
+    };
+
+    // 首次连接
+    connectByStatus();
+
+    // 页面可见性变化时守卫
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        connectByStatus();
+      } else {
+        if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+        if (wsProgressRef.current) { wsProgressRef.current.close(); wsProgressRef.current = null; }
+        if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
       }
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-      setShowProgress(false);
-      setImagePullProgress(null);
-      lastProgressRef.current = null;
-      lastStatusRef.current = '';
-    }
-    
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (wsProgressRef.current) {
-        wsProgressRef.current.close();
-        wsProgressRef.current = null;
-      }
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (wsRef.current) { wsRef.current.close(); }
+      if (wsProgressRef.current) { wsProgressRef.current.close(); wsProgressRef.current = null; }
+      if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
     };
   }, [containerId, containerStatus, connectWebSocket, connectProgressOnly]);
 
@@ -519,61 +512,10 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
     };
   }, []);
 
-  // 镜像拉取进度组件 - 优化样式和动画
-  const ImagePullProgress = () => {
-    if (!showProgress || !imagePullProgress) return null;
-
-    const percent = imagePullProgress.progressPercent;
-    const widthStyle = percent != null ? { width: `${Math.max(0, Math.min(100, percent))}%` } : undefined;
-
-    return (
-      <div className="absolute inset-0 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
-        <div className="bg-gray-800 rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl border border-gray-700">
-          <div className="text-center">
-            <div className="mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/20 rounded-full mb-4">
-                {/* 旋转的加载图标 */}
-                <svg className="w-8 h-8 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">正在拉取镜像</h3>
-              <p className="text-gray-300 text-sm break-all">{imagePullProgress.imageName}</p>
-            </div>
-            
-            {imagePullProgress.error ? (
-              <div className="text-red-400 text-sm bg-red-500/10 rounded-lg p-3 border border-red-500/20">
-                <div className="font-medium mb-1">拉取失败</div>
-                <div className="text-xs opacity-80">{imagePullProgress.error}</div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {imagePullProgress.status && (
-                  <div className="text-blue-300 text-sm font-medium">
-                    {imagePullProgress.status} {percent != null && <span className="ml-1 text-gray-300">({percent}%)</span>}
-                  </div>
-                )}
-                {imagePullProgress.progress && (
-                  <div className="text-gray-400 text-xs font-mono bg-gray-700/50 rounded px-3 py-2">
-                    {imagePullProgress.progress}
-                  </div>
-                )}
-
-                <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                  {percent != null ? (
-                    <div className="bg-gradient-to-r from-blue-500 to-blue-400 h-full rounded-full transition-all duration-200" style={widthStyle}></div>
-                  ) : (
-                    <div className="bg-gradient-to-r from-blue-500 to-blue-400 h-full rounded-full animate-pulse"></div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          </div>
-        </div>
-    );
-  };
+  // 保留原用法：包装为无 props 组件，内部传递状态
+  const ImagePullProgress = () => (
+    <ImagePullProgressOverlay show={showProgress} imagePullProgress={imagePullProgress} />
+  );
 
   return (
     <div className="relative w-full h-full flex flex-col bg-gray-900">
@@ -594,13 +536,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
       <ImagePullProgress />
       
       {/* 连接状态指示器 */}
-      {containerId && (
-        <div className="absolute top-2 right-2 z-10">
-          <div className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-            isConnected ? 'bg-green-500' : 'bg-red-500'
-          }`} title={isConnected ? '已连接' : '未连接'} />
-        </div>
-      )}
+      {containerId && <ConnectionIndicator connected={isConnected} />}
     </div>
   );
 });

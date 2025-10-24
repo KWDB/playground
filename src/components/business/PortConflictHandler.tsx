@@ -6,7 +6,7 @@ import {
   PortConflictHandlerProps,
   PortConflictHandlerState,
   ConflictHandlingStatus
-} from '../types/port-conflict';
+} from '@/types/port-conflict';
 
 /**
  * 端口冲突智能处理组件

@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { Home } from './pages/Home';
 import { CourseList } from './pages/CourseList';
 import { Learn } from './pages/Learn';
-import Navbar from './components/Navbar';
+import Navbar from './components/layout/Navbar';
 
 // 内部组件，用于根据路由决定是否显示导航栏
 function AppContent() {
