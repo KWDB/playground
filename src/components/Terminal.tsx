@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
@@ -80,10 +80,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
   }, []);
 
   // 防抖的调整大小函数
-  const debouncedResize = useCallback(
-    debounce(resizeTerminal, 150),
-    [resizeTerminal, debounce]
-  );
+  const debouncedResize = useMemo(() => debounce(resizeTerminal, 150), [resizeTerminal, debounce]);
 
   // 发送命令到终端
   const sendCommand = useCallback((command: string) => {

@@ -118,6 +118,52 @@ export function Learn() {
 
 
 
+
+
+  // 定期状态检查机制
+  const startStatusMonitoring = useCallback((containerId: string) => {
+    // 清除之前的定时器
+    if (statusCheckIntervalRef.current) {
+      clearInterval(statusCheckIntervalRef.current);
+    }
+
+    console.log('开始定期状态监控，容器ID:', containerId);
+
+    // 每30秒检查一次容器状态
+    statusCheckIntervalRef.current = setInterval(async () => {
+      try {
+        const statusData = await checkContainerStatus(containerId, false);
+        if (statusData) {
+          const currentStatus = containerStatus;
+          const actualStatus = statusData.status;
+
+          // 检测状态不一致
+          if (currentStatus !== actualStatus) {
+            console.warn(`检测到状态不一致: 前端状态=${currentStatus}, 实际状态=${actualStatus}`);
+
+            // 自动修复状态不一致
+            if (actualStatus === 'exited' && currentStatus === 'running') {
+              console.log('容器意外退出，更新前端状态');
+              setContainerStatus('stopped');
+              setIsConnected(false);
+              setConnectionError('容器已停止运行');
+            } else if (actualStatus === 'running' && currentStatus === 'stopped') {
+              console.log('检测到容器已启动，更新前端状态');
+              setContainerStatus('running');
+              setIsConnected(true);
+              setConnectionError(null);
+            } else {
+              // 其他状态不一致情况，直接同步
+              setContainerStatus(actualStatus);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('定期状态检查失败:', error);
+      }
+    }, 30000); // 30秒检查一次
+  }, [containerStatus, checkContainerStatus, setIsConnected, setConnectionError]);
+
   const startCourseContainer = useCallback(async (courseId: string) => {
     // 防重复调用：检查当前状态，避免重复启动
     if (isStartingContainer || containerStatus === 'running' || containerStatus === 'starting') {
@@ -232,7 +278,7 @@ export function Learn() {
     } finally {
       setIsStartingContainer(false)
     }
-  }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal])
+  }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal, startStatusMonitoring])
 
   // 端口冲突处理回调函数
   const handlePortConflictClose = useCallback(() => {
@@ -351,49 +397,7 @@ export function Learn() {
     }
   }, [courseId, fetchCourse])
 
-  // 定期状态检查机制
-  const startStatusMonitoring = useCallback((containerId: string) => {
-    // 清除之前的定时器
-    if (statusCheckIntervalRef.current) {
-      clearInterval(statusCheckIntervalRef.current);
-    }
 
-    console.log('开始定期状态监控，容器ID:', containerId);
-
-    // 每30秒检查一次容器状态
-    statusCheckIntervalRef.current = setInterval(async () => {
-      try {
-        const statusData = await checkContainerStatus(containerId, false);
-        if (statusData) {
-          const currentStatus = containerStatus;
-          const actualStatus = statusData.status;
-
-          // 检测状态不一致
-          if (currentStatus !== actualStatus) {
-            console.warn(`检测到状态不一致: 前端状态=${currentStatus}, 实际状态=${actualStatus}`);
-
-            // 自动修复状态不一致
-            if (actualStatus === 'exited' && currentStatus === 'running') {
-              console.log('容器意外退出，更新前端状态');
-              setContainerStatus('stopped');
-              setIsConnected(false);
-              setConnectionError('容器已停止运行');
-            } else if (actualStatus === 'running' && currentStatus === 'stopped') {
-              console.log('检测到容器已启动，更新前端状态');
-              setContainerStatus('running');
-              setIsConnected(true);
-              setConnectionError(null);
-            } else {
-              // 其他状态不一致情况，直接同步
-              setContainerStatus(actualStatus);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('定期状态检查失败:', error);
-      }
-    }, 30000); // 30秒检查一次
-  }, [containerStatus, checkContainerStatus, setIsConnected, setConnectionError]);
 
   useEffect(() => {
     return () => {
@@ -420,21 +424,18 @@ export function Learn() {
   }, [])
 
   // Helper functions for navigation
-  const getCurrentTitle = () => {
+  // 使用 useMemo 缓存当前标题与内容，避免无关渲染
+  const currentTitle = useMemo(() => {
     if (currentStep === -1) return '课程介绍'
     if (currentStep >= course?.details.steps.length) return '课程完成'
     return course?.details.steps[currentStep]?.title || ''
-  }
+  }, [course, currentStep])
 
-  const getCurrentContent = () => {
+  const currentContent = useMemo(() => {
     if (currentStep === -1) return course?.details.intro.content || ''
     if (currentStep >= course?.details.steps.length) return course?.details.finish.content || ''
     return course?.details.steps[currentStep]?.content || ''
-  }
-
-  // 使用 useMemo 缓存当前标题与内容，避免无关渲染
-  const currentTitle = useMemo(() => getCurrentTitle(), [course, currentStep])
-  const currentContent = useMemo(() => getCurrentContent(), [course, currentStep])
+  }, [course, currentStep])
 
   // 将 ReactNode 提取为纯文本（用于从 <code> children 中获取命令字符串）
   const extractTextFromNode = useCallback((n: React.ReactNode): string => {
@@ -454,7 +455,7 @@ export function Learn() {
   // =============================
   // 预处理 Markdown：支持 {{exec}} 语法
   // =============================
-  const preprocessMarkdown = (content: string) => {
+  const preprocessMarkdown = useCallback((content: string) => {
     // 0) 处理“开头围栏（info string）中包含 {{exec}}”的情况，例如 ```bash {{exec}} 或 ```{{exec}}
     const normalizedOpeningExec = content.replace(/```([^\n]*?)\{\{\s*exec\s*\}\}([^\n]*)\n([\s\S]*?)```/g, (match, before, after, code) => {
       const infoStr = `${String(before || '')} ${String(after || '')}`.trim()
@@ -481,7 +482,7 @@ export function Learn() {
     return withExecMeta.replace(/`([^`]+)`\s*\{\{\s*exec\s*\}\}/g, (match, command) => {
       return `<code class="inline-code-exec">${command}</code><button class="exec-btn" data-command="${command}" title="执行命令">Run</button>`
     })
-  }
+  }, [])
 
   // 处理执行按钮点击事件
   const handleExecButtonClick = useCallback((e: React.MouseEvent) => {
@@ -637,7 +638,7 @@ export function Learn() {
         </ReactMarkdown>
       </div>
     )
-  }, [handleExecButtonClick])
+  }, [handleExecButtonClick, preprocessMarkdown, extractTextFromNode, readNodeMeta])
 
   const canGoPrevious = () => currentStep > -1
   const canGoNext = () => course && currentStep < course.details.steps.length

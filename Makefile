@@ -29,7 +29,7 @@ LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.Git
 # 环境变量文件
 ENV_FILE ?= .env
 
-.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist
+.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist playwright e2e-playwright
 
 # 默认目标
 all: build
@@ -215,6 +215,11 @@ test:
 	pnpm run test 2>/dev/null || echo "Frontend tests skipped"
 	@echo "✅ Tests completed!"
 
+e2e-playwright:
+	@echo "🚀 Starting Playwright test..."
+	pnpm run test:pw
+	@echo "✅ Playwright tests completed!"
+
 # 开发环境检查
 check:
 	@echo "🔍 Checking development environment..."
@@ -258,6 +263,7 @@ help:
 	@echo "🛠️ 维护工具:"
 	@echo "  fmt           - 格式化代码 (Go + 前端)"
 	@echo "  test          - 运行测试"
+	@echo "  e2e-playwright - 运行 Playwright 端到端测试"
 	@echo "  clean         - 清理构建文件"
 	@echo ""
 	@echo "📊 服务管理:"
