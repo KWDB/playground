@@ -148,16 +148,10 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
         error: cleanupResult?.success ? null : '容器清理失败'
       }));
 
-      // 如果清理成功，延迟后自动重试启动（内联重试逻辑，避免依赖 handleRetryStart）
+      // 如果清理成功，延迟后自动重试启动
       if (cleanupResult?.success) {
         setTimeout(() => {
-          setState(prev => ({ ...prev, status: 'retrying', isProcessing: true }));
-          onRetry();
-          setTimeout(() => {
-            setState(prev => ({ ...prev, status: 'idle', isProcessing: false }));
-            onClose();
-            onSuccess?.();
-          }, 1000);
+          handleRetryStart();
         }, 1500);
       }
 
@@ -172,7 +166,7 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
       }));
       return null;
     }
-  }, [cleanupContainers, onRetry, onClose, onSuccess]);
+  }, [cleanupContainers, handleRetryStart]);
 
   // 组件显示时自动检查端口冲突
   useEffect(() => {
