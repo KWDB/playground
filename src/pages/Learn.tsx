@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Server } from 'lucide-react'
-import SqlTerminal, { SqlTerminalRef } from '../components/SqlTerminal'
+import SqlTerminal, { SqlTerminalRef } from '../components/business/SqlTerminal'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import TerminalComponent, { TerminalRef } from '../components/Terminal';
-import ConfirmDialog from '../components/ConfirmDialog';
-import StatusIndicator, { StatusType } from '../components/StatusIndicator';
-import CourseContentPanel from '../components/CourseContentPanel';
-import PortConflictHandler from '../components/PortConflictHandler';
+import TerminalComponent, { TerminalRef } from '../components/business/Terminal';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import StatusIndicator, { StatusType } from '../components/ui/StatusIndicator';
+import CourseContentPanel from '../components/business/CourseContentPanel';
+import PortConflictHandler from '../components/business/PortConflictHandler';
 import '../styles/markdown.css';
 
 interface Course {
@@ -28,7 +28,16 @@ interface Course {
   backend?: { port?: number }
 }
 
-export function Learn() {
+// 更严格的容器状态类型
+type ContainerStatus = 'stopped' | 'starting' | 'running' | 'exited' | 'error' | 'completed' | 'stopping'
+
+// 接口响应类型
+interface ContainerStatusResponse { status: ContainerStatus; exitCode?: number }
+// interface StartCourseResponse { containerId: string } // 暂未使用，移除以避免未使用警告
+
+import { fetchJson } from '../lib/http'
+ 
+ export function Learn() {
   const { courseId } = useParams<{ courseId: string }>()
   const navigate = useNavigate()
   const [course, setCourse] = useState<Course | null>(null)
@@ -37,7 +46,7 @@ export function Learn() {
   const [error, setError] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false)
   const [containerId, setContainerId] = useState<string | null>(null)
-  const [containerStatus, setContainerStatus] = useState<string>('stopped')
+  const [containerStatus, setContainerStatus] = useState<ContainerStatus>('stopped')
   const [isStartingContainer, setIsStartingContainer] = useState<boolean>(false)
   const terminalRef = useRef<TerminalRef>(null)
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
@@ -47,122 +56,100 @@ export function Learn() {
 
   // 定期状态检查的引用
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const statusAbortControllerRef = useRef<AbortController | null>(null)
+  const startAbortControllerRef = useRef<AbortController | null>(null)
 
-  // 简化状态管理
-  const [, setIsConnected] = useState(false)
-  const [, setConnectionError] = useState<string | null>(null)
+  // 简化状态管理（使用 ref 避免不必要的渲染）
+  const isConnectedRef = useRef(false)
+  const connectionErrorRef = useRef<string | null>(null)
 
   // 监听容器状态变化，当容器停止时清除连接错误
   useEffect(() => {
     if (containerStatus === 'stopped' || containerStatus === 'exited') {
-      // 容器停止时清除连接错误状态，避免显示误导性错误信息
-      setConnectionError(null)
+      connectionErrorRef.current = null
       console.log('容器已停止，清除连接错误状态')
     }
   }, [containerStatus])
 
-  const checkContainerStatus = useCallback(async (containerId: string, shouldUpdateState = true) => {
+  const checkContainerStatus = useCallback(async (id: string, shouldUpdateState = true, signal?: AbortSignal) => {
     try {
-      console.log(`开始检查容器状态，容器ID: ${containerId}`);
-      const response = await fetch(`/api/containers/${containerId}/status`)
-      if (!response.ok) {
-        console.error('容器状态检查失败，HTTP状态:', response.status)
-        throw new Error(`获取容器状态失败: ${response.status}`)
-      }
-      const data = await response.json()
+      console.log(`开始检查容器状态，容器ID: ${id}`)
+      const data = await fetchJson<ContainerStatusResponse>(`/api/containers/${id}/status`, { signal })
       console.log('容器状态检查结果:', data)
 
-      // 状态验证和同步逻辑
       if (shouldUpdateState) {
-        const currentStatus = containerStatus;
-        const newStatus = data.status;
-
-        // 记录状态变化
+        const currentStatus = containerStatus
+        const newStatus = data.status
         if (currentStatus !== newStatus) {
-          console.log(`容器状态发生变化: ${currentStatus} -> ${newStatus}`);
+          console.log(`容器状态发生变化: ${currentStatus} -> ${newStatus}`)
         }
-
-        // 状态一致性验证
         if (newStatus === 'running' && currentStatus === 'starting') {
-          console.log('容器启动完成，状态同步为running');
+          console.log('容器启动完成，状态同步为running')
         } else if (newStatus === 'exited' && (currentStatus === 'running' || currentStatus === 'starting')) {
-          console.warn('检测到容器意外退出，状态不一致');
+          console.warn('检测到容器意外退出，状态不一致')
         }
-
-        setContainerStatus(newStatus);
+        setContainerStatus(newStatus)
       }
-
       return data
     } catch (err) {
       console.error('获取容器状态失败:', err)
-      // 网络错误时不要设置容器状态为error，保持当前状态
       return null
     }
   }, [containerStatus])
 
   // WebSocket 连接处理
-  const connectToTerminal = useCallback((containerId: string) => {
-    if (!containerId) {
-      setConnectionError('容器ID为空')
+  const connectToTerminal = useCallback((id: string) => {
+    if (!id) {
+      connectionErrorRef.current = '容器ID为空'
       return
     }
-
     if (containerStatus !== 'running') {
-      setConnectionError('容器未运行')
+      connectionErrorRef.current = '容器未运行'
       return
     }
-
-    setIsConnected(true)
-    setConnectionError(null)
-  }, [containerStatus, setConnectionError, setIsConnected])
-
-
-
-
+    isConnectedRef.current = true
+    connectionErrorRef.current = null
+  }, [containerStatus])
 
   // 定期状态检查机制
-  const startStatusMonitoring = useCallback((containerId: string) => {
-    // 清除之前的定时器
+  const startStatusMonitoring = useCallback((id: string) => {
     if (statusCheckIntervalRef.current) {
-      clearInterval(statusCheckIntervalRef.current);
+      clearInterval(statusCheckIntervalRef.current)
     }
-
-    console.log('开始定期状态监控，容器ID:', containerId);
-
-    // 每30秒检查一次容器状态
+    console.log('开始定期状态监控，容器ID:', id)
     statusCheckIntervalRef.current = setInterval(async () => {
       try {
-        const statusData = await checkContainerStatus(containerId, false);
+        // 取消上一轮未完成的请求，避免堆积
+        statusAbortControllerRef.current?.abort()
+
+      const controller = new AbortController()
+        statusAbortControllerRef.current = controller
+        const statusData = await checkContainerStatus(id, false, controller.signal)
         if (statusData) {
-          const currentStatus = containerStatus;
-          const actualStatus = statusData.status;
-
-          // 检测状态不一致
-          if (currentStatus !== actualStatus) {
-            console.warn(`检测到状态不一致: 前端状态=${currentStatus}, 实际状态=${actualStatus}`);
-
-            // 自动修复状态不一致
-            if (actualStatus === 'exited' && currentStatus === 'running') {
-              console.log('容器意外退出，更新前端状态');
-              setContainerStatus('stopped');
-              setIsConnected(false);
-              setConnectionError('容器已停止运行');
-            } else if (actualStatus === 'running' && currentStatus === 'stopped') {
-              console.log('检测到容器已启动，更新前端状态');
-              setContainerStatus('running');
-              setIsConnected(true);
-              setConnectionError(null);
-            } else {
-              // 其他状态不一致情况，直接同步
-              setContainerStatus(actualStatus);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('定期状态检查失败:', error);
-      }
-    }, 30000); // 30秒检查一次
-  }, [containerStatus, checkContainerStatus, setIsConnected, setConnectionError]);
+           const currentStatus = containerStatus
+           const actualStatus = statusData.status
+           if (currentStatus !== actualStatus) {
+             console.warn(`检测到状态不一致: 前端状态=${currentStatus}, 实际状态=${actualStatus}`)
+             if (actualStatus === 'exited' && currentStatus === 'running') {
+               console.log('容器意外退出，更新前端状态')
+               setContainerStatus('stopped')
+               isConnectedRef.current = false
+               connectionErrorRef.current = '容器已停止运行'
+             } else if (actualStatus === 'running' && currentStatus === 'stopped') {
+               console.log('检测到容器已启动，更新前端状态')
+               setContainerStatus('running')
+               isConnectedRef.current = true
+               connectionErrorRef.current = null
+             } else {
+               setContainerStatus(actualStatus)
+             }
+           }
+         }
+       } catch (error) {
+         console.error('定期状态检查失败:', error)
+       }
+    }, STATUS_CHECK_INTERVAL_MS)
+  }, [containerStatus, checkContainerStatus])
 
   const startCourseContainer = useCallback(async (courseId: string) => {
     // 防重复调用：检查当前状态，避免重复启动
@@ -174,25 +161,24 @@ export function Learn() {
     setIsStartingContainer(true)
     setContainerStatus('starting')
     setError(null) // 清除之前的错误信息
-    setConnectionError(null) // 清除连接错误
+    connectionErrorRef.current = null // 清除连接错误
 
     try {
-      const response = await fetch(`/api/courses/${courseId}/start`, {
-        method: 'POST'
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || '启动容器失败')
-      }
-
-      const data = await response.json()
+      startAbortControllerRef.current?.abort()
+      const controller = new AbortController()
+      startAbortControllerRef.current = controller
+      const data = await fetchJson<{ containerId: string }>(`/api/courses/${courseId}/start`, { method: 'POST', signal: controller.signal })
       console.log('容器启动成功，响应数据:', data)
 
       setContainerId(data.containerId)
 
       // 等待容器完全启动的函数
-      const waitForContainerReady = async (containerId: string, maxRetries = 15, retryInterval = 1500) => {
+      const waitForContainerReady = async (
+        containerId: string,
+        maxRetries = WAIT_RETRY_MAX,
+        retryInterval = WAIT_RETRY_INTERVAL_MS,
+        signal?: AbortSignal
+      ) => {
         console.log(`开始等待容器启动，最大重试次数: ${maxRetries}，检查间隔: ${retryInterval}ms`);
 
         for (let i = 0; i < maxRetries; i++) {
@@ -203,14 +189,14 @@ export function Learn() {
             await new Promise(resolve => setTimeout(resolve, retryInterval))
           }
 
-          const statusData = await checkContainerStatus(containerId, true)
+          const statusData = await checkContainerStatus(containerId, true, signal)
 
           if (statusData && statusData.status === 'running') {
             console.log('✅ 容器已完全启动，状态验证通过:', statusData.status)
 
             // 额外验证：再次确认容器确实在运行
             await new Promise(resolve => setTimeout(resolve, 1000));
-            const finalCheck = await checkContainerStatus(containerId, false);
+            const finalCheck = await checkContainerStatus(containerId, false, signal);
 
             if (finalCheck && finalCheck.status === 'running') {
               console.log('✅ 容器状态最终验证通过，准备连接终端');
@@ -253,9 +239,14 @@ export function Learn() {
       }
 
       // 等待容器完全启动
-      await waitForContainerReady(data.containerId)
+      await waitForContainerReady(data.containerId, undefined, undefined, startAbortControllerRef.current?.signal)
 
     } catch (error) {
+      const maybeAbort = error as { name?: string }
+      if (maybeAbort?.name === 'AbortError') {
+        console.log('启动流程已取消')
+        return
+      }
       console.error('启动容器失败:', error)
       const errorMessage = error instanceof Error ? error.message : '启动容器失败'
       
@@ -273,7 +264,7 @@ export function Learn() {
       } else {
         setError(errorMessage)
         setContainerStatus('error')
-        setConnectionError('容器启动失败，无法建立连接')
+        connectionErrorRef.current = '容器启动失败，无法建立连接'
       }
     } finally {
       setIsStartingContainer(false)
@@ -295,8 +286,8 @@ export function Learn() {
   const handlePortConflictSuccess = useCallback(() => {
     console.log('端口冲突处理成功')
     setError(null)
-    setConnectionError(null)
-  }, [setConnectionError])
+    connectionErrorRef.current = null
+  }, [])
 
   // 使用useRef保存最新的状态值，避免闭包问题
   const courseIdRef = useRef(courseId)
@@ -330,37 +321,34 @@ export function Learn() {
       if (containerId) {
         const url = `/api/containers/${containerId}/stop`
         console.log('按容器ID停止，URL:', url)
-        const response = await fetch(url, { method: 'POST' })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          // 404 表示容器已不存在，视为正常
-          if (response.status === 404) {
-            console.log('容器已不存在，视为成功停止:', errorText)
+        try {
+          await fetchJson<void>(url, { method: 'POST' })
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : ''
+          if (msg.includes('404')) {
+            console.log('容器已不存在，视为成功停止')
           } else {
-            throw new Error(`按容器ID停止失败: ${response.status} ${errorText}`)
+            throw err
           }
         }
       } else {
         // 回退：没有 containerId 时按课程ID停止（可能会停止同课程的其他页面容器，尽量避免）
         const fallbackUrl = `/api/courses/${courseId}/stop`
         console.log('缺少容器ID，回退按课程ID停止，URL:', fallbackUrl)
-        const response = await fetch(fallbackUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        })
-        if (!response.ok) {
-          const errorText = await response.text()
-          if (response.status !== 404) {
-            throw new Error(`按课程ID停止失败: ${response.status} ${errorText}`)
+        try {
+          await fetchJson<void>(fallbackUrl, { method: 'POST' })
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : ''
+          if (!msg.includes('404')) {
+            throw err
           }
         }
       }
 
       // 成功后的状态更新
       setContainerStatus('stopped')
-      setIsConnected(false)
-      setConnectionError(null)
+      isConnectedRef.current = false
+      connectionErrorRef.current = null
       setContainerId(null)
 
       // 停止状态监控
@@ -369,6 +357,14 @@ export function Learn() {
         clearInterval(statusCheckIntervalRef.current)
         statusCheckIntervalRef.current = null
       }
+      if (statusAbortControllerRef.current) {
+        statusAbortControllerRef.current.abort()
+        statusAbortControllerRef.current = null
+      }
+      if (startAbortControllerRef.current) {
+        startAbortControllerRef.current.abort()
+        startAbortControllerRef.current = null
+      }
 
     } catch (error) {
       console.error('停止容器异常:', error)
@@ -376,25 +372,26 @@ export function Learn() {
     }
   }, [containerId])
 
-  const fetchCourse = useCallback(async (id: string) => {
+  const fetchCourse = useCallback(async (id: string, signal?: AbortSignal) => {
     try {
-      const response = await fetch(`/api/courses/${id}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch course')
-      }
-      const data = await response.json()
+      const data = await fetchJson<{ course: Course }>(`/api/courses/${id}`, { signal })
       setCourse(data.course)
     } catch (err) {
+      const maybeAbortError = err as { name?: string }
+      if (maybeAbortError?.name === 'AbortError') return
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
   }, [])
 
+
+
   useEffect(() => {
-    if (courseId) {
-      fetchCourse(courseId)
-    }
+    if (!courseId) return
+    const controller = new AbortController()
+    fetchCourse(courseId, controller.signal)
+    return () => controller.abort()
   }, [courseId, fetchCourse])
 
 
@@ -403,18 +400,31 @@ export function Learn() {
     return () => {
       // 组件卸载时优先按容器ID停止（使用ref避免闭包问题）
       const id = containerIdRef.current
+
+      // 清理定期状态监控定时器，避免内存泄漏或卸载后仍然轮询
+      if (statusCheckIntervalRef.current) {
+        clearInterval(statusCheckIntervalRef.current)
+        statusCheckIntervalRef.current = null
+      }
+      // 取消正在进行的状态检查请求
+      if (statusAbortControllerRef.current) {
+        statusAbortControllerRef.current.abort()
+        statusAbortControllerRef.current = null
+      }
+      if (startAbortControllerRef.current) {
+        startAbortControllerRef.current.abort()
+        startAbortControllerRef.current = null
+      }
+
       if (id) {
         console.log('组件卸载：按容器ID停止容器，containerId:', id)
-        fetch(`/api/containers/${id}/stop`, { method: 'POST' }).catch(error => {
+        fetchJson<void>(`/api/containers/${id}/stop`, { method: 'POST' }).catch(error => {
           console.error('组件卸载时按容器ID停止容器失败:', error)
         })
       } else if (courseIdRef.current) {
         // 回退逻辑：缺少容器ID时按课程ID停止
         console.log('组件卸载：按课程ID停止容器，课程ID:', courseIdRef.current)
-        fetch(`/api/courses/${courseIdRef.current}/stop`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        }).catch(error => {
+        fetchJson<void>(`/api/courses/${courseIdRef.current}/stop`, { method: 'POST' }).catch(error => {
           console.error('组件卸载时按课程ID停止容器失败:', error)
         })
       }
@@ -1236,3 +1246,8 @@ const highlighterStyle: { [selector: string]: React.CSSProperties } = {
     color: '#f9a8d4',
   },
 }
+
+// 统一的时间与重试常量
+const STATUS_CHECK_INTERVAL_MS = 30000
+const WAIT_RETRY_MAX = 15
+const WAIT_RETRY_INTERVAL_MS = 1500
