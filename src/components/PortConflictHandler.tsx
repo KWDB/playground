@@ -118,6 +118,21 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
     }
   }, [checkPortConflict]);
 
+  // 重试启动课程
+  const handleRetryStart = useCallback(() => {
+    setState(prev => ({ ...prev, status: 'retrying', isProcessing: true }));
+    
+    // 调用父组件的重试回调
+    onRetry();
+    
+    // 延迟关闭对话框，让用户看到重试状态
+    setTimeout(() => {
+      setState(prev => ({ ...prev, status: 'idle', isProcessing: false }));
+      onClose();
+      onSuccess?.();
+    }, 1000);
+  }, [onRetry, onClose, onSuccess]);
+
   // 执行容器清理
   const handleCleanup = useCallback(async () => {
     setState(prev => ({ ...prev, status: 'cleaning', isProcessing: true, error: null }));
@@ -151,22 +166,7 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
       }));
       return null;
     }
-  }, [cleanupContainers]);
-
-  // 重试启动课程
-  const handleRetryStart = useCallback(() => {
-    setState(prev => ({ ...prev, status: 'retrying', isProcessing: true }));
-    
-    // 调用父组件的重试回调
-    onRetry();
-    
-    // 延迟关闭对话框，让用户看到重试状态
-    setTimeout(() => {
-      setState(prev => ({ ...prev, status: 'idle', isProcessing: false }));
-      onClose();
-      onSuccess?.();
-    }, 1000);
-  }, [onRetry, onClose, onSuccess]);
+  }, [cleanupContainers, handleRetryStart]);
 
   // 组件显示时自动检查端口冲突
   useEffect(() => {
