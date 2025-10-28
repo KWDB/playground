@@ -15,13 +15,14 @@ const customDarkTheme = {
     ...vscDarkPlus['pre[class*="language-"]'],
     background: 'transparent', // 使用透明背景，由父容器控制
     margin: 0,
-    padding: '12px 16px',
+    padding: '16px',
     fontSize: '14px',
-    lineHeight: '1.5',
+    lineHeight: '1.6',
     fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
     color: '#f8fafc', // 高对比度前景色 (slate-50)
     border: 'none',
     borderRadius: '0',
+    whiteSpace: 'pre-wrap',
   },
   'code[class*="language-"]': {
     ...vscDarkPlus['code[class*="language-"]'],
@@ -29,24 +30,25 @@ const customDarkTheme = {
     color: '#f8fafc',
     fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
     fontSize: '14px',
-    lineHeight: '1.5',
+    lineHeight: '1.6',
+    whiteSpace: 'pre-wrap',
   },
   // SQL 关键字 - 使用蓝色系，高对比度
   '.token.keyword': {
-    color: '#7dd3fc', // sky-300 - 高对比度蓝色
+    color: '#c084fc', // 统一与编辑器的紫色关键字
     fontWeight: '600',
   },
   // 字符串 - 使用绿色系
   '.token.string': {
-    color: '#86efac', // green-300
+    color: '#34d399',
   },
   // 数字 - 使用橙色系
   '.token.number': {
-    color: '#fdba74', // orange-300
+    color: '#fbbf24',
   },
   // 操作符 - 使用紫色系
   '.token.operator': {
-    color: '#c4b5fd', // violet-300
+    color: '#f472b6',
   },
   // 函数名 - 使用青色系
   '.token.function': {
@@ -54,12 +56,12 @@ const customDarkTheme = {
   },
   // 注释 - 使用灰色系
   '.token.comment': {
-    color: '#94a3b8', // slate-400
+    color: '#6b7280',
     fontStyle: 'italic',
   },
   // 标点符号
   '.token.punctuation': {
-    color: '#cbd5e1', // slate-300
+    color: '#94a3b8',
   },
   // 表名、列名等标识符
   '.token.class-name': {
@@ -67,7 +69,7 @@ const customDarkTheme = {
   },
   // 变量
   '.token.variable': {
-    color: '#fb7185', // rose-400
+    color: '#60a5fa',
   },
   // 布尔值
   '.token.boolean': {
@@ -89,12 +91,14 @@ export default function SqlHighlighter({
         customStyle={{
           background: 'transparent',
           margin: 0,
-          padding: 0,
+          // 保留主题中的 padding 以与编辑器一致
         }}
         codeTagProps={{
           style: {
             background: 'transparent',
             fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+            fontSize: '14px',
+            lineHeight: '1.6',
           }
         }}
       >

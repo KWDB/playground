@@ -16,7 +16,17 @@ test('SQL 终端测试', async ({ page }) => {
   await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 10000 });
   console.log('✅ 启动容器');
 
-  // 4) 点击“下一步”，执行第一页的命令
+  // 4) 测试 Enter 执行
+  await page.getByRole('textbox').fill('SELECT 1');
+  await page.getByRole('textbox').press('Enter');
+  await expect(page.getByRole('cell', { name: '?column?' })).toBeVisible({ timeout: 10000 });
+  console.log('✅ Enter 执行');
+  // 5) 测试清理按钮
+  await page.getByRole('button', { name: '清除输入' }).click();
+  await expect(page.getByRole('textbox')).toContainText('输入 SQL，最后一行按 Enter 或点击执行');
+  console.log('✅ 清除输入');
+
+  // 6) 点击“下一步”，执行第一页的命令
   await page.getByRole('button', { name: '下一步' }).click();
   await page.getByRole('paragraph').filter({ hasText: '创建一个名为 sensor_data 的时序数据库：' }).getByRole('button').click();
   await expect(page.getByText('操作成功')).toBeVisible({ timeout: 10000 });
@@ -28,7 +38,7 @@ test('SQL 终端测试', async ({ page }) => {
   await expect(page.getByText('操作成功')).toBeVisible({ timeout: 10000 });
   console.log('✅ 执行第一页的命令');
 
-  // 5) 点击“下一步”，执行第二页的命令
+  // 7) 点击“下一步”，执行第二页的命令
   await page.getByRole('button', { name: '下一步' }).click();
   await expect(page.getByText('向关系表插入设备信息')).toBeVisible({ timeout: 10000 });
   await page.locator('pre').filter({ hasText: 'sql可执行代码RunINSERT INTO device_management.devices VALUES (101, \'温度传感器-101' }).getByLabel('执行当前代码块命令').click();
@@ -46,12 +56,12 @@ test('SQL 终端测试', async ({ page }) => {
     el.scrollTo(0, el.scrollHeight);
   });
 
-  // 6) 查看最终结果，确认数据插入成功
+  // 8) 查看最终结果，确认数据插入成功
   await expect(page.getByRole('cell', { name: 'timestamp' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole('cell', { name: '25.8' })).toBeVisible({ timeout: 10000 });
   console.log('✅ 查看最终结果');
 
-  // 7) 退出课程
+  // 9) 退出课程
   await page.getByRole('button', { name: '下一步' }).click();
   await page.getByRole('button', { name: '退出课程' }).click();
   await page.getByRole('button', { name: '确定' }).click();

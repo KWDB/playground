@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react'
-import { EditorView, placeholder as cmPlaceholder, showTooltip, tooltips } from '@codemirror/view'
+import { EditorView, placeholder as cmPlaceholder, showTooltip, tooltips, keymap } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { sql } from '@codemirror/lang-sql'
 import { autocompletion, CompletionContext, Completion } from '@codemirror/autocomplete'
@@ -18,6 +18,7 @@ export default function SqlCodeEditor({
   className,
   onFocus,
   onBlur,
+  onEnterExecute,
 }: {
   value: string
   onChange: (v: string) => void
@@ -26,6 +27,7 @@ export default function SqlCodeEditor({
   className?: string
   onFocus?: () => void
   onBlur?: () => void
+  onEnterExecute?: (text: string) => void
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -433,6 +435,32 @@ export default function SqlCodeEditor({
     const extensions = [
       sql(), // SQL 语法高亮
       EditorView.lineWrapping, // 启用自动换行，避免水平溢出
+      // 键盘映射：在最后一行按 Enter 触发执行；其他情况不拦截
+      keymap.of([{
+        key: 'Enter',
+        run: (view) => {
+          // 未聚焦或处于禁用态时不处理，让默认行为接管
+          if (!view.hasFocus || disabled) return false
+          if (!onEnterExecute) return false
+          // 空内容：不拦截，允许正常换行
+          const docText = view.state.doc.toString()
+          if (!docText.trim()) return false
+          const sel = view.state.selection.main
+          // 仅在光标模式下处理（不在选区模式）
+          if (!sel.empty) return false
+          const pos = sel.head
+          const line = view.state.doc.lineAt(pos)
+          const isLastLine = line.number === view.state.doc.lines
+          const isAtLineEnd = pos === line.to
+          if (isLastLine && isAtLineEnd) {
+            onEnterExecute(docText)
+            // 拦截 Enter，避免插入换行
+            return true
+          }
+          // 非最后一行或非行尾：走默认换行
+          return false
+        },
+      }]),
       // 自定义补全配置，确保工具提示渲染到正确位置
       autocompletion({ 
         override: [sqlCompletionSource],

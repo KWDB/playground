@@ -9,6 +9,7 @@ interface EnhancedSqlEditorProps {
   disabled?: boolean
   className?: string
   showPreview?: boolean
+  onEnterExecute?: (text: string) => void
 }
 
 /**
@@ -22,7 +23,8 @@ export default function EnhancedSqlEditor({
   placeholder = "输入 SQL，按下方按钮执行",
   disabled = false,
   className = "",
-  showPreview = true
+  showPreview = true,
+  onEnterExecute,
 }: EnhancedSqlEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
@@ -70,6 +72,7 @@ export default function EnhancedSqlEditor({
             className="w-full min-h-[120px] bg-transparent"
             onFocus={handleFocus}
             onBlur={handleBlur}
+            onEnterExecute={onEnterExecute}
           />
         </div>
       </div>
@@ -77,10 +80,10 @@ export default function EnhancedSqlEditor({
       {/* 语法高亮预览 */}
       {!shouldShowEditor && value.trim() && (
         <div 
-          className="cursor-text rounded-lg border border-gray-600/50 bg-gray-800/80 hover:border-gray-500/50 transition-colors"
+          className="cursor-text rounded-lg border border-gray-600/50 bg-gray-800/80 overflow-hidden hover:border-gray-500/50 transition-colors"
           onClick={handleClick}
         >
-          <div className="min-h-[120px] relative">
+          <div className="min-h-[6rem] max-h-[12rem] overflow-auto relative p-4">
             <SqlHighlighter 
               code={value}
               className="w-full"
@@ -112,5 +115,6 @@ declare module './SqlCodeEditor' {
   interface SqlCodeEditorProps {
     onFocus?: () => void
     onBlur?: () => void
+    onEnterExecute?: (text: string) => void
   }
 }
