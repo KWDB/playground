@@ -14,7 +14,7 @@
     "check:all": "pnpm run check && pnpm run lint",
     "lint:strict": "eslint \"src/**/*.{ts,tsx}\" \"tests/playwright/**/*.ts\" --cache --cache-location node_modules/.cache/eslint --max-warnings=0",
     "pw:install": "pnpm exec playwright install --with-deps",
-    "test:pw": "pnpm exec playwright test",
+    "test:pw": "pnpm exec playwright test --output=tests/reports",
     "pw:codegen": "npx playwright codegen --output=tests/playwright/new-test.ts http://localhost:3006"
   },
   "dependencies": {

@@ -111,6 +111,8 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   const [lastExecutionResult, setLastExecutionResult] = useState<ExecutionResult | null>(null)
   // 时区显示模式：默认 UTC
   const [tzMode, setTzMode] = useState<TzMode>('UTC')
+  // 清除按钮点击反馈
+  const [justCleared, setJustCleared] = useState(false)
 
   // 当前查询是否包含时间戳列（用于控制时区切换的显示）
   const hasTimestampColumn = useMemo(() => {
@@ -383,8 +385,8 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     }
   }, [])
 
-  // 发送查询
-  const runQuery = () => {
+  // 发送查询（允许传入当前文本以避免状态滞后）
+  const runQuery = (sqlOverride?: string) => {
     // 清除之前的结果和错误信息
     setError(null)
     setLastExecutionResult(null)
@@ -400,8 +402,16 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     setExecuting(true)
 
     const qid = `q_${Date.now()}`
-    const msg = { type: 'query', queryId: qid, sql: queryText }
+    const msg = { type: 'query', queryId: qid, sql: (sqlOverride ?? queryText) }
     wsRef.current.send(JSON.stringify(msg))
+  }
+
+  // 清理执行区输入
+  const handleClearInput = () => {
+    setQueryText('')
+    // 点击反馈：短暂展示“已清除”状态
+    setJustCleared(true)
+    setTimeout(() => setJustCleared(false), 1000)
   }
 
   return (
@@ -449,21 +459,46 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
             <EnhancedSqlEditor
               value={queryText}
               onChange={setQueryText}
-              placeholder="输入 SQL，按下方按钮执行"
+              placeholder="输入 SQL，最后一行按 Enter 或点击执行"
               className="w-full bg-gray-800/60"
               disabled={executing}
+              onEnterExecute={(text) => {
+                // 执行中时忽略新的回车
+                if (executing) return
+                // 使用当前编辑器文本执行，避免状态不同步导致发送空 SQL
+                setQueryText(text)
+                runQuery(text)
+              }}
             />
-            <div className="mt-2 flex justify-end">
-              <button
-                onClick={runQuery}
-                disabled={executing || !wsConnected}
-                className={`px-3 py-1.5 text-sm rounded ${executing || !wsConnected
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-              >
-                {executing ? '执行中...' : '执行'}
-              </button>
+            <div className="mt-2 flex items-center justify-between">
+              <div className="text-xs text-gray-400">
+                提示：在编辑器最后一行按 Enter 可执行；按 <span className="text-gray-200">Shift+Enter</span> 换行。
+                {justCleared && (
+                  <span className="ml-2 text-emerald-300">已清除输入</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleClearInput}
+                  className={
+                    `px-3 py-1.5 text-sm rounded border bg-gray-700 text-gray-200 
+                    hover:bg-gray-600 border-gray-600/50${justCleared ? ' opacity-80' : ''}`
+                  }
+                  aria-label="清除输入"
+                >
+                  {justCleared ? '已清除' : '清除'}
+                </button>
+                <button
+                  onClick={() => runQuery()}
+                  disabled={executing || !wsConnected}
+                  className={`px-3 py-1.5 text-sm rounded ${executing || !wsConnected
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                >
+                  {executing ? '执行中...' : '执行'}
+                </button>
+              </div>
             </div>
 
             {/* 执行结果反馈 */}
