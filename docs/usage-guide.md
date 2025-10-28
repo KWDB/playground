@@ -238,30 +238,24 @@ go run . check
 ================ 环境检查结束 ================
 ```
 
-## e2e 测试
+## e2e Playwright 测试
 
 ### 1. 测试环境准备
 
 ```bash
-# 安装测试环境
-./scripts/setup_e2e_env.sh
+# 安装测试环境依赖
+pnpm run pw:install
 
-# 启动应用服务
-make dev
 ```
 
 ### 2. 执行测试
 
 ```bash
-# 完整测试套件
-./scripts/run_e2e_tests.sh
-
-# 快速核心测试
-./scripts/quick_e2e_test.sh
+# 执行所有 e2e 测试
+make e2e-playwright
 
 # 单独执行特定测试
-source e2e_test_env/bin/activate
-pytest tests/e2e/test_user_journey.py -v
+pnpm test:pw tests/playwright/smoke.spec.ts 
 ```
 
 ### 3. 查看结果

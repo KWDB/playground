@@ -481,9 +481,8 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
                 <button
                   onClick={handleClearInput}
                   className={
-                    `px-3 py-1.5 text-sm rounded border ${
-                      'bg-gray-700 text-gray-200 hover:bg-gray-600 border-gray-600/50'
-                    } ${justCleared ? 'opacity-80' : ''}`
+                    `px-3 py-1.5 text-sm rounded border bg-gray-700 text-gray-200 
+                    hover:bg-gray-600 border-gray-600/50${justCleared ? ' opacity-80' : ''}`
                   }
                   aria-label="清除输入"
                 >

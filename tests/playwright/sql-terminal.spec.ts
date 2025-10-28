@@ -6,7 +6,6 @@ test('SQL 终端测试', async ({ page }) => {
   await page.getByRole('link', { name: '开始学习' }).click();
   await page.locator('a[href="/learn/sql"]:has-text("开始学习")').click();
   console.log('✅ 首页点击了 SQL 课程链接');
-  // await page.getByRole('link', { name: '开始学习' }).nth(1).click();
 
   // 2) 确认进入学习页，显示“请先启动容器”文案
   await expect(page.getByText('请启动容器以连接终端')).toBeVisible({ timeout: 10000 });
@@ -23,7 +22,7 @@ test('SQL 终端测试', async ({ page }) => {
   console.log('✅ Enter 执行');
   // 5) 测试清理按钮
   await page.getByRole('button', { name: '清除输入' }).click();
-  await expect(page.getByRole('textbox')).toContainText('输入 SQL，最后一行按 Enter 或点击执行');
+  await expect(page.getByText('已清除输入')).toBeVisible({ timeout: 10000 });
   console.log('✅ 清除输入');
 
   // 6) 点击“下一步”，执行第一页的命令
@@ -42,9 +41,7 @@ test('SQL 终端测试', async ({ page }) => {
   await page.getByRole('button', { name: '下一步' }).click();
   await expect(page.getByText('向关系表插入设备信息')).toBeVisible({ timeout: 10000 });
   await page.locator('pre').filter({ hasText: 'sql可执行代码RunINSERT INTO device_management.devices VALUES (101, \'温度传感器-101' }).getByLabel('执行当前代码块命令').click();
-  // await page.locator('pre').filter({ hasText: 'sql可执行代码RunINSERT INTO device_management.devices VALUES (101, \'温度传感器-101\', \'多功能传感器-103\')' }).getByLabel('执行当前代码块命令').click();
   await expect(page.getByText('影响 3 行数据')).toBeVisible({ timeout: 10000 });
-  // await page.locator('pre').filter({ hasText: 'sql可执行代码RunINSERT INTO sensor_data.readings VALUES (\'2025-08-15 13:00:00\', 23.5, 25.8)' }).getByLabel('执行当前代码块命令').click();
   await page.locator('pre').filter({ hasText: 'sql可执行代码RunINSERT INTO sensor_data.readings VALUES (\'2025-08-15 13:00:00\', 23.5' }).getByLabel('执行当前代码块命令').click();
   await expect(page.getByText('影响 8 行数据')).toBeVisible({ timeout: 10000 });
   await page.locator('pre').filter({ hasText: 'sql可执行代码RunSELECT r.ts AS' }).getByLabel('执行当前代码块命令').click();
