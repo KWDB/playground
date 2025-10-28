@@ -14,7 +14,7 @@ function AppContent() {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {showNavbar && <Navbar />}
-      <main className="flex-1 overflow-hidden">
+      <main className={`flex-1 ${showNavbar ? 'min-h-0 overflow-y-auto' : 'overflow-hidden'}`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/courses" element={<CourseList />} />

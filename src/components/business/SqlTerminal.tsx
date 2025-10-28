@@ -35,7 +35,7 @@ export interface SqlTerminalRef {
 type TzMode = 'UTC' | 'LOCAL'
 
 // 判断列名是否为时间戳列
-const isTimestampColumnName = (name: string): boolean => /^(ts|.*time.*|.*timestamp.*)$/i.test(name)
+const isTimestampColumnName = (name: string): boolean => /^(ts|tt|.*time.*|.*timestamp.*)$/i.test(name)
 
 // 左侧补零
 const pad2 = (n: number) => String(n).padStart(2, '0')
