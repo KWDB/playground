@@ -262,10 +262,7 @@ pnpm test:pw tests/playwright/smoke.spec.ts
 
 ```bash
 # 查看HTML测试报告
-open tests/reports/e2e_report.html
-
-# 查看测试截图
-ls tests/screenshots/
+open tests/reports/index.html
 ```
 
 ## 常见问题与故障排除
