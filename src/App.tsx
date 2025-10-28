@@ -12,13 +12,15 @@ function AppContent() {
   const showNavbar = !location.pathname.startsWith('/learn/');
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50">
       {showNavbar && <Navbar />}
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/courses" element={<CourseList />} />
-        <Route path="/learn/:courseId" element={<Learn />} />
-      </Routes>
+      <main className="flex-1 overflow-hidden">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/courses" element={<CourseList />} />
+          <Route path="/learn/:courseId" element={<Learn />} />
+        </Routes>
+      </main>
     </div>
   );
 }

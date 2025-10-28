@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Database, Home, BookOpen } from 'lucide-react';
+import { Database, Home, BookOpen, Menu, X } from 'lucide-react';
 
 
 const GitHubIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -21,10 +21,21 @@ const GitHubIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const Navbar: React.FC = () => {
   const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // 判断当前路径是否为活跃状态
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  // 切换移动端菜单
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // 关闭移动端菜单
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
   };
 
   return (
@@ -83,55 +94,66 @@ const Navbar: React.FC = () => {
             </a>
           </div>
 
-          {/* 移动端菜单按钮（展示示例） */}
+          {/* 移动端菜单按钮 */}
           <div className="md:hidden">
-            <button className="text-gray-600 hover:text-blue-600 transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+            <button 
+              onClick={toggleMobileMenu}
+              className="p-2 rounded-lg text-gray-600 hover:text-blue-600 hover:bg-gray-50 transition-colors duration-200"
+              aria-label="切换菜单"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </button>
           </div>
         </div>
 
         {/* 移动端导航菜单 */}
-        <div className="md:hidden border-t border-gray-200">
-          <div className="px-2 pt-2 pb-3 space-y-1">
-            <Link
-              to="/"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${
-                isActive('/')
-                  ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span className="font-medium">首页</span>
-            </Link>
-            
-            <Link
-              to="/courses"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${
-                isActive('/courses')
-                  ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span className="font-medium">课程列表</span>
-            </Link>
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-200 bg-white">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              <Link
+                to="/"
+                onClick={closeMobileMenu}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${
+                  isActive('/')
+                    ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                <Home className="w-4 h-4" />
+                <span className="font-medium">首页</span>
+              </Link>
+              
+              <Link
+                to="/courses"
+                onClick={closeMobileMenu}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${
+                  isActive('/courses')
+                    ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                <span className="font-medium">课程列表</span>
+              </Link>
 
-            {/* Github 外部链接 - 移动端（品牌渐变） */}
-            <a
-              href="https://github.com/KWDB/KWDB"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-purple-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              <GitHubIcon className="w-4 h-4" />
-              <span className="font-medium">Github</span>
-            </a>
+              {/* Github 外部链接 - 移动端（品牌渐变） */}
+              <a
+                href="https://github.com/KWDB/KWDB"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeMobileMenu}
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-purple-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <GitHubIcon className="w-4 h-4" />
+                <span className="font-medium">Github</span>
+              </a>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </nav>
   );
