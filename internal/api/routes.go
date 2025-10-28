@@ -1100,18 +1100,18 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 						_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": err.Error()})
 						break
 					}
-					
+
 					// 格式化时间戳数据，确保时区信息一致
 					formattedVals := make([]interface{}, len(vals))
 					for i, val := range vals {
 						if t, ok := val.(time.Time); ok {
-							// 将时间戳格式化为与插入数据一致的格式（YYYY-MM-DD HH:MM:SS+TZ）
-							formattedVals[i] = t.Format("2006-01-02T15:04:05+08:00")
+							// 将时间戳格式化为RFC3339，保留原始时区信息
+							formattedVals[i] = t.Format(time.RFC3339)
 						} else {
 							formattedVals[i] = val
 						}
 					}
-					
+
 					outRows = append(outRows, formattedVals)
 				}
 

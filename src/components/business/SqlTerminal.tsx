@@ -282,8 +282,6 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
               rows,
               message: `查询完成，返回 ${hasRows ? rows.length : 0} 行数据`
             })
-            console.log('查询列定义:', columns);
-            console.log('查询结果:', rows);
           } else {
             // 非查询操作 - 无列定义，显示成功消息
             setColumns([])
@@ -505,7 +503,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
                           className={`px-2 py-1 text-xs ${tzMode === 'LOCAL' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
                           onClick={() => setTzMode('LOCAL')}
                           aria-pressed={tzMode === 'LOCAL'}
-                        >本地+8</button>
+                        >UTC+8</button>
                       </div>
                     </div>
                   )}
@@ -515,7 +513,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
                     <tr>
                       {columns.map((col) => {
                         const isTs = isTimestampColumnName(col)
-                        const tzLabel = tzMode === 'UTC' ? 'UTC' : '本地+8'
+                        const tzLabel = tzMode === 'UTC' ? 'UTC' : 'UTC+8'
                         const headerText = isTs ? `${col} (${tzLabel})` : col
                         return (
                           <th key={col} className="px-3 py-1 text-left text-gray-300 border-b border-gray-700/50">{headerText}</th>
@@ -537,7 +535,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
                 </table>
                 {hasTimestampColumn && (
                   <div className="mt-2 text-xs text-gray-400">
-                    时间戳默认以 <span className="text-gray-200">UTC</span> 显示。可切换查看 <span className="text-gray-200">本地(+8)</span>。
+                    时间戳默认以 <span className="text-gray-200">UTC</span> 显示。可切换查看 <span className="text-gray-200">Asia/Shanghai(+8)</span>。
                     该设置仅影响显示，不影响数据的查询与存储。
                   </div>
                 )}
