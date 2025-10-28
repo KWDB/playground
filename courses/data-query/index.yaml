@@ -1,0 +1,26 @@
+title: 数据查询
+description: 学习了解 KWDB 时序数据查询、关系数据查询和跨模查询能力。
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: 时序数据查询
+      text: step1.md
+    - title: 关系数据查询
+      text: step2.md
+    - title: 跨模查询
+      text: step3.md
+  finish:
+    text: finish.md
+backend:
+  imageid: kwdb/kwdb
+  port: 26257
+  workspace: /kaiwudb/bin
+  privileged: true
+  cmd: ["./kwbase", "start-single-node", "--insecure", "--listen-addr=0.0.0.0:26257"]
+estimatedMinutes: 5
+difficulty: intermediate
+sqlTerminal: true
+tags:
+  - SQL 终端
+  - 跨模查询
