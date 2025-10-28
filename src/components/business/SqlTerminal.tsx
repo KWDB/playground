@@ -31,6 +31,72 @@ export interface SqlTerminalRef {
 }
 
 // SQL 语法高亮编辑器组件
+// 时区模式类型
+type TzMode = 'UTC' | 'LOCAL'
+
+// 判断列名是否为时间戳列
+const isTimestampColumnName = (name: string): boolean => /^(ts|.*time.*|.*timestamp.*)$/i.test(name)
+
+// 左侧补零
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+// 按 UTC 输出 yyyy-MM-dd HH:mm:ss
+const formatUtc = (date: Date): string => {
+  const y = date.getUTCFullYear()
+  const m = pad2(date.getUTCMonth() + 1)
+  const d = pad2(date.getUTCDate())
+  const hh = pad2(date.getUTCHours())
+  const mm = pad2(date.getUTCMinutes())
+  const ss = pad2(date.getUTCSeconds())
+  return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
+}
+
+// 按本地(+8)输出 yyyy-MM-dd HH:mm:ss（仅用于显示）
+const formatLocalShanghai = (date: Date): string => {
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    timeZone: 'Asia/Shanghai'
+  }).replace(/\//g, '-').replace(/,/g, '')
+}
+
+// 解析可能包含或不包含时区的字符串为 Date（按 UTC 解释）
+const parseTimestampAsUtc = (raw: string): Date | null => {
+  // 带 Z 或偏移量的字符串，交给 Date 解析
+  if (/Z$|[+-]\d{2}:\d{2}$/.test(raw)) {
+    const d = new Date(raw)
+    return isNaN(d.getTime()) ? null : d
+  }
+  // 纯 "YYYY-MM-DD HH:mm:ss" 或 "YYYY-MM-DDTHH:mm:ss" 按 UTC 解释
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(\.\d+)?$/)
+  if (m) {
+    // 忽略完整匹配项，仅提取各时间字段，避免未使用变量告警
+    const [, yy, MM, dd, hh, mm, ss] = m
+    const ms = Date.UTC(
+      Number(yy), Number(MM) - 1, Number(dd),
+      Number(hh), Number(mm), Number(ss)
+    )
+    return new Date(ms)
+  }
+  // 其它格式尝试原生解析
+  const d = new Date(raw)
+  return isNaN(d.getTime()) ? null : d
+}
+
+// 格式化单元格数据（支持时区模式）
+const formatCellValue = (value: unknown, columnName: string, tzMode: TzMode): string => {
+  if (value === null || value === undefined) return 'NULL'
+
+  const isTs = isTimestampColumnName(columnName)
+  if (isTs && typeof value === 'string') {
+    const d = parseTimestampAsUtc(value)
+    if (d) {
+      return tzMode === 'UTC' ? formatUtc(d) : formatLocalShanghai(d)
+    }
+  }
+  return String(value)
+}
+
 const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus }, ref) => {
   const [info, setInfo] = useState<SqlInfo | null>(null)
   const [loading, setLoading] = useState(false)
@@ -43,6 +109,13 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   const [rows, setRows] = useState<Cell[][]>([])
   const [executing, setExecuting] = useState(false)
   const [lastExecutionResult, setLastExecutionResult] = useState<ExecutionResult | null>(null)
+  // 时区显示模式：默认 UTC
+  const [tzMode, setTzMode] = useState<TzMode>('UTC')
+
+  // 当前查询是否包含时间戳列（用于控制时区切换的显示）
+  const hasTimestampColumn = useMemo(() => {
+    return columns.some((c) => isTimestampColumnName(c))
+  }, [columns])
 
   const wsRef = useRef<WebSocket | null>(null)
   const infoAbortControllerRef = useRef<AbortController | null>(null)
@@ -209,6 +282,8 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
               rows,
               message: `查询完成，返回 ${hasRows ? rows.length : 0} 行数据`
             })
+            console.log('查询列定义:', columns);
+            console.log('查询结果:', rows);
           } else {
             // 非查询操作 - 无列定义，显示成功消息
             setColumns([])
@@ -415,25 +490,57 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
             {/* 结果表格（仅查询操作显示） */}
             {columns.length > 0 && (
               <div className="mt-3 overflow-auto">
-                <div className="text-xs text-gray-400 mb-2">查询结果</div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-gray-400">查询结果</div>
+                  {hasTimestampColumn && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">时区</span>
+                      <div className="inline-flex rounded border border-gray-700 overflow-hidden">
+                        <button
+                          className={`px-2 py-1 text-xs ${tzMode === 'UTC' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+                          onClick={() => setTzMode('UTC')}
+                          aria-pressed={tzMode === 'UTC'}
+                        >UTC</button>
+                        <button
+                          className={`px-2 py-1 text-xs ${tzMode === 'LOCAL' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+                          onClick={() => setTzMode('LOCAL')}
+                          aria-pressed={tzMode === 'LOCAL'}
+                        >本地+8</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr>
-                      {columns.map((col) => (
-                        <th key={col} className="px-3 py-1 text-left text-gray-300 border-b border-gray-700/50">{col}</th>
-                      ))}
+                      {columns.map((col) => {
+                        const isTs = isTimestampColumnName(col)
+                        const tzLabel = tzMode === 'UTC' ? 'UTC' : '本地+8'
+                        const headerText = isTs ? `${col} (${tzLabel})` : col
+                        return (
+                          <th key={col} className="px-3 py-1 text-left text-gray-300 border-b border-gray-700/50">{headerText}</th>
+                        )
+                      })}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r, idx) => (
                       <tr key={idx} className="border-b border-gray-800/50">
                         {r.map((cell, cidx) => (
-                          <td key={cidx} className="px-3 py-1 text-gray-200">{String(cell)}</td>
+                          <td key={cidx} className="px-3 py-1 text-gray-200">
+                            {formatCellValue(cell, columns[cidx] || '', tzMode)}
+                          </td>
                         ))}
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {hasTimestampColumn && (
+                  <div className="mt-2 text-xs text-gray-400">
+                    时间戳默认以 <span className="text-gray-200">UTC</span> 显示。可切换查看 <span className="text-gray-200">本地(+8)</span>。
+                    该设置仅影响显示，不影响数据的查询与存储。
+                  </div>
+                )}
               </div>
             )}
           </div>
