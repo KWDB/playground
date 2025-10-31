@@ -1,0 +1,24 @@
+title: 跨模查询
+description: 本场景将带领开发者快速体验 KWDB 的跨模查询。
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: 数据准备
+      text: step1.md
+    - title: 场景查询
+      text: step2.md
+  finish:
+    text: finish.md
+backend:
+  imageid: kwdb/kwdb
+  workspace: /kaiwudb/bin
+  # （可选）挂载 meta.sql 到容器，只读
+  # - ./meta.sql:/kaiwudb/bin/meta.sql:ro
+  volumes:
+    - ./generate_data.sh:/kaiwudb/bin/generate_data.sh
+    - ./create_load.sql:/kaiwudb/bin/create_load.sql
+estimatedMinutes: 10
+difficulty: intermediate
+tags:
+  - 跨模查询

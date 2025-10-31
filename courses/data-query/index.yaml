@@ -18,7 +18,7 @@ backend:
   workspace: /kaiwudb/bin
   privileged: true
   cmd: ["./kwbase", "start-single-node", "--insecure", "--listen-addr=0.0.0.0:26257"]
-estimatedMinutes: 5
+estimatedMinutes: 15
 difficulty: intermediate
 sqlTerminal: true
 tags:

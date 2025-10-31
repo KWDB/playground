@@ -27,8 +27,8 @@ type ContainerInfo struct {
 	Env        map[string]string `json:"env,omitempty"`
 	Ports      map[string]string `json:"ports,omitempty"`
 	Privileged bool              `json:"privileged,omitempty"`
-	Name       string            `json:"name,omitempty"`       // 容器名称
-	Port       int               `json:"port,omitempty"`       // 占用的端口号
+	Name       string            `json:"name,omitempty"` // 容器名称
+	Port       int               `json:"port,omitempty"` // 占用的端口号
 }
 
 // ContainerConfig 容器配置结构体
@@ -46,8 +46,8 @@ type ContainerConfig struct {
 
 // PortConflictInfo 端口冲突信息结构体
 type PortConflictInfo struct {
-	HasConflict       bool           `json:"hasConflict"`       // 是否存在端口冲突
-	IsCourseContainer bool           `json:"isCourseContainer"` // 是否为课程容器占用
+	HasConflict       bool           `json:"hasConflict"`                 // 是否存在端口冲突
+	IsCourseContainer bool           `json:"isCourseContainer"`           // 是否为课程容器占用
 	ConflictContainer *ContainerInfo `json:"conflictContainer,omitempty"` // 冲突容器信息
 }
 
