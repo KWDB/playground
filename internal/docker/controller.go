@@ -463,7 +463,7 @@ func (d *dockerController) CheckPortConflict(ctx context.Context, courseID strin
 		for _, portMapping := range container.Ports {
 			if portMapping.PublicPort != 0 && int(portMapping.PublicPort) == port {
 				d.logger.Info("发现端口冲突: 容器 %s 占用端口 %d", containerName, port)
-				
+
 				// 构建容器信息
 				conflictContainer = &ContainerInfo{
 					ID:       container.ID,
@@ -477,7 +477,7 @@ func (d *dockerController) CheckPortConflict(ctx context.Context, courseID strin
 				break
 			}
 		}
-		
+
 		// 如果找到冲突容器，跳出外层循环
 		if conflictContainer != nil {
 			break

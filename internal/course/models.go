@@ -4,16 +4,16 @@ import "time"
 
 // Course 课程模型
 type Course struct {
-    ID               string       `json:"id" yaml:"id"`
-    Title            string       `json:"title" yaml:"title"`
-    Description      string       `json:"description" yaml:"description"`
-    Details          CourseDetail `json:"details" yaml:"details"`
-    Backend          Backend      `json:"backend" yaml:"backend"`
-    Difficulty       string       `json:"difficulty" yaml:"difficulty"`
-    EstimatedMinutes int          `json:"estimatedMinutes" yaml:"estimatedMinutes"`
-    Tags             []string     `json:"tags" yaml:"tags"`
-    // SqlTerminal 是否启用SQL终端（互斥显示）
-    SqlTerminal      bool         `json:"sqlTerminal" yaml:"sqlTerminal"`
+	ID               string       `json:"id" yaml:"id"`
+	Title            string       `json:"title" yaml:"title"`
+	Description      string       `json:"description" yaml:"description"`
+	Details          CourseDetail `json:"details" yaml:"details"`
+	Backend          Backend      `json:"backend" yaml:"backend"`
+	Difficulty       string       `json:"difficulty" yaml:"difficulty"`
+	EstimatedMinutes int          `json:"estimatedMinutes" yaml:"estimatedMinutes"`
+	Tags             []string     `json:"tags" yaml:"tags"`
+	// SqlTerminal 是否启用SQL终端（互斥显示）
+	SqlTerminal bool `json:"sqlTerminal" yaml:"sqlTerminal"`
 }
 
 // CourseDetail 课程详细信息
@@ -43,7 +43,11 @@ type Backend struct {
     Cmd        []string `json:"cmd" yaml:"cmd"`
     Privileged bool     `json:"privileged" yaml:"privileged"`
     // Port KWDB服务端口（主机映射端口）
-    Port       int      `json:"port" yaml:"port"`
+    Port int `json:"port" yaml:"port"`
+    // Volumes 主机与容器的挂载绑定，例如:
+    // - "./meta.sql:/kaiwudb/bin/meta.sql"
+    // 采用列表形式便于在 YAML 中书写
+    Volumes []string `json:"volumes" yaml:"volumes"`
 }
 
 // UserProgress 用户课程进度
