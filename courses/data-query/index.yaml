@@ -8,8 +8,8 @@ details:
       text: step1.md
     - title: 关系数据查询
       text: step2.md
-    - title: 跨模查询
-      text: step3.md
+    # - title: 跨模查询
+    #   text: step3.md
   finish:
     text: finish.md
 backend:

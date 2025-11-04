@@ -358,6 +358,9 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
       cursorStyle: 'block',
       fontSize: 14,
       fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+      // 关键修复：通过 xterm 选项控制行高，避免继承容器样式导致测量偏差
+      // 当父容器设置了行高或字间距，xterm 的单元格尺寸计算会不一致，触发最后一行覆盖/重叠
+      lineHeight: 1,
       theme: {
         background: '#1a1a1a',
         foreground: '#ffffff',
@@ -523,13 +526,13 @@ const connectByStatus = () => {
         className="flex-1 w-full h-full overflow-hidden"
         style={{
           minHeight: '200px',
+          // 重要：禁用容器级行高与字间距，避免 xterm 行测量偏差导致最后一行重叠
+          // 字体与字号由 xterm 选项控制，容器不再覆盖，确保测量一致
           fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-          fontSize: '14px',
-          lineHeight: '1.2',
-          letterSpacing: '0.5px'
+          fontSize: '14px'
         }}
       />
-      
+
       {/* 镜像拉取进度覆盖层 */}
       <ImagePullProgress />
       

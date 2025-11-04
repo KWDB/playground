@@ -164,11 +164,21 @@
 .xterm {
   will-change: transform;
   contain: layout style paint;
+  /* 关键修复：确保 xterm 行高与字间距不受全局样式影响，避免被填满时最后一行重叠/覆盖 */
+  line-height: 1 !important;
+  letter-spacing: normal !important;
 }
 
 /* 文本选择优化 */
 .xterm .xterm-selection {
   transition: background-color 0.1s ease;
+}
+
+/* 进一步约束行包装容器的行高，防止测量偏差导致底部行覆盖 */
+.xterm .xterm-rows,
+.xterm .xterm-rows > div {
+  line-height: 1 !important;
+  letter-spacing: normal !important;
 }
 
 /* 终端加载状态 */
