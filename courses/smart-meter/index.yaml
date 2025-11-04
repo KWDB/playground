@@ -1,5 +1,5 @@
-title: 跨模查询
-description: 本场景将带领开发者快速体验 KWDB 的跨模查询。
+title: 智能电表示例
+description: 本场景将带领开发者快速体验 KWDB 的智能电表场景。
 details:
   intro:
     text: intro.md
@@ -16,9 +16,10 @@ backend:
   # （可选）挂载 meta.sql 到容器，只读
   # - ./meta.sql:/kaiwudb/bin/meta.sql:ro
   volumes:
-    - ./generate_data.sh:/kaiwudb/bin/generate_data.sh
-    - ./create_load.sql:/kaiwudb/bin/create_load.sql
+    - ./rdb.tar.gz:/kaiwudb/bin/kwbase-data/extern/rdb.tar.gz
+    - ./tsdb.tar.gz:/kaiwudb/bin/kwbase-data/extern/tsdb.tar.gz
 estimatedMinutes: 10
 difficulty: hard
 tags:
   - 跨模查询
+  - 场景设计

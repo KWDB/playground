@@ -295,7 +295,7 @@ VALUES ('2024-09-01 12:00:00', 2, 25.6, 60.3);
 
     ```
   
-## 最值上下文查询
+<!-- ## 最值上下文查询
 
 KWDB 的最值上下文查询功能允许用户在使用 `min` 或 `max` 聚合函数查询最小值或最大值的同时，获取该最值所在行的其他列数据。该功能突破了标准 SQL 的语法限制，使用户能够在一次查询中获得最值数据的完整上下文信息。
 
@@ -436,4 +436,4 @@ INSERT INTO factory_monitoring.sensors VALUES
   FROM factory_monitoring.sensors 
   GROUP BY time_window(k_timestamp, '10min')
   ORDER BY window_start DESC;
-  ```
+  ``` -->

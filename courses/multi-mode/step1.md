@@ -14,7 +14,10 @@ KWDB的跨模查询主要包含以下三项技术：
 
 **启动数据库**
 
-启动 KWDB（非安全模式）：`./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=./kwbase-data --background`{{exec}}
+启动 KWDB（非安全模式）：
+```bash {{exec}}
+./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=./kwbase-data --background
+```
 
 可以指定数据存储路径，如 `bash generate_data.sh ./kwbase-data12`，该路径需要与启动命令中的 `--store` 的保持一致，如果不指定的话，默认是 `./kwbase-data`
 

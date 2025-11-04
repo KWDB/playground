@@ -490,8 +490,20 @@ import { fetchJson } from '../lib/http'
     })
 
     // 2) 处理行内代码 `cmd`{{exec}}，允许存在空白
-    return withExecMeta.replace(/`([^`]+)`\s*\{\{\s*exec\s*\}\}/g, (match, command) => {
-      return `<code class="inline-code-exec">${command}</code><button class="exec-btn" data-command="${command}" title="执行命令">Run</button>`
+    // 3) 修复行内代码 `cmd`{{exec}} 注入：将命令安全编码，避免属性值中引号等字符破坏 HTML
+    //   - data-command-enc 使用 encodeURIComponent 编码的命令
+    //   - 文本节点使用基本的 HTML 转义以防止出现尖括号等特殊字符
+    return withExecMeta.replace(/`([^`]+)`\s*\{\{\s*exec\s*\}\}/g, (match, rawCmd) => {
+      const cmd = String(rawCmd)
+      // HTML 文本节点转义（避免 < > & 影响渲染）
+      const escapedText = cmd
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+      // 属性值采用 URL 编码，避免引号、括号等字符破坏属性边界
+      const encoded = encodeURIComponent(cmd)
+      // 注入可执行内联代码与按钮（rehype-raw 允许解析为真实 HTML）
+      return `<code class="inline-code-exec">${escapedText}</code><button class="exec-btn" data-command-enc="${encoded}" title="执行命令">Run</button>`
     })
   }, [])
 
@@ -499,7 +511,17 @@ import { fetchJson } from '../lib/http'
   const handleExecButtonClick = useCallback((e: React.MouseEvent) => {
     const button = (e.target as HTMLElement).closest('.exec-btn') as HTMLElement
     if (button) {
-      const command = button.getAttribute('data-command')
+      // 优先使用编码的命令，避免 data-attr 中的引号导致解析错误
+      let command = button.getAttribute('data-command')
+      const encoded = button.getAttribute('data-command-enc')
+      if (!command && encoded) {
+        try {
+          command = decodeURIComponent(encoded)
+        } catch {
+          // 回退：如果解码失败则直接使用原值
+          command = encoded
+        }
+      }
       if (command && containerId && containerStatus === 'running') {
         // 根据课程类型选择不同的处理方式
         if (course?.sqlTerminal) {
