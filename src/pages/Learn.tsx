@@ -63,6 +63,9 @@ import { fetchJson } from '../lib/http'
   // 简化状态管理（使用 ref 避免不必要的渲染）
   const isConnectedRef = useRef(false)
   const connectionErrorRef = useRef<string | null>(null)
+  // 终端生命周期动作守卫：用于避免停止后被异步状态错误回滚为 running
+  const lastActionRef = useRef<'idle' | 'start' | 'stop'>('idle')
+  const isStoppingRef = useRef<boolean>(false)
 
   // 监听容器状态变化，当容器停止时清除连接错误
   useEffect(() => {
@@ -131,24 +134,35 @@ import { fetchJson } from '../lib/http'
            const actualStatus = statusData.status
            if (currentStatus !== actualStatus) {
              console.warn(`检测到状态不一致: 前端状态=${currentStatus}, 实际状态=${actualStatus}`)
-             if (actualStatus === 'exited' && currentStatus === 'running') {
-               console.log('容器意外退出，更新前端状态')
-               setContainerStatus('stopped')
-               isConnectedRef.current = false
-               connectionErrorRef.current = '容器已停止运行'
-             } else if (actualStatus === 'running' && currentStatus === 'stopped') {
-               console.log('检测到容器已启动，更新前端状态')
-               setContainerStatus('running')
-               isConnectedRef.current = true
-               connectionErrorRef.current = null
-             } else {
-               setContainerStatus(actualStatus)
-             }
+              // 停止流程中的竞态守卫：在 stop 过程中忽略后端短暂返回的 running/starting，避免 UI 被误回滚
+              const inStopPhase = lastActionRef.current === 'stop' || isStoppingRef.current
+              if (inStopPhase && (actualStatus === 'running' || actualStatus === 'starting')) {
+                console.log('处于停止流程，忽略后端短暂返回的运行中/启动中状态')
+                return
+              }
+              if (actualStatus === 'exited' && currentStatus === 'running') {
+                console.log('容器意外退出，更新前端状态')
+                setContainerStatus('stopped')
+                isConnectedRef.current = false
+                connectionErrorRef.current = '容器已停止运行'
+              } else if (actualStatus === 'running' && currentStatus === 'stopped') {
+                // 仅当最近动作为 start 时，才提升为 running，防止 stop 后被误提升
+                if (lastActionRef.current === 'start') {
+                  console.log('检测到容器已启动（start流程），更新前端状态为 running')
+                  setContainerStatus('running')
+                  isConnectedRef.current = true
+                  connectionErrorRef.current = null
+                } else {
+                  console.log('最近动作为 stop，忽略提升为 running')
+                }
+              } else {
+                setContainerStatus(actualStatus)
+              }
            }
          }
-       } catch (error) {
-         console.error('定期状态检查失败:', error)
-       }
+      } catch (error) {
+        console.error('定期状态检查失败:', error)
+      }
     }, STATUS_CHECK_INTERVAL_MS)
   }, [containerStatus, checkContainerStatus])
 
@@ -158,6 +172,9 @@ import { fetchJson } from '../lib/http'
       console.log('容器已在启动中或运行中，跳过重复启动请求')
       return
     }
+    // 标记最近动作为 start，清除停止标记，避免监控误回滚
+    lastActionRef.current = 'start'
+    isStoppingRef.current = false
 
     setIsStartingContainer(true)
     setContainerStatus('starting')
@@ -199,16 +216,25 @@ import { fetchJson } from '../lib/http'
             await new Promise(resolve => setTimeout(resolve, 1000));
             const finalCheck = await checkContainerStatus(containerId, false, signal);
 
-            if (finalCheck && finalCheck.status === 'running') {
+      if (finalCheck && finalCheck.status === 'running') {
+              // 关键守卫：如果在启动完成前用户已点击“停止”，避免将状态回滚为 running
+              if (lastActionRef.current === 'stop' || isStoppingRef.current) {
+                console.warn('已进入停止流程，忽略启动完成后的状态提升与连接动作');
+                return false
+              }
               console.log('✅ 容器状态最终验证通过，准备连接终端');
               setContainerStatus('running');
 
-              // 启动状态监控
+              // 启动状态监控（仅在未处于停止流程时）
               startStatusMonitoring(containerId);
 
-              // 容器启动完成后连接终端
+              // 容器启动完成后连接终端（增加守卫，避免竞态）
               setTimeout(() => {
-                connectToTerminal(containerId)
+                if (lastActionRef.current !== 'stop' && !isStoppingRef.current) {
+                  connectToTerminal(containerId)
+                } else {
+                  console.log('停止流程已触发，跳过终端连接')
+                }
               }, 500)
 
               return true
@@ -315,6 +341,11 @@ import { fetchJson } from '../lib/http'
     console.log('当前页面容器ID:', containerId)
 
     try {
+      // 标记最近动作为 stop，并进入停止守卫阶段
+      lastActionRef.current = 'stop'
+      isStoppingRef.current = true
+      // 若仍处于“启动中”视觉状态，立即复位，避免 UI 继续显示终端
+      setIsStartingContainer(false)
       // 立即设置容器状态为停止中，提供即时UI反馈
       setContainerStatus('stopping')
 
@@ -351,6 +382,8 @@ import { fetchJson } from '../lib/http'
       isConnectedRef.current = false
       connectionErrorRef.current = null
       setContainerId(null)
+      // 退出停止守卫阶段（此后如有新启动，允许监控提升状态）
+      isStoppingRef.current = false
 
       // 停止状态监控
       if (statusCheckIntervalRef.current) {

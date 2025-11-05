@@ -1,15 +1,15 @@
 package api
 
 import (
-    "context"
-    "fmt"
-    "net/http"
-    "strconv"
-    "strings"
-    "sync"
-    "time"
-    "os"
-    "path/filepath"
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	"kwdb-playground/internal/check"
 	"kwdb-playground/internal/config"
@@ -391,81 +391,81 @@ func (h *Handler) startCourse(c *gin.Context) {
 		h.logger.Debug("[startCourse] 使用默认Cmd: %v", cmd)
 	}
 
-    // 解析并构建卷绑定（支持 YAML 中的列表形式 "host:container[:opts]"）
-    volumes := make(map[string]string)
-    if len(course.Backend.Volumes) > 0 {
-        // 预先解析课程根目录为绝对路径
-        baseDir := h.cfg.Course.Dir
-        if !filepath.IsAbs(baseDir) {
-            if absBase, err := filepath.Abs(baseDir); err == nil {
-                baseDir = absBase
-            } else {
-                h.logger.Warn("[startCourse] 课程根目录解析绝对路径失败: %s, err: %v", baseDir, err)
-            }
-        }
-        courseBase := filepath.Join(baseDir, course.ID)
+	// 解析并构建卷绑定（支持 YAML 中的列表形式 "host:container[:opts]"）
+	volumes := make(map[string]string)
+	if len(course.Backend.Volumes) > 0 {
+		// 预先解析课程根目录为绝对路径
+		baseDir := h.cfg.Course.Dir
+		if !filepath.IsAbs(baseDir) {
+			if absBase, err := filepath.Abs(baseDir); err == nil {
+				baseDir = absBase
+			} else {
+				h.logger.Warn("[startCourse] 课程根目录解析绝对路径失败: %s, err: %v", baseDir, err)
+			}
+		}
+		courseBase := filepath.Join(baseDir, course.ID)
 
-        for _, bind := range course.Backend.Volumes {
-            b := strings.TrimSpace(bind)
-            if b == "" {
-                continue
-            }
-            parts := strings.SplitN(b, ":", 3)
-            if len(parts) < 2 {
-                h.logger.Warn("[startCourse] 无效的卷绑定: %s，期望格式 host:container[:opts]", b)
-                continue
-            }
+		for _, bind := range course.Backend.Volumes {
+			b := strings.TrimSpace(bind)
+			if b == "" {
+				continue
+			}
+			parts := strings.SplitN(b, ":", 3)
+			if len(parts) < 2 {
+				h.logger.Warn("[startCourse] 无效的卷绑定: %s，期望格式 host:container[:opts]", b)
+				continue
+			}
 
-            hostPath := strings.TrimSpace(parts[0])
-            containerPath := strings.TrimSpace(parts[1])
-            if len(parts) == 3 && strings.TrimSpace(parts[2]) != "" {
-                // 将选项拼接到容器路径（例如 :ro）
-                containerPath = containerPath + ":" + strings.TrimSpace(parts[2])
-            }
+			hostPath := strings.TrimSpace(parts[0])
+			containerPath := strings.TrimSpace(parts[1])
+			if len(parts) == 3 && strings.TrimSpace(parts[2]) != "" {
+				// 将选项拼接到容器路径（例如 :ro）
+				containerPath = containerPath + ":" + strings.TrimSpace(parts[2])
+			}
 
-            // 展开 ~ 为用户主目录
-            if hostPath == "~" || strings.HasPrefix(hostPath, "~/") {
-                if home, herr := os.UserHomeDir(); herr == nil {
-                    hostPath = filepath.Join(home, strings.TrimPrefix(hostPath, "~"))
-                } else {
-                    h.logger.Warn("[startCourse] 无法解析用户主目录用于卷绑定: %v", herr)
-                }
-            }
+			// 展开 ~ 为用户主目录
+			if hostPath == "~" || strings.HasPrefix(hostPath, "~/") {
+				if home, herr := os.UserHomeDir(); herr == nil {
+					hostPath = filepath.Join(home, strings.TrimPrefix(hostPath, "~"))
+				} else {
+					h.logger.Warn("[startCourse] 无法解析用户主目录用于卷绑定: %v", herr)
+				}
+			}
 
-            // 将相对路径解析为课程目录下的绝对路径
-            if !filepath.IsAbs(hostPath) {
-                hostPath = filepath.Join(courseBase, hostPath)
-            }
-            // 规范化并最终转为绝对路径
-            hostPath = filepath.Clean(hostPath)
-            if absHost, err := filepath.Abs(hostPath); err == nil {
-                hostPath = absHost
-            }
+			// 将相对路径解析为课程目录下的绝对路径
+			if !filepath.IsAbs(hostPath) {
+				hostPath = filepath.Join(courseBase, hostPath)
+			}
+			// 规范化并最终转为绝对路径
+			hostPath = filepath.Clean(hostPath)
+			if absHost, err := filepath.Abs(hostPath); err == nil {
+				hostPath = absHost
+			}
 
-            // 简单校验文件/目录是否存在（不存在也允许，Docker会创建目录；文件挂载需文件存在）
-            if _, err := os.Stat(hostPath); os.IsNotExist(err) {
-                h.logger.Warn("[startCourse] 主机路径不存在: %s (课程: %s)", hostPath, course.ID)
-            }
+			// 简单校验文件/目录是否存在（不存在也允许，Docker会创建目录；文件挂载需文件存在）
+			if _, err := os.Stat(hostPath); os.IsNotExist(err) {
+				h.logger.Warn("[startCourse] 主机路径不存在: %s (课程: %s)", hostPath, course.ID)
+			}
 
-            // 容器路径应为绝对路径，若不是则记录警告（仍允许）
-            if !strings.HasPrefix(containerPath, "/") {
-                h.logger.Warn("[startCourse] 容器路径不是绝对路径: %s，建议以/开始", containerPath)
-            }
+			// 容器路径应为绝对路径，若不是则记录警告（仍允许）
+			if !strings.HasPrefix(containerPath, "/") {
+				h.logger.Warn("[startCourse] 容器路径不是绝对路径: %s，建议以/开始", containerPath)
+			}
 
-            volumes[hostPath] = containerPath
-        }
-        h.logger.Debug("[startCourse] 已解析卷绑定(绝对路径): %v", volumes)
-    }
+			volumes[hostPath] = containerPath
+		}
+		h.logger.Debug("[startCourse] 已解析卷绑定(绝对路径): %v", volumes)
+	}
 
-    // 创建容器配置
-    config := &docker.ContainerConfig{
-        Image:      imageName,
-        WorkingDir: workingDir,                // 使用配置的工作目录
-        Cmd:        cmd,                       // 根据课程配置的Cmd启动容器
-        Privileged: course.Backend.Privileged, // 根据课程配置的Privileged启动容器
-        Ports:      map[string]string{"26257": fmt.Sprintf("%d", course.Backend.Port)},
-        Volumes:    volumes,                   // 课程定义的卷绑定
-    }
+	// 创建容器配置
+	config := &docker.ContainerConfig{
+		Image:      imageName,
+		WorkingDir: workingDir,                // 使用配置的工作目录
+		Cmd:        cmd,                       // 根据课程配置的Cmd启动容器
+		Privileged: course.Backend.Privileged, // 根据课程配置的Privileged启动容器
+		Ports:      map[string]string{"26257": fmt.Sprintf("%d", course.Backend.Port)},
+		Volumes:    volumes, // 课程定义的卷绑定
+	}
 
 	h.logger.Debug("[startCourse] 创建容器配置完成，镜像: %s，工作目录: %s，Cmd: %v, Privileged: %v",
 		config.Image, config.WorkingDir, config.Cmd, config.Privileged)

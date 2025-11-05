@@ -61,9 +61,20 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
+/* 焦点反馈：键盘聚焦时提升阴影与可见性（无JS，仅CSS） */
+.terminal-glow:focus-within {
+  box-shadow:
+    0 0 30px rgba(88, 166, 255, 0.20),
+    0 8px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
 /* 终端命令提示符和输出文本样式 */
 .xterm .xterm-viewport {
   background-color: transparent !important;
+  /* 跨浏览器滚动条样式（Firefox专用） */
+  scrollbar-color: #58a6ff #21262d;
+  scrollbar-width: thin;
 }
 
 .xterm .xterm-screen {
