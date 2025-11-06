@@ -361,26 +361,27 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
       // 关键修复：通过 xterm 选项控制行高，避免继承容器样式导致测量偏差
       // 当父容器设置了行高或字间距，xterm 的单元格尺寸计算会不一致，触发最后一行覆盖/重叠
       lineHeight: 1,
+      // Dracula 主题：更高的前景对比度与友好的 ANSI 颜色
       theme: {
-        background: '#1a1a1a',
-        foreground: '#ffffff',
-        cursor: '#ffffff',
-        black: '#000000',
-        red: '#e06c75',
-        green: '#98c379',
-        yellow: '#d19a66',
-        blue: '#61afef',
-        magenta: '#c678dd',
-        cyan: '#56b6c2',
-        white: '#ffffff',
-        brightBlack: '#5c6370',
-        brightRed: '#e06c75',
-        brightGreen: '#98c379',
-        brightYellow: '#d19a66',
-        brightBlue: '#61afef',
-        brightMagenta: '#c678dd',
-        brightCyan: '#56b6c2',
-        brightWhite: '#ffffff'
+        background: '#282a36',
+        foreground: '#f8f8f2',
+        cursor: '#f8f8f2',
+        black: '#21222C',
+        red: '#FF5555',
+        green: '#50FA7B',
+        yellow: '#F1FA8C',
+        blue: '#BD93F9',
+        magenta: '#FF79C6',
+        cyan: '#8BE9FD',
+        white: '#F8F8F2',
+        brightBlack: '#6272A4',
+        brightRed: '#FF6E6E',
+        brightGreen: '#69FF94',
+        brightYellow: '#FFFFA5',
+        brightBlue: '#D6ACFF',
+        brightMagenta: '#FF92DF',
+        brightCyan: '#A4FFFF',
+        brightWhite: '#FFFFFF'
       },
       allowTransparency: true,
       convertEol: true,
@@ -519,11 +520,12 @@ const connectByStatus = () => {
   );
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-gray-900">
+    // 外层容器：采用 Dracula 配色背景、圆角与阴影增强质感；保留现有功能结构不变
+    <div className="relative w-full h-full flex flex-col bg-[#282a36] rounded-xl shadow-2xl terminal-glow p-2 md:p-3" role="region" aria-label="Shell 终端">
       {/* 终端容器 - 优化布局以防止文本重叠 */}
       <div 
         ref={terminalRef} 
-        className="flex-1 w-full h-full overflow-hidden"
+        className="flex-1 w-full h-full overflow-hidden terminal-font"
         style={{
           minHeight: '200px',
           // 重要：禁用容器级行高与字间距，避免 xterm 行测量偏差导致最后一行重叠
