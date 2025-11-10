@@ -27,10 +27,10 @@ pip install -r requirements.txt
 
 使用 `kwdb-playground server` 子命令启动项目，支持 Flags 与环境变量组合配置，优先级为：`Flags > Env > 默认值`。
 
-- 命令帮助
+- 服务启动命令
 
 ```bash
-kwdb-playground server --help
+kwdb-playground server
 ```
 
 - 常用 Flags（显式设置时将覆盖环境变量）
@@ -42,9 +42,6 @@ kwdb-playground server --help
 
 - `.env` 自动加载
   - 后端启动时会尝试加载根目录 `.env`（使用 `godotenv`），便于本地开发配置。
-
-- Gin 模式与恢复中间件
-  - 推荐以 `GIN_MODE=release` 运行，启用 `gin.Recovery()` 以提升稳定性。
 
 ### 3. 运行项目的具体命令
 
