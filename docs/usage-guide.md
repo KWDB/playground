@@ -94,7 +94,7 @@ make build
 - 构建后运行报错：找不到前端资源或课程
   - 解决：确保已执行 `pnpm run build` 并生成 `dist/`；开发模式下确认 `COURSE_DIR` 指向 `./courses`。
 - `pnpm` 命令不存在或版本过低
-  - 解决：安装或升级 pnpm（https://pnpm.io/）；确保 Node.js 版本 ≥ 18。
+  - 解决：安装或升级 pnpm 确保 Node.js 版本 ≥ 18。
 - Go 版本不匹配
   - 解决：安装 Go 1.23，并使用 `go env` 确认环境。必要时调整 `PATH` 指向正确的 Go 安装目录。
 - 端口被占用（3006）
