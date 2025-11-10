@@ -23,28 +23,25 @@ pnpm install
 pip install -r requirements.txt
 ```
 
-### 2. 必要的环境配置
+### 2. 启动命令与参数
 
-项目支持从环境变量进行配置。你可以在项目根目录创建 `.env` 文件（可选）：
+使用 `kwdb-playground server` 子命令启动项目，支持 Flags 与环境变量组合配置，优先级为：`Flags > Env > 默认值`。
 
-```env
-# 服务器监听地址与端口
-SERVER_HOST=0.0.0.0
-SERVER_PORT=3006
+- 服务启动命令
 
-# 课程内容目录（开发模式）
-COURSE_DIR=./courses
-
-# 是否使用嵌入式课程与前端资源（发布模式建议开启）
-COURSES_USE_EMBED=0
-
-# 是否启用课程热重载（开发模式更友好）
-COURSES_RELOAD=1
+```bash
+kwdb-playground server
 ```
 
-说明：
-- 开发模式：`COURSES_USE_EMBED=0`，课程与前端资源从磁盘读取，利于本地调试与热更新。
-- 发布模式：`COURSES_USE_EMBED=1`，课程与前端资源打包进单一二进制，便于部署分发。
+- 常用 Flags（显式设置时将覆盖环境变量）
+  - `--daemon`, `-d`：以守护进程模式运行（详见“守护进程模式”）
+  - `--host`：服务器监听地址（覆盖 `SERVER_HOST`）
+  - `--port`：服务器端口（覆盖 `SERVER_PORT`）
+  - `--log-level`：日志级别（覆盖 `LOG_LEVEL`），可选：`debug|info|warn|error`，默认 `warn`
+  - `--log-format`：日志格式（覆盖 `LOG_FORMAT`），可选：`json|text`，默认 `text`
+
+- `.env` 自动加载
+  - 后端启动时会尝试加载根目录 `.env`（使用 `godotenv`），便于本地开发配置。
 
 ### 3. 运行项目的具体命令
 
@@ -65,12 +62,12 @@ make build
 ./bin/kwdb-playground server
 ```
 
-访问地址：
-- 本地页面：http://localhost:3006
+访问地址：http://localhost:3006
 
 ## 编译指南
 
 ### 1. 编译所需工具与环境
+
 - Go 1.23（建议 `go env` 验证）
 - Node.js ≥ 18 与 pnpm ≥ 8
 - macOS / Linux / Windows（编译平台，对应交叉编译目标见发布流程）
@@ -94,7 +91,7 @@ make build
 - 构建后运行报错：找不到前端资源或课程
   - 解决：确保已执行 `pnpm run build` 并生成 `dist/`；开发模式下确认 `COURSE_DIR` 指向 `./courses`。
 - `pnpm` 命令不存在或版本过低
-  - 解决：安装或升级 pnpm（https://pnpm.io/）；确保 Node.js 版本 ≥ 18。
+  - 解决：安装或升级 pnpm 确保 Node.js 版本 ≥ 18。
 - Go 版本不匹配
   - 解决：安装 Go 1.23，并使用 `go env` 确认环境。必要时调整 `PATH` 指向正确的 Go 安装目录。
 - 端口被占用（3006）
