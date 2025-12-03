@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Tag, BookOpen, AlertCircle, Trash2, Activity, X, CheckCircle, AlertTriangle, Terminal } from 'lucide-react';
+import { Clock, Tag, BookOpen, AlertCircle, Trash2, Activity, X, CheckCircle, AlertTriangle, Terminal, Database } from 'lucide-react';
 import { ContainerInfo, CleanupResult } from '../types/container';
 
 interface Course {
@@ -90,6 +90,20 @@ export function CourseList() {
     }
   }
 
+  // 辅助函数：根据难度生成确定的渐变色
+  const getDifficultyGradient = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner':
+        return 'from-emerald-400 to-teal-500';
+      case 'intermediate':
+        return 'from-blue-400 to-indigo-500';
+      case 'hard':
+        return 'from-orange-400 to-red-500';
+      default:
+        return 'from-gray-400 to-gray-500';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center py-20">
@@ -155,104 +169,101 @@ export function CourseList() {
             <p className="text-gray-500">请检查 courses 目录是否包含有效的课程配置</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {courses.map((course, index) => (
-              <div 
-                key={course.id} 
-                // 统一卡片高度与布局：保证按钮可固定在底部
-                className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden border border-gray-100 hover:border-blue-200 transform hover:-translate-y-2 h-full min-h-[320px] flex flex-col"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                {/* 课程卡片头部渐变 */}
-                <div className="h-2 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600"></div>
-                
-                {/* 内容容器：flex-1 保证按钮贴底 */}
-                <div className="p-8 flex flex-col flex-1">
-                  {/* 顶部区：左侧标题与时长；右侧难度与类型标签 */}
-                  <div className="flex items-start justify-between mb-4">
-                    {/* 左侧：标题与时长 */}
-                    <div className="flex-1 mr-4">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300 leading-tight">
-                          {course.title}
-                        </h3>
-                        {containers.some(c => c.courseId === course.id && c.state === 'running') && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 animate-pulse">
-                            <Activity className="w-3 h-3 mr-1" />
-                            运行中
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-2 flex items-center text-sm text-gray-500">
-                        <Clock className="w-3 h-3 mr-1 text-blue-500" />
-                        <span className="font-medium">{course.estimatedMinutes} 分钟</span>
-                      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {courses.map((course, index) => {
+              const isRunning = containers.some(c => c.courseId === course.id && c.state === 'running');
+              
+              return (
+                <Link 
+                  to={`/learn/${course.id}`}
+                  key={course.id} 
+                  className="group block bg-white rounded-lg border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.1)] hover:shadow-xl hover:scale-105 transition-all duration-300 overflow-hidden h-full flex flex-col"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                  role="article"
+                  aria-labelledby={`course-title-${course.id}`}
+                >
+                  {/* 16:9 图片占位区域 */}
+                  <div className="aspect-video relative overflow-hidden bg-gray-100">
+                    {/* 渐变背景 */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${getDifficultyGradient(course.difficulty)} opacity-90 group-hover:scale-110 transition-transform duration-500`}></div>
+                    
+                    {/* 中心图标 */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      {course.sqlTerminal ? (
+                        <Database className="w-12 h-12 text-white/80 drop-shadow-md" />
+                      ) : (
+                        <Terminal className="w-12 h-12 text-white/80 drop-shadow-md" />
+                      )}
                     </div>
-                    {/* 右侧：难度徽章 + 类型标签（SQL/Shell） */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm ${
-                        course.difficulty === 'beginner' ? 'bg-gradient-to-r from-green-400 to-green-500 text-white' :
-                        course.difficulty === 'intermediate' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' :
-                        'bg-gradient-to-r from-red-400 to-pink-500 text-white'
+
+                    {/* 右上角：难度标签 */}
+                    <div className="absolute top-3 right-3">
+                      <span className={`px-2 py-1 rounded text-xs font-bold bg-white/90 backdrop-blur-sm shadow-sm ${
+                        course.difficulty === 'beginner' ? 'text-green-700' :
+                        course.difficulty === 'intermediate' ? 'text-yellow-700' :
+                        'text-red-700'
                       }`}>
                         {course.difficulty === 'beginner' ? '初级' :
                          course.difficulty === 'intermediate' ? '中级' : '高级'}
                       </span>
-                      <span className={`${course.sqlTerminal ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'} px-3 py-1 rounded-full text-xs font-semibold`}>
-                        {course.sqlTerminal ? 'SQL' : 'Shell'}
-                      </span>
                     </div>
+                    
+                    {/* 运行状态条 */}
+                    {isRunning && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-green-500/90 text-white text-xs py-1.5 px-2 text-center font-medium backdrop-blur-sm flex items-center justify-center">
+                        <Activity className="w-3 h-3 mr-1 animate-pulse" />
+                        正在运行
+                      </div>
+                    )}
                   </div>
+                  
+                  {/* 内容区域 */}
+                  <div className="p-4 flex flex-col flex-1">
+                    {/* 标题 */}
+                    <h3 
+                      id={`course-title-${course.id}`} 
+                      className="text-[18px] font-medium text-gray-900 leading-tight mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors"
+                    >
+                      {course.title}
+                    </h3>
 
-                  {/* 课程标签（提升可见度：置于描述上方） */}
-                  {course.tags && course.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2 mb-5">
-                      {course.tags.map((tag, tagIndex) => (
-                        tagIndex < 4 ? (
-                          <span 
-                            key={tagIndex} 
-                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 border border-blue-200 hover:from-blue-100 hover:to-purple-100 transition-all duration-200"
-                          >
-                            <Tag className="w-3 h-3 mr-1.5" />
+                    {/* 课程标签 */}
+                    {course.tags && course.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {course.tags.slice(0, 3).map((tag, i) => (
+                          <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-100">
                             {tag}
                           </span>
-                        ) : null
-                      ))}
-                      {course.tags.length > 4 && (
-                        <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                          +{course.tags.length - 4}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* 课程描述 */}
-                  <p className="text-gray-600 mb-6 line-clamp-3 leading-relaxed">{course.description}</p>
-                  
-                  {/* 开始学习按钮：使用 mt-auto 固定在卡片底部 */}
-                  <Link
-                    to={`/learn/${course.id}`}
-                    className={`group/btn mt-auto block w-full text-center py-4 px-6 rounded-xl transition-all duration-300 font-semibold text-sm uppercase tracking-wide shadow-lg hover:shadow-xl transform hover:scale-105 relative overflow-hidden ${
-                      containers.some(c => c.courseId === course.id && c.state === 'running')
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
-                    }`}
-                  >
-                    <span className="relative z-10 flex items-center justify-center">
-                      {containers.some(c => c.courseId === course.id && c.state === 'running') ? (
-                        <Terminal className="w-4 h-4 mr-2" />
-                      ) : (
-                        <BookOpen className="w-4 h-4 mr-2 group-hover/btn:rotate-12 transition-transform duration-300" />
-                      )}
-                      {containers.some(c => c.courseId === course.id && c.state === 'running') ? '进入课程' : '开始学习'}
-                    </span>
-                    {!containers.some(c => c.courseId === course.id && c.state === 'running') && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700"></div>
+                        ))}
+                        {course.tags.length > 3 && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-600 border border-gray-100">
+                            +{course.tags.length - 3}
+                          </span>
+                        )}
+                      </div>
                     )}
-                  </Link>
-                </div>
-              </div>
-            ))}
+                    
+                    {/* 描述 */}
+                    <p className="text-[14px] text-gray-600 leading-relaxed mb-4 line-clamp-3 flex-1 font-normal">
+                      {course.description}
+                    </p>
+                    
+                    {/* 底部元数据 */}
+                    <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-3 border-t border-gray-100">
+                      <div className="flex items-center" title="预计时长">
+                        <Clock className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+                        <span>{course.estimatedMinutes} 分钟</span>
+                      </div>
+
+                      <div className="flex items-center" title="课程类型">
+                        <Tag className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+                        <span>{course.sqlTerminal ? 'SQL' : 'Shell'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
