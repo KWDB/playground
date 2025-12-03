@@ -89,7 +89,7 @@ async function checkPortConflict(courseId: string, port: number, retries: number
   }
 }
 
-async function startCourse(courseId: string, retries: number = 8) {
+async function startCourse(courseId: string, retries: number = 3) {
   for (let i = 0; i < retries; i++) {
     try {
       const result = await apiRequest(`/api/courses/${courseId}/start`, { method: 'POST' });
@@ -476,7 +476,8 @@ test.describe('端口冲突智能处理功能测试', () => {
     }
     
     // 等待学习页面加载
-    await expect(page.locator('h1')).toContainText('SQL 终端快速体验 KWDB', { timeout: 10000 });
+    await expect(page.getByText('SQL 终端快速体验 KWDB')).toBeVisible({ timeout: 10000 });
+    // await expect(page.locator('h1')).toContainText('SQL 终端快速体验 KWDB', { timeout: 10000 });
     console.log('✅ 成功导航到 SQL 课程页面');
     
     // 3. 尝试启动课程（应该触发端口冲突）

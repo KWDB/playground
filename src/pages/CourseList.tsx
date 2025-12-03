@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Tag, BookOpen, AlertCircle } from 'lucide-react';
+import { Clock, Tag, BookOpen, AlertCircle, Trash2, Activity, X, CheckCircle, AlertTriangle, Terminal } from 'lucide-react';
+import { ContainerInfo, CleanupResult } from '../types/container';
 
 interface Course {
   id: string
@@ -15,12 +16,53 @@ interface Course {
 
 export function CourseList() {
   const [courses, setCourses] = useState<Course[]>([])
+  const [containers, setContainers] = useState<ContainerInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showCleanupModal, setShowCleanupModal] = useState(false)
+  const [cleaning, setCleaning] = useState(false)
+  const [cleanupResult, setCleanupResult] = useState<CleanupResult | null>(null)
 
   useEffect(() => {
     fetchCourses()
+    fetchContainers()
+    const interval = setInterval(fetchContainers, 30000)
+    return () => clearInterval(interval)
   }, [])
+
+  const fetchContainers = async () => {
+    try {
+      const response = await fetch('/api/containers')
+      if (response.ok) {
+        const data = await response.json()
+        setContainers(data || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch containers', error)
+    }
+  }
+
+  const handleCleanup = async () => {
+    setCleaning(true)
+    try {
+      const response = await fetch('/api/containers', { method: 'DELETE' })
+      const result = await response.json()
+      setCleanupResult(result)
+      if (result.success) {
+        fetchContainers()
+        // 3秒后自动关闭弹窗
+        setTimeout(() => {
+           if (showCleanupModal) setShowCleanupModal(false);
+           setCleanupResult(null);
+        }, 3000)
+      }
+    } catch (error) {
+      console.error('Cleanup failed', error)
+      setCleanupResult({ success: false, message: '调用清理接口失败', cleanedContainers: [] })
+    } finally {
+      setCleaning(false)
+    }
+  }
 
   const fetchCourses = async () => {
     try {
@@ -92,6 +134,18 @@ export function CourseList() {
           <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
             探索我们精心设计的课程，从基础到进阶，助你掌握 KWDB 数据库核心技能
           </p>
+          
+          {containers.length > 0 && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => setShowCleanupModal(true)}
+                className="inline-flex items-center px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                清理所有运行中容器 ({containers.length})
+              </button>
+            </div>
+          )}
         </div>
 
         {courses.length === 0 ? (
@@ -118,9 +172,17 @@ export function CourseList() {
                   <div className="flex items-start justify-between mb-4">
                     {/* 左侧：标题与时长 */}
                     <div className="flex-1 mr-4">
-                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300 leading-tight">
-                        {course.title}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300 leading-tight">
+                          {course.title}
+                        </h3>
+                        {containers.some(c => c.courseId === course.id && c.state === 'running') && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 animate-pulse">
+                            <Activity className="w-3 h-3 mr-1" />
+                            运行中
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-2 flex items-center text-sm text-gray-500">
                         <Clock className="w-3 h-3 mr-1 text-blue-500" />
                         <span className="font-medium">{course.estimatedMinutes} 分钟</span>
@@ -170,13 +232,23 @@ export function CourseList() {
                   {/* 开始学习按钮：使用 mt-auto 固定在卡片底部 */}
                   <Link
                     to={`/learn/${course.id}`}
-                    className="group/btn mt-auto block w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-center py-4 px-6 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-semibold text-sm uppercase tracking-wide shadow-lg hover:shadow-xl transform hover:scale-105 relative overflow-hidden"
+                    className={`group/btn mt-auto block w-full text-center py-4 px-6 rounded-xl transition-all duration-300 font-semibold text-sm uppercase tracking-wide shadow-lg hover:shadow-xl transform hover:scale-105 relative overflow-hidden ${
+                      containers.some(c => c.courseId === course.id && c.state === 'running')
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+                    }`}
                   >
                     <span className="relative z-10 flex items-center justify-center">
-                      <BookOpen className="w-4 h-4 mr-2 group-hover/btn:rotate-12 transition-transform duration-300" />
-                      开始学习
+                      {containers.some(c => c.courseId === course.id && c.state === 'running') ? (
+                        <Terminal className="w-4 h-4 mr-2" />
+                      ) : (
+                        <BookOpen className="w-4 h-4 mr-2 group-hover/btn:rotate-12 transition-transform duration-300" />
+                      )}
+                      {containers.some(c => c.courseId === course.id && c.state === 'running') ? '进入课程' : '开始学习'}
                     </span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700"></div>
+                    {!containers.some(c => c.courseId === course.id && c.state === 'running') && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700"></div>
+                    )}
                   </Link>
                 </div>
               </div>
@@ -184,6 +256,116 @@ export function CourseList() {
           </div>
         )}
       </div>
+
+      {/* 清理确认弹窗 */}
+      {showCleanupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                <Trash2 className="w-5 h-5 mr-2 text-red-500" />
+                清理确认
+              </h3>
+              <button 
+                onClick={() => !cleaning && setShowCleanupModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={cleaning}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {!cleanupResult ? (
+                <>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-6 flex items-start">
+                    <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-semibold text-red-900 mb-1">警告</h4>
+                      <p className="text-sm text-red-700">
+                        您即将强制停止并删除 <strong>{containers.length}</strong> 个正在运行的课程容器。此操作不可撤销，所有未保存的数据都将丢失。
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3 max-h-48 overflow-y-auto mb-6 border border-gray-100 rounded-lg p-2">
+                    {containers.map(container => (
+                      <div key={container.id} className="flex items-center justify-between text-sm p-2 hover:bg-gray-50 rounded">
+                        <span className="font-medium text-gray-700">
+                          {courses.find(c => c.id === container.courseId)?.title || container.name}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-xs ${
+                          container.state === 'running' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {container.state}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowCleanupModal(false)}
+                      disabled={cleaning}
+                      className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleCleanup}
+                      disabled={cleaning}
+                      className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors flex items-center justify-center"
+                    >
+                      {cleaning ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                          清理中...
+                        </>
+                      ) : (
+                        '确认清理'
+                      )}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                    cleanupResult.success ? 'bg-green-100' : 'bg-red-100'
+                  }`}>
+                    {cleanupResult.success ? (
+                      <CheckCircle className="w-8 h-8 text-green-600" />
+                    ) : (
+                      <AlertTriangle className="w-8 h-8 text-red-600" />
+                    )}
+                  </div>
+                  <h4 className={`text-lg font-bold mb-2 ${
+                    cleanupResult.success ? 'text-green-900' : 'text-red-900'
+                  }`}>
+                    {cleanupResult.success ? '清理完成' : '清理失败'}
+                  </h4>
+                  <p className="text-gray-600 mb-6">{cleanupResult.message}</p>
+                  
+                  {cleanupResult.success && (
+                    <div className="text-sm text-gray-500 mb-6">
+                      已清理 {cleanupResult.cleanedContainers.length} 个容器
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setShowCleanupModal(false)
+                      setCleanupResult(null)
+                    }}
+                    className="w-full px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-medium transition-colors"
+                  >
+                    关闭
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

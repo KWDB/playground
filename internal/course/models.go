@@ -48,6 +48,9 @@ type Backend struct {
     // - "./meta.sql:/kaiwudb/bin/meta.sql"
     // 采用列表形式便于在 YAML 中书写
     Volumes []string `json:"volumes" yaml:"volumes"`
+    // Env 环境变量，例如:
+    // - "KW_VERSION=3.0.0"
+    Env []string `json:"env" yaml:"env"`
 }
 
 // UserProgress 用户课程进度

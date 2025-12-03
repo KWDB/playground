@@ -18,6 +18,8 @@ backend:
   imageid: kwdb/ubuntu:20.04
   cmd: ["/sbin/init"]
   privileged: true
+  env:
+    - "KW_VERSION=3.0.0"
 estimatedMinutes: 10
 difficulty: intermediate
 tags:
