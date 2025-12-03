@@ -44,10 +44,12 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
   const wsProgressRef = useRef<WebSocket | null>(null);
   // 重连定时器引用：用于在状态切换（例如停止）时取消已排队的重连
   const reconnectTimerRef = useRef<number | null>(null);
+  const pingIntervalRef = useRef<number | null>(null); // 心跳定时器
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   // 记录上一次的进度与状态，减少终端内重复输出，避免闪烁
   const lastProgressRef = useRef<number | null>(null);
   const lastStatusRef = useRef<string>('');
+  const wsContainerIdRef = useRef<string | null>(null); // 记录当前 WebSocket 连接的容器 ID
   const debounceTimeoutRef = useRef<number | null>(null);
   
   // 状态管理
@@ -81,8 +83,10 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
           const { cols, rows } = xtermRef.current;
           wsRef.current.send(JSON.stringify({
             type: 'resize',
-            cols,
-            rows
+            data: {
+              cols,
+              rows
+            }
           }));
         }
       } catch (error) {
@@ -143,6 +147,75 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
     return null;
   }, []);
 
+  // 智能换行处理函数
+  const smartWrapCommand = useCallback((text: string, startX: number, cols: number): string => {
+    // 如果文本包含换行符，说明可能是多行粘贴或脚本，不做处理以防破坏格式
+    if (text.includes('\r') || text.includes('\n')) {
+      return text;
+    }
+
+    // 按空格分割单词，保留空格信息以便重建
+    // 使用正则 split 捕获分隔符
+    const parts = text.split(/(\s+)/);
+    let result = '';
+    let currentX = startX;
+    let inSingleQuote = false; // 追踪单引号状态，防止破坏 Shell 单引号字符串语义
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      
+      // 如果是空字符串，跳过
+      if (!part) continue;
+
+      // 简单计算 part 中单引号的数量，用于更新状态
+      // Shell 中单引号内不能转义单引号，所以直接计数即可
+      const quoteCount = (part.match(/'/g) || []).length;
+
+      // 如果是空白符（空格、制表符等），直接追加并更新坐标
+      if (/^\s+$/.test(part)) {
+        result += part;
+        currentX += part.length;
+        continue;
+      }
+
+      // 如果是单词（包括 URL、参数、${VAR} 等）
+      const wordLen = part.length;
+
+      // 检查是否需要换行
+      // 条件：
+      // 1. 当前位置 + 单词长度 超过行宽
+      // 2. 不是行首（避免死循环）
+      // 3. 不在单引号内（单引号内插入续行符 \ 会改变字符串内容）
+      if (!inSingleQuote && currentX + wordLen > cols && currentX > 0) {
+        // 插入续行符和回车
+        // 注意：Shell 中续行通常是 " \" 后跟回车
+        result += ' \\\r'; 
+        currentX = 0; // 换行后光标归零
+        
+        // 在新行追加单词
+        result += part;
+        currentX += wordLen;
+      } else {
+        // 不需要换行或不能换行，直接追加
+        result += part;
+        currentX += wordLen;
+      }
+
+      // 更新单引号状态
+      if (quoteCount % 2 !== 0) {
+        inSingleQuote = !inSingleQuote;
+      }
+
+      // 处理边界情况：如果 currentX 超过 cols（因为单词超长），shell 会自动 wrap
+      // 我们需要更新 currentX 以反映 wrap 后的位置
+      if (currentX >= cols) {
+        currentX = currentX % cols;
+      }
+    }
+
+    return result;
+  }, []);
+
   // 统一处理镜像拉取进度（终端输出与覆盖层显示）
   /** 统一处理镜像拉取进度：更新覆盖层并可选输出到终端，成功/失败后自动隐藏 */
 const handleImagePullProgress = useCallback((payload: { imageName?: string; status?: string; progress?: string; error?: string }, echoToTerminal: boolean) => {
@@ -201,9 +274,22 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
   const connectWebSocket = useCallback(() => {
     if (!containerId || !xtermRef.current) return;
 
+    // 优化：如果连接已建立或正在建立，且容器ID未变，跳过重复连接
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      if (wsContainerIdRef.current === containerId) {
+        return;
+      }
+    }
+
     // 关闭现有连接
     if (wsRef.current) {
       wsRef.current.close();
+    }
+    
+    // 清理旧的心跳定时器
+    if (pingIntervalRef.current) {
+      window.clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
     }
 
     let reconnectAttempts = 0;
@@ -212,8 +298,10 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
 
     const connect = () => {
       // 额外守卫：避免在容器非运行、页面不可见或ID缺失时发起新的连接
-      if (!containerId || containerStatus !== 'running' || document.visibilityState === 'hidden') {
-        console.log('跳过终端WS连接：containerId/状态/可见性不满足');
+      // 注意：移除了 document.visibilityState === 'hidden' 的检查，允许后台重连，或者至少保持重连逻辑不被立即打断
+      // 但通常浏览器在后台会限制资源，所以可以保留 visible 检查，但需配合 visibilitychange 事件恢复
+      if (!containerId || containerStatus !== 'running') {
+        console.log('跳过终端WS连接：containerId或状态不满足');
         return;
       }
       try {
@@ -222,12 +310,21 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
         
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
+        wsContainerIdRef.current = containerId;
 
         ws.onopen = () => {
           console.log('终端WebSocket连接已建立');
           setIsConnected(true);
           reconnectAttempts = 0;
           
+          // 启动心跳检测
+          if (pingIntervalRef.current) window.clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = window.setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, 30000); // 每30秒发送一次心跳
+
           // 连接成功后立即调整终端大小
           setTimeout(() => {
             if (fitAddonRef.current) {
@@ -248,6 +345,14 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
               // 修复数据解析：后端发送在 data 字段内
               const payload = msg.data || {};
               handleImagePullProgress(payload, true);
+            } else if (msg.type === 'pong') {
+              // 收到服务端心跳响应，连接健康
+              // console.debug('Pong received');
+            } else if (msg.type === 'connected') {
+              // 连接成功消息
+              if (xtermRef.current) {
+                xtermRef.current.write('\r\n\x1b[32m✓ 终端已连接\x1b[0m\r\n');
+              }
             }
           } catch (error) {
             console.warn('解析WebSocket消息失败:', error);
@@ -262,37 +367,46 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
           console.log('终端WebSocket连接已关闭', event.code, event.reason);
           setIsConnected(false);
           
-          if (xtermRef.current) {
-            xtermRef.current.write('\r\n\x1b[33m连接已断开\x1b[0m\r\n');
+          if (pingIntervalRef.current) {
+            window.clearInterval(pingIntervalRef.current);
+            pingIntervalRef.current = null;
           }
           
-          // 守卫：如果容器ID缺失、页面不可见或容器非运行状态，则不再重连
-          const shouldStopReconnect = !containerId || document.visibilityState === 'hidden' || containerStatus !== 'running';
+          if (xtermRef.current) {
+            // 只有非正常关闭才显示断开提示，避免干扰用户体验
+            if (!event.wasClean) {
+                xtermRef.current.write('\r\n\x1b[33m连接已断开\x1b[0m\r\n');
+            }
+          }
+          
+          // 守卫：如果容器ID缺失或容器非运行状态，则不再重连
+          // 移除了 visibilityState 的检查，确保即使用户切走也能尝试重连（虽然可能受限）
+          // 但更重要，当用户切回来时，onVisibilityChange 会触发 connectWebSocket
+          const shouldStopReconnect = !containerId || containerStatus !== 'running';
           if (shouldStopReconnect) {
             return;
           }
           
           // 实现指数退避重连策略
-          if (reconnectAttempts < maxReconnectAttempts && !event.wasClean) {
-            const delay = baseReconnectDelay * Math.pow(2, reconnectAttempts);
-            console.log(`${delay}ms 后尝试重连 (第 ${reconnectAttempts + 1} 次)`);
-            
-            // 记录重连定时器，以便在状态变化时取消
-            const tid = window.setTimeout(() => {
-              reconnectAttempts++;
-              connect();
-            }, delay);
-            reconnectTimerRef.current = tid as unknown as number;
+          if (reconnectAttempts < maxReconnectAttempts) {
+            if (!event.wasClean) {
+                const delay = baseReconnectDelay * Math.pow(2, reconnectAttempts);
+                console.log(`${delay}ms 后尝试重连 (第 ${reconnectAttempts + 1} 次)`);
+                
+                // 记录重连定时器，以便在状态变化时取消
+                const tid = window.setTimeout(() => {
+                  reconnectAttempts++;
+                  connect();
+                }, delay);
+                reconnectTimerRef.current = tid as unknown as number;
+            }
           }
         };
 
         ws.onerror = (error) => {
           console.error('终端WebSocket连接错误:', error);
+          // onerror 后通常会触发 onclose，重连逻辑在 onclose 处理
           setIsConnected(false);
-          
-          if (xtermRef.current) {
-            xtermRef.current.write('\r\n\x1b[31m连接错误\x1b[0m\r\n');
-          }
         };
 
       } catch (error) {
@@ -302,6 +416,18 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     };
 
     connect();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
+    };
   }, [containerId, containerStatus, handleImagePullProgress]);
 
   // 进度专用 WebSocket 连接（progress_only=true），用于容器启动阶段接收镜像拉取进度
@@ -403,9 +529,18 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     // 设置输入处理 - 确保用户输入能正确发送到服务器
     terminal.onData((data) => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        // 智能换行处理：仅针对长文本粘贴（长度>40且无换行），避免破坏常规输入或多行粘贴
+        let inputData = data;
+        if (data.length > 40 && !data.includes('\r') && !data.includes('\n') && xtermRef.current) {
+           const cursorX = xtermRef.current.buffer.active.cursorX;
+           const cols = xtermRef.current.cols;
+           // 应用智能换行算法
+           inputData = smartWrapCommand(data, cursorX, cols);
+        }
+
         const message = {
           type: 'input',
-          data: data
+          data: inputData
         };
         wsRef.current.send(JSON.stringify(message));
       }
@@ -413,7 +548,8 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
 
     // 初始调整大小
     setTimeout(() => {
-      fitAddon.fit();
+      // 使用 resizeTerminal 替代直接调用 fit，确保初始尺寸同步到后端
+      resizeTerminal();
     }, 100);
 
     // 设置 ResizeObserver 监听容器大小变化
@@ -444,24 +580,43 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     sendCommand
   }), [sendCommand]);
 
+  // 组件卸载时的清理 - 独立于状态变化的 Effect
+  useEffect(() => {
+    return () => {
+      console.log('Terminal component unmounting, cleaning up resources');
+      if (wsRef.current) { 
+        wsRef.current.close(); 
+        wsRef.current = null; 
+      }
+      if (wsProgressRef.current) { 
+        wsProgressRef.current.close(); 
+        wsProgressRef.current = null; 
+      }
+      if (reconnectTimerRef.current) { 
+        clearTimeout(reconnectTimerRef.current); 
+        reconnectTimerRef.current = null; 
+      }
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   // WebSocket连接管理：根据容器状态 + 页面可见性
   useEffect(() => {
+    console.log('Terminal connection effect triggered:', { containerId, containerStatus });
+    
     /** 按容器状态建立/清理 WS 连接；在页面可见性变化时协同处理重连 */
-const connectByStatus = () => {
+    const connectByStatus = () => {
       const isRunning = containerStatus === 'running';
       const isStarting = containerStatus === 'starting';
 
-      // 页面隐藏时主动清理并停止重连
-      if (document.visibilityState === 'hidden') {
-        if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-        if (wsProgressRef.current) { wsProgressRef.current.close(); wsProgressRef.current = null; }
-        if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
-        return;
-      }
-
       if (isRunning && containerId && xtermRef.current) {
         // 容器运行中：使用终端连接
+        // connectWebSocket 内部已包含防重复连接检查 (检查 wsContainerIdRef)
         connectWebSocket();
+        
         // 关闭进度专用连接，避免双连接
         if (wsProgressRef.current) {
           wsProgressRef.current.close();
@@ -470,11 +625,30 @@ const connectByStatus = () => {
       } else if (isStarting) {
         // 容器启动中：建立进度专用连接以接收镜像拉取进度
         connectProgressOnly();
+        
+        // 如果有终端连接，可以保持或关闭？通常启动中不应有终端连接
+        if (wsRef.current && wsContainerIdRef.current !== containerId) {
+             // 如果ID变了，或者不应该连接，则关闭
+             wsRef.current.close();
+             wsRef.current = null;
+             wsContainerIdRef.current = null;
+        }
       } else {
         // 其他状态（stopped/exited/undefined）：确保关闭所有连接并隐藏进度
-        if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-        if (wsProgressRef.current) { wsProgressRef.current.close(); wsProgressRef.current = null; }
-        if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+        if (wsRef.current) { 
+            console.log('Closing WS because status is', containerStatus);
+            wsRef.current.close(); 
+            wsRef.current = null; 
+            wsContainerIdRef.current = null;
+        }
+        if (wsProgressRef.current) { 
+            wsProgressRef.current.close(); 
+            wsProgressRef.current = null; 
+        }
+        if (reconnectTimerRef.current) { 
+            clearTimeout(reconnectTimerRef.current); 
+            reconnectTimerRef.current = null; 
+        }
         setShowProgress(false);
         setImagePullProgress(null);
         lastProgressRef.current = null;
@@ -488,20 +662,19 @@ const connectByStatus = () => {
     // 页面可见性变化时守卫
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        console.log('Page visible, checking connection...');
+        // 页面恢复可见时，检查并恢复连接（如果断开了）
         connectByStatus();
-      } else {
-        if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-        if (wsProgressRef.current) { wsProgressRef.current.close(); wsProgressRef.current = null; }
-        if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
       }
+      // 页面隐藏时不再主动断开连接
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      if (wsRef.current) { wsRef.current.close(); }
-      if (wsProgressRef.current) { wsProgressRef.current.close(); wsProgressRef.current = null; }
-      if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+      // 注意：不再在此处关闭连接！
+      // 连接关闭由 connectByStatus 在状态变化时处理，或由组件卸载 Effect 处理
+      // 这样可以防止依赖变化导致的 Effect 重运行意外切断连接
     };
   }, [containerId, containerStatus, connectWebSocket, connectProgressOnly]);
 

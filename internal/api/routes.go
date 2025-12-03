@@ -944,17 +944,15 @@ func (h *Handler) handleTerminalWebSocket(c *gin.Context) {
 		// 进度模式：仅用于接收镜像拉取进度，不启动终端会话
 		h.logger.Info("WebSocket连接已建立（进度模式），会话: %s", sessionID)
 
-		// 发送连接成功消息
-		if err = conn.WriteJSON(map[string]interface{}{
-			"type": "connected",
-			"data": "等待容器启动...",
-		}); err != nil {
-			h.logger.Error("发送连接确认消息失败: %v", err)
-		}
+		session.StartProgressSession()
 
-		// 保持连接直到客户端断开
-		<-c.Request.Context().Done()
-		h.logger.Info("客户端断开连接（进度模式），会话: %s", sessionID)
+		// 保持连接直到会话结束
+		select {
+		case <-c.Request.Context().Done():
+			h.logger.Info("客户端断开连接（进度模式），会话: %s", sessionID)
+		case <-session.Done():
+			h.logger.Info("进度会话结束: %s", sessionID)
+		}
 	} else {
 		// 终端模式：启动交互式bash会话
 		err = session.StartInteractiveSession()
