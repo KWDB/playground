@@ -20,7 +20,10 @@ test.describe('Quick Start', () => {
     await expect(page.getByText('请先启动容器')).toBeVisible();
 
     // 3) 点击“启动容器”，等待状态从“启动中”到“运行中”
-    await page.getByRole('button', { name: '启动容器' }).click();
+    const startBtn = page.getByRole('button', { name: '启动容器' });
+    await expect(startBtn).toBeVisible();
+    await startBtn.click();
+    // await page.getByRole('button', { name: '启动容器' }).click();
     await expect(page.getByText('运行中')).toBeVisible({ timeout: 120000 });
     await expect(page.getByText(':/kaiwudb/')).toBeVisible({ timeout: 120000 });
 
@@ -37,7 +40,10 @@ test.describe('Quick Start', () => {
 
     // 6) 点击“停止容器”
     await page.getByRole('button', { name: '停止容器' }).click();
-    // await expect(page.getByText('停止中')).toBeVisible({ timeout: 120000 });
-    await expect(page.getByText('请先启动容器')).toBeVisible({ timeout: 240000 });
+    const stoppingBtn = page.getByRole('button', { name: '停止中...' });
+    await expect(stoppingBtn).toBeVisible();
+    await expect(startBtn).toBeVisible({ timeout: 30000 });
+    // await expect(page.getByText('停止中...')).toBeVisible({ timeout: 120000 });
+    // await expect(page.getByText('请先启动容器')).toBeVisible({ timeout: 240000 });
   });
 });

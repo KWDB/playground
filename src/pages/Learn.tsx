@@ -83,7 +83,8 @@ import { fetchJson } from '../lib/http'
       console.log('容器状态检查结果:', data)
 
       if (shouldUpdateState) {
-        const currentStatus = containerStatus
+        // 使用 Ref 获取最新状态，避免闭包问题
+        const currentStatus = containerStatusRef.current
         const newStatus = data.status
         if (currentStatus !== newStatus) {
           console.log(`容器状态发生变化: ${currentStatus} -> ${newStatus}`)
@@ -100,7 +101,7 @@ import { fetchJson } from '../lib/http'
       console.error('获取容器状态失败:', err)
       return null
     }
-  }, [containerStatus])
+  }, [])
 
   // WebSocket 连接处理
   const connectToTerminal = useCallback((id: string) => {
@@ -127,11 +128,12 @@ import { fetchJson } from '../lib/http'
         // 取消上一轮未完成的请求，避免堆积
         statusAbortControllerRef.current?.abort()
 
-      const controller = new AbortController()
+        const controller = new AbortController()
         statusAbortControllerRef.current = controller
         const statusData = await checkContainerStatus(id, false, controller.signal)
         if (statusData) {
-           const currentStatus = containerStatus
+           // 使用 Ref 获取最新状态，避免闭包问题
+           const currentStatus = containerStatusRef.current
            const actualStatus = statusData.status
            if (currentStatus !== actualStatus) {
              console.warn(`检测到状态不一致: 前端状态=${currentStatus}, 实际状态=${actualStatus}`)
@@ -165,7 +167,7 @@ import { fetchJson } from '../lib/http'
         console.error('定期状态检查失败:', error)
       }
     }, STATUS_CHECK_INTERVAL_MS)
-  }, [containerStatus, checkContainerStatus])
+  }, [checkContainerStatus])
 
   const startCourseContainer = useCallback(async (courseId: string) => {
     // 防重复调用：检查当前状态，避免重复启动
@@ -350,6 +352,18 @@ import { fetchJson } from '../lib/http'
       // 立即设置容器状态为停止中，提供即时UI反馈
       setContainerStatus('stopping')
 
+      // 立即停止状态监控，防止在停止过程中轮询导致的状态竞争
+      if (statusCheckIntervalRef.current) {
+        console.log('停止流程开始，暂停定期状态监控')
+        clearInterval(statusCheckIntervalRef.current)
+        statusCheckIntervalRef.current = null
+      }
+      // 同时也取消正在进行的任何状态检查请求
+      if (statusAbortControllerRef.current) {
+        statusAbortControllerRef.current.abort()
+        statusAbortControllerRef.current = null
+      }
+
       // 优先按容器ID停止，确保仅影响当前页面实例
       if (containerId) {
         const url = `/api/containers/${containerId}/stop`
@@ -386,7 +400,7 @@ import { fetchJson } from '../lib/http'
       // 退出停止守卫阶段（此后如有新启动，允许监控提升状态）
       isStoppingRef.current = false
 
-      // 停止状态监控
+      // 再次确认停止状态监控（双重保险）
       if (statusCheckIntervalRef.current) {
         console.log('停止定期状态监控')
         clearInterval(statusCheckIntervalRef.current)
@@ -404,6 +418,9 @@ import { fetchJson } from '../lib/http'
     } catch (error) {
       console.error('停止容器异常:', error)
       setError(error instanceof Error ? error.message : '停止容器失败')
+      // 发生错误时，将状态设置为 error，以便用户可以重试或看到错误提示，而不是卡在 stopping
+      setContainerStatus('error')
+      isStoppingRef.current = false
     }
   }, [containerId])
 
@@ -434,6 +451,10 @@ import { fetchJson } from '../lib/http'
         setContainerStatus('running')
         // 标记为非启动状态，避免触发启动动画
         setIsStartingContainer(false)
+
+        // 确保 lastAction 状态正确，允许监控提升状态
+        lastActionRef.current = 'start'
+        isStoppingRef.current = false
         
         // 恢复连接和监控
         isConnectedRef.current = true
@@ -1183,7 +1204,7 @@ import { fetchJson } from '../lib/http'
 
             {/* 操作按钮组 */}
             <div className="flex items-center space-x-3">
-              {containerStatus === 'stopped' || containerStatus === 'error' ? (
+              {containerStatus === 'stopped' || containerStatus === 'error' || containerStatus === 'exited' || containerStatus === 'completed' ? (
                 <button
                   onClick={() => course?.id && startCourseContainer(course.id)}
                   disabled={isStartingContainer}
@@ -1199,16 +1220,23 @@ import { fetchJson } from '../lib/http'
                     <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-400 to-blue-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
                   )}
                 </button>
-              ) : containerStatus === 'running' ? (
+              ) : containerStatus === 'running' || containerStatus === 'stopping' ? (
                 <button
                   onClick={() => course?.id && stopContainer(course.id)}
-                  className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 active:scale-95"
+                  disabled={containerStatus === 'stopping'}
+                  className={`group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform ${containerStatus === 'stopping' ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
                 >
                   <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-sm bg-white"></div>
-                    <span>停止容器</span>
+                    {containerStatus === 'stopping' ? (
+                      <div className="w-2 h-2 rounded-full bg-white animate-spin"></div>
+                    ) : (
+                      <div className="w-2 h-2 rounded-sm bg-white"></div>
+                    )}
+                    <span>{containerStatus === 'stopping' ? '停止中...' : '停止容器'}</span>
                   </div>
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-400 to-red-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                  {containerStatus !== 'stopping' && (
+                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-400 to-red-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                  )}
                 </button>
               ) : null}
             </div>
