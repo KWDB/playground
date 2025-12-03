@@ -96,6 +96,10 @@ type Controller interface {
 	// 停止并删除指定课程的所有容器
 	CleanupCourseContainers(ctx context.Context, courseID string) (*CleanupResult, error)
 
+	// CleanupAllContainers 清理所有Playground容器
+	// 停止并删除所有kwdb-playground相关的容器
+	CleanupAllContainers(ctx context.Context) (*CleanupResult, error)
+
 	// Close 关闭控制器
 	Close() error
 }

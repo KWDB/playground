@@ -179,7 +179,7 @@ func (d *dockerController) loadExistingContainers(ctx context.Context) error {
 		}
 
 		// 提取课程ID（去掉前缀kwdb-playground-）
-		courseID := strings.Join(parts[2:len(parts)-2], "-")
+		courseID := strings.Join(parts[2:len(parts)-1], "-")
 		if courseID == "" {
 			continue
 		}
@@ -588,6 +588,108 @@ func (d *dockerController) CleanupCourseContainers(ctx context.Context, courseID
 		d.logger.Info("课程 %s 容器清理完成，共清理 %d 个容器", courseID, len(cleanedContainers))
 	} else {
 		d.logger.Error("课程 %s 容器清理部分失败，清理 %d 个容器，%d 个错误", courseID, len(cleanedContainers), len(cleanupErrors))
+	}
+
+	return result, nil
+}
+
+// CleanupAllContainers 清理所有Playground容器
+func (d *dockerController) CleanupAllContainers(ctx context.Context) (*CleanupResult, error) {
+	d.logger.Info("开始清理所有 Playground 容器")
+
+	// 获取所有容器列表
+	containers, err := d.client.ContainerList(ctx, client.ContainerListOptions{All: true})
+	if err != nil {
+		d.logger.Error("获取容器列表失败: %v", err)
+		return nil, fmt.Errorf("failed to list containers: %w", err)
+	}
+
+	cleanedContainers := make([]*ContainerInfo, 0)
+	var cleanupErrors []string
+
+	for _, container := range containers {
+		for _, name := range container.Names {
+			cleanName := strings.TrimPrefix(name, "/")
+			// 匹配 kwdb-playground- 前缀
+			if strings.HasPrefix(cleanName, "kwdb-playground-") {
+				d.logger.Info("发现 Playground 容器: %s (状态: %s)", cleanName, container.State)
+
+				// 如果容器正在运行，先停止它
+				if container.State == "running" {
+					d.logger.Info("停止运行中的容器: %s", container.ID[:12])
+					timeout := 10
+					if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
+						errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
+						d.logger.Error(errMsg)
+						cleanupErrors = append(cleanupErrors, errMsg)
+						continue
+					}
+				}
+
+				// 删除容器
+				d.logger.Info("删除容器: %s", container.ID[:12])
+				if err := d.client.ContainerRemove(ctx, container.ID, client.ContainerRemoveOptions{Force: true}); err != nil {
+					errMsg := fmt.Sprintf("删除容器 %s 失败: %v", container.ID[:12], err)
+					d.logger.Error(errMsg)
+					cleanupErrors = append(cleanupErrors, errMsg)
+					continue
+				}
+
+				// 从内存中移除容器信息
+				d.mu.Lock()
+				// 这里需要遍历 map 找到对应的 key
+				var keysToRemove []string
+				for id, info := range d.containers {
+					if info.DockerID == container.ID {
+						keysToRemove = append(keysToRemove, id)
+					}
+				}
+				for _, key := range keysToRemove {
+					d.logger.Info("从内存中移除容器信息: %s", key)
+					delete(d.containers, key)
+				}
+				d.mu.Unlock()
+
+				// 提取 CourseID
+				parts := strings.Split(cleanName, "-")
+				courseID := "unknown"
+				if len(parts) >= 3 {
+					courseID = strings.Join(parts[2:len(parts)-2], "-")
+				}
+
+				// 构建已清理的容器信息
+				containerInfo := &ContainerInfo{
+					ID:       container.ID,
+					CourseID: courseID,
+					DockerID: container.ID,
+					Name:     cleanName,
+					State:    d.mapDockerStateFromString(container.State),
+					Message:  "Container cleaned up",
+				}
+				cleanedContainers = append(cleanedContainers, containerInfo)
+				break
+			}
+		}
+	}
+
+	// 构建清理结果
+	var message string
+	if len(cleanupErrors) == 0 {
+		message = fmt.Sprintf("成功清理 %d 个容器", len(cleanedContainers))
+	} else {
+		message = fmt.Sprintf("清理 %d 个容器，%d 个错误", len(cleanedContainers), len(cleanupErrors))
+	}
+
+	result := &CleanupResult{
+		Success:           len(cleanupErrors) == 0,
+		Message:           message,
+		CleanedContainers: cleanedContainers,
+	}
+
+	if result.Success {
+		d.logger.Info("所有 Playground 容器清理完成，共清理 %d 个容器", len(cleanedContainers))
+	} else {
+		d.logger.Error("Playground 容器清理部分失败，清理 %d 个容器，%d 个错误", len(cleanedContainers), len(cleanupErrors))
 	}
 
 	return result, nil

@@ -14,6 +14,7 @@ import StatusIndicator, { StatusType } from '../components/ui/StatusIndicator';
 import CourseContentPanel from '../components/business/CourseContentPanel';
 import PortConflictHandler from '../components/business/PortConflictHandler';
 import '../styles/markdown.css';
+import { ContainerInfo } from '../types/container';
 
 interface Course {
   id: string
@@ -421,14 +422,41 @@ import { fetchJson } from '../lib/http'
 
 
 
+  // 检查当前课程是否有运行中的容器
+  const checkExistingContainer = useCallback(async (currentCourseId: string, signal?: AbortSignal) => {
+    try {
+      const containers = await fetchJson<ContainerInfo[]>('/api/containers', { signal })
+      const existingContainer = containers.find(c => c.courseId === currentCourseId && c.state === 'running')
+      
+      if (existingContainer) {
+        console.log('发现已有运行中容器，自动连接:', existingContainer)
+        setContainerId(existingContainer.id)
+        setContainerStatus('running')
+        // 标记为非启动状态，避免触发启动动画
+        setIsStartingContainer(false)
+        
+        // 恢复连接和监控
+        isConnectedRef.current = true
+        connectionErrorRef.current = null
+        
+        // 启动状态监控
+        startStatusMonitoring(existingContainer.id)
+      }
+    } catch (err) {
+      console.error('检查已有容器失败:', err)
+    }
+  }, [startStatusMonitoring])
+
   useEffect(() => {
     if (!courseId) return
     const controller = new AbortController()
+    
+    // 并行获取课程信息和容器状态
     fetchCourse(courseId, controller.signal)
+    checkExistingContainer(courseId, controller.signal)
+    
     return () => controller.abort()
-  }, [courseId, fetchCourse])
-
-
+  }, [courseId, fetchCourse, checkExistingContainer])
 
   useEffect(() => {
     return () => {

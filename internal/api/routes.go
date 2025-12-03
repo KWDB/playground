@@ -100,6 +100,8 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		// 容器相关路由
 		containers := api.Group("/containers")
 		{
+			containers.GET("", h.getAllContainers)
+			containers.DELETE("", h.cleanupAllContainers)
 			containers.GET("/:id/status", h.getContainerStatus)
 			containers.GET("/:id/logs", h.getContainerLogs)
 			containers.POST("/:id/restart", h.restartContainer)
@@ -200,7 +202,43 @@ func (h *Handler) sqlHealth(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "latencyMs": time.Since(start).Milliseconds(), "port": port})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "latency": time.Since(start).String()})
+}
+
+// getAllContainers 获取所有 Playground 容器
+func (h *Handler) getAllContainers(c *gin.Context) {
+	ctx := c.Request.Context()
+	containers, err := h.dockerController.ListContainers(ctx)
+	if err != nil {
+		h.logger.Error("获取容器列表失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to list containers: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, containers)
+}
+
+// cleanupAllContainers 清理所有 Playground 容器
+func (h *Handler) cleanupAllContainers(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// 使用互斥锁防止并发清理冲突
+	h.containerMutex.Lock()
+	defer h.containerMutex.Unlock()
+
+	result, err := h.dockerController.CleanupAllContainers(ctx)
+	if err != nil {
+		h.logger.Error("清理所有容器失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to cleanup containers: %v", err)})
+		return
+	}
+
+	if !result.Success {
+		c.JSON(http.StatusPartialContent, result)
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 // healthCheck 健康检查
@@ -457,6 +495,18 @@ func (h *Handler) startCourse(c *gin.Context) {
 		h.logger.Debug("[startCourse] 已解析卷绑定(绝对路径): %v", volumes)
 	}
 
+	// 解析并构建环境变量（支持 YAML 中的列表形式 "KEY=VALUE"）
+	env := make(map[string]string)
+	if len(course.Backend.Env) > 0 {
+		for _, e := range course.Backend.Env {
+			parts := strings.SplitN(e, "=", 2)
+			if len(parts) == 2 {
+				env[parts[0]] = parts[1]
+			}
+		}
+		h.logger.Debug("[startCourse] 已解析环境变量: %v", env)
+	}
+
 	// 创建容器配置
 	config := &docker.ContainerConfig{
 		Image:      imageName,
@@ -465,6 +515,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 		Privileged: course.Backend.Privileged, // 根据课程配置的Privileged启动容器
 		Ports:      map[string]string{"26257": fmt.Sprintf("%d", course.Backend.Port)},
 		Volumes:    volumes, // 课程定义的卷绑定
+		Env:        env,     // 课程定义的环境变量
 	}
 
 	h.logger.Debug("[startCourse] 创建容器配置完成，镜像: %s，工作目录: %s，Cmd: %v, Privileged: %v",

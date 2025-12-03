@@ -26,17 +26,29 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: ['tests/playwright/port-conflict.spec.ts', 'tests/playwright/sql-terminal.spec.ts' ],
+      testIgnore: [
+        'tests/playwright/port-conflict.spec.ts',
+        'tests/playwright/sql-terminal.spec.ts',
+        'tests/playwright/course-list-status.spec.ts'
+      ],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'firefox',
-      testIgnore: ['tests/playwright/port-conflict.spec.ts', 'tests/playwright/sql-terminal.spec.ts'],
+      testIgnore: [
+        'tests/playwright/port-conflict.spec.ts',
+        'tests/playwright/sql-terminal.spec.ts',
+        'tests/playwright/course-list-status.spec.ts'
+      ],
       use: { ...devices['Desktop Firefox'] },
     },
     {
       name: 'webkit',
-      testIgnore: ['tests/playwright/port-conflict.spec.ts', 'tests/playwright/sql-terminal.spec.ts'],
+      testIgnore: [
+        'tests/playwright/port-conflict.spec.ts',
+        'tests/playwright/sql-terminal.spec.ts',
+        'tests/playwright/course-list-status.spec.ts'
+      ],
       use: { ...devices['Desktop Safari'] },
     },
     // 为端口冲突测试文件专门创建单独项目，并限制为 1 个 worker
@@ -48,16 +60,25 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'course-list-status',
+      testMatch: ['tests/playwright/course-list-status.spec.ts'],
+      workers: 1,
+      fullyParallel: false,
+      dependencies: ['chromium', 'firefox', 'webkit', 'port-conflict-serial'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'sql-terminal',
       testMatch: ['tests/playwright/sql-terminal.spec.ts'],
       workers: 1,
       fullyParallel: false,
       // 依赖所有其他项目，确保执行顺序与独占运行
-      dependencies: ['chromium', 'firefox', 'webkit', 'port-conflict-serial'],
+      dependencies: ['chromium', 'firefox', 'webkit', 'port-conflict-serial', 'course-list-status'],
       // 为该项目单独设置更长的超时与重试策略
       timeout: 180_000,
       retries: 0,
       use: { ...devices['Desktop Chrome'] },
     },
+    
   ],
 });

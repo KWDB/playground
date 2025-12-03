@@ -89,7 +89,7 @@ async function checkPortConflict(courseId: string, port: number, retries: number
   }
 }
 
-async function startCourse(courseId: string, retries: number = 8) {
+async function startCourse(courseId: string, retries: number = 3) {
   for (let i = 0; i < retries; i++) {
     try {
       const result = await apiRequest(`/api/courses/${courseId}/start`, { method: 'POST' });

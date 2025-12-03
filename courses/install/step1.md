@@ -12,18 +12,21 @@
 
     接下来，安装 KWDB 运行所需的一些基础依赖。
 
-    `apt install -y libprotobuf17 squashfs-tools`{{exec}}
+    `apt install -y libprotobuf17 squashfs-tools libgflags2.2`{{exec}}
 
 3.  **下载 KWDB 安装包**
 
     现在，我们从官方仓库下载最新的 KWDB 安装包。
 
-    `wget https://github.com/KWDB/KWDB/releases/download/V2.2.2/KWDB-2.2.2-ubuntu20.04-$(arch)-debs.tar.gz`{{exec}}
+    `wget https://github.com/KWDB/KWDB/releases/download/V${KW_VERSION}/KWDB-${KW_VERSION}-ubuntu20.04-$(arch)-debs.tar.gz`{{exec}}
+
+    > 如果当前网络环境无法连接 Github 仓库，您可以从 Gitee 镜像下载安装包。
+    > `wget https://gitee.com/kwdb/kwdb/releases/download/V${KW_VERSION}/KWDB-${KW_VERSION}-ubuntu20.04-$(arch)-debs.tar.gz`{{exec}}
 
 4.  **解压安装包**
 
     下载完成后，解压刚刚下载的 `tar.gz` 文件。
 
-    `tar -xzvf KWDB-2.2.2-ubuntu20.04-$(arch)-debs.tar.gz`{{exec}}
+    `tar -xzvf KWDB-${KW_VERSION}-ubuntu20.04-$(arch)-debs.tar.gz`{{exec}}
 
 至此，准备工作已完成。在下一步中，我们将开始修改配置文件，为正式安装做准备。
