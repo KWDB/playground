@@ -4,7 +4,7 @@ test('SQL 终端测试', async ({ page }) => {
   // 1) 直接进入首页
   await page.goto('/');
   await page.getByRole('link', { name: '开始学习' }).click();
-  await page.locator('a[href="/learn/sql"]:has-text("开始学习")').click();
+  await page.locator('a[href="/learn/sql"]').click();
   console.log('✅ 首页点击了 SQL 课程链接');
 
   // 2) 确认进入学习页，显示“请先启动容器”文案
