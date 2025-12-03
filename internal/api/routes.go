@@ -921,6 +921,18 @@ func (h *Handler) handleTerminalWebSocket(c *gin.Context) {
 		return
 	}
 
+	// 尝试获取容器的真实 Docker ID
+	// 前端传递的通常是容器名称 (containerID)，但在某些环境（如 CI/GitHub Actions）中，
+	// 直接使用名称进行 docker exec 可能会因为名称解析延迟或不一致导致 "No such container" 错误。
+	// 通过获取 Docker 内部的真实 ID (Hash)，可以确保准确找到容器。
+	if info, err := h.dockerController.GetContainer(c.Request.Context(), containerID); err == nil && info.DockerID != "" {
+		h.logger.Debug("终端连接: 将容器名称 %s 解析为 Docker ID %s", containerID, info.DockerID)
+		containerID = info.DockerID
+	} else {
+		h.logger.Warn("终端连接: 无法解析容器名称 %s 的 Docker ID (可能容器不存在或已停止): %v", containerID, err)
+		// 如果获取失败，我们仍然尝试使用原始 ID 继续，让后续逻辑处理错误
+	}
+
 	// 升级WebSocket连接
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
@@ -928,6 +940,7 @@ func (h *Handler) handleTerminalWebSocket(c *gin.Context) {
 		},
 	}
 
+	// 升级 WebSocket 连接
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		h.logger.Error("WebSocket升级失败: %v", err)
