@@ -279,7 +279,7 @@ func (d *dockerController) IsContainerRunning(containerID string) (bool, error) 
 
 	// 首先检查容器是否在内存中存在
 	d.mu.RLock()
-	containerInfo, exists := d.findContainer(containerID)
+	containerInfo, exists := d.containers[containerID]
 	d.mu.RUnlock()
 
 	if !exists {
@@ -889,30 +889,12 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 	return containerInfo, nil
 }
 
-// findContainer 在内存中查找容器（支持名称或Docker ID）
-// 注意：调用此方法前必须持有 d.mu 读锁或写锁
-func (d *dockerController) findContainer(id string) (*ContainerInfo, bool) {
-	// 1. 尝试直接按名称查找（最常见情况，O(1)）
-	if info, ok := d.containers[id]; ok {
-		return info, true
-	}
-
-	// 2. 尝试按 Docker ID 查找（O(N)）
-	for _, info := range d.containers {
-		if info.DockerID == id {
-			return info, true
-		}
-	}
-
-	return nil, false
-}
-
 // RemoveContainer 删除容器
 func (d *dockerController) RemoveContainer(ctx context.Context, containerID string) error {
 	d.logger.Info("开始删除容器: %s", containerID)
 
 	d.mu.RLock()
-	containerInfo, exists := d.findContainer(containerID)
+	containerInfo, exists := d.containers[containerID]
 	d.mu.RUnlock()
 
 	if !exists {
@@ -963,7 +945,7 @@ func (d *dockerController) GetContainerStatus(ctx context.Context, containerID s
 // GetContainer 获取容器信息
 func (d *dockerController) GetContainer(ctx context.Context, containerID string) (*ContainerInfo, error) {
 	d.mu.RLock()
-	containerInfo, exists := d.findContainer(containerID)
+	containerInfo, exists := d.containers[containerID]
 	d.mu.RUnlock()
 
 	if !exists {
@@ -1034,7 +1016,7 @@ func (d *dockerController) ListContainers(ctx context.Context) ([]*ContainerInfo
 // GetContainerLogs 获取容器日志
 func (d *dockerController) GetContainerLogs(ctx context.Context, containerID string, tail int, follow bool) (io.ReadCloser, error) {
 	d.mu.RLock()
-	containerInfo, exists := d.findContainer(containerID)
+	containerInfo, exists := d.containers[containerID]
 	d.mu.RUnlock()
 
 	if !exists {
@@ -1124,7 +1106,7 @@ func (d *dockerController) validateExecParams(containerID string, cmd []string, 
 func (d *dockerController) getContainerInfo(ctx context.Context, containerID string) (*ContainerInfo, container.InspectResponse, error) {
 	// 获取容器信息
 	d.mu.RLock()
-	containerInfo, exists := d.findContainer(containerID)
+	containerInfo, exists := d.containers[containerID]
 	d.mu.RUnlock()
 
 	if !exists {
@@ -1132,7 +1114,6 @@ func (d *dockerController) getContainerInfo(ctx context.Context, containerID str
 	}
 
 	// 检查容器状态
-	d.logger.Debug("[getContainerInfo] 检查容器 %s (DockerID: %s)", containerInfo.ID, containerInfo.DockerID)
 	inspect, err := d.client.ContainerInspect(ctx, containerInfo.DockerID)
 	if err != nil {
 		return nil, container.InspectResponse{}, fmt.Errorf("failed to inspect container: %w", err)
@@ -1171,7 +1152,7 @@ func (d *dockerController) ExecCommand(ctx context.Context, containerID string, 
 	d.logger.Info("在容器 %s 中执行命令: %v", containerID, cmd)
 
 	d.mu.RLock()
-	containerInfo, exists := d.findContainer(containerID)
+	containerInfo, exists := d.containers[containerID]
 	d.mu.RUnlock()
 
 	if !exists {

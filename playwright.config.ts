@@ -24,43 +24,41 @@ export default defineConfig({
     reuseExistingServer: true,
   },
   projects: [
+    // 1. Quick Start - 基础流程测试
     {
-      name: 'chromium',
-      testIgnore: [
-        'tests/playwright/port-conflict.spec.ts',
-        'tests/playwright/sql-terminal.spec.ts',
-        'tests/playwright/course-list-status.spec.ts'
-      ],
+      name: 'quick-start',
+      testMatch: ['tests/playwright/quick-start.spec.ts'],
       use: { ...devices['Desktop Chrome'] },
     },
-    // 为端口冲突测试文件专门创建单独项目，并限制为 1 个 worker
-    {
-      name: 'port-conflict-serial',
-      testMatch: ['tests/playwright/port-conflict.spec.ts'],
-      workers: 1,
-      fullyParallel: false,
-      use: { ...devices['Desktop Chrome'] },
-    },
+    // 2. Course List Status - 课程列表状态测试
     {
       name: 'course-list-status',
       testMatch: ['tests/playwright/course-list-status.spec.ts'],
       workers: 1,
       fullyParallel: false,
-      dependencies: ['chromium', 'port-conflict-serial'],
+      dependencies: ['quick-start'],
       use: { ...devices['Desktop Chrome'] },
     },
+    // 3. SQL Terminal - SQL 终端测试
     {
       name: 'sql-terminal',
       testMatch: ['tests/playwright/sql-terminal.spec.ts'],
       workers: 1,
       fullyParallel: false,
-      // 依赖所有其他项目，确保执行顺序与独占运行
-      dependencies: ['chromium', 'port-conflict-serial', 'course-list-status'],
+      dependencies: ['course-list-status'],
       // 为该项目单独设置更长的超时与重试策略
       timeout: 180_000,
       retries: 0,
       use: { ...devices['Desktop Chrome'] },
     },
-    
+    // 4. Port Conflict - 端口冲突测试
+    {
+      name: 'port-conflict-serial',
+      testMatch: ['tests/playwright/port-conflict.spec.ts'],
+      workers: 1,
+      fullyParallel: false,
+      dependencies: ['sql-terminal'],
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 });
