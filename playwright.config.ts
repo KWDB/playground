@@ -33,24 +33,6 @@ export default defineConfig({
       ],
       use: { ...devices['Desktop Chrome'] },
     },
-    // {
-    //   name: 'firefox',
-    //   testIgnore: [
-    //     'tests/playwright/port-conflict.spec.ts',
-    //     'tests/playwright/sql-terminal.spec.ts',
-    //     'tests/playwright/course-list-status.spec.ts'
-    //   ],
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-    // {
-    //   name: 'webkit',
-    //   testIgnore: [
-    //     'tests/playwright/port-conflict.spec.ts',
-    //     'tests/playwright/sql-terminal.spec.ts',
-    //     'tests/playwright/course-list-status.spec.ts'
-    //   ],
-    //   use: { ...devices['Desktop Safari'] },
-    // },
     // 为端口冲突测试文件专门创建单独项目，并限制为 1 个 worker
     {
       name: 'port-conflict-serial',
