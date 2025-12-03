@@ -18,6 +18,12 @@ import (
 	"github.com/moby/moby/client"
 )
 
+const (
+	// ContainerStopTimeout 停止容器的超时时间（秒）
+	// 设置为0秒以立即停止，playground环境不需要优雅退出
+	ContainerStopTimeout = 0
+)
+
 // dockerController Docker控制器实现
 type dockerController struct {
 	client          DockerClientInterface
@@ -410,8 +416,8 @@ func (d *dockerController) StopContainer(ctx context.Context, containerID string
 		return fmt.Errorf("container %s not found", containerID)
 	}
 
-	// 减少超时时间到10秒，避免前端等待过久
-	timeout := 10
+	// 使用配置的超时时间
+	timeout := ContainerStopTimeout
 	d.logger.Info("正在停止Docker容器，Docker ID: %s，超时时间: %d秒", containerInfo.DockerID[:12], timeout)
 
 	err := d.client.ContainerStop(ctx, containerInfo.DockerID, client.ContainerStopOptions{Timeout: &timeout})
@@ -526,7 +532,7 @@ func (d *dockerController) CleanupCourseContainers(ctx context.Context, courseID
 				// 如果容器正在运行，先停止它
 				if container.State == "running" {
 					d.logger.Info("停止运行中的容器: %s", container.ID[:12])
-					timeout := 10
+					timeout := ContainerStopTimeout
 					if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
 						errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
 						d.logger.Error(errMsg)
@@ -617,7 +623,7 @@ func (d *dockerController) CleanupAllContainers(ctx context.Context) (*CleanupRe
 				// 如果容器正在运行，先停止它
 				if container.State == "running" {
 					d.logger.Info("停止运行中的容器: %s", container.ID[:12])
-					timeout := 10
+					timeout := ContainerStopTimeout
 					if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
 						errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
 						d.logger.Error(errMsg)
@@ -900,7 +906,7 @@ func (d *dockerController) RemoveContainer(ctx context.Context, containerID stri
 	inspect, err := d.client.ContainerInspect(ctx, containerInfo.DockerID)
 	if err == nil && inspect.State.Running {
 		d.logger.Info("容器 %s 正在运行，先停止", containerID)
-		timeout := 10
+		timeout := ContainerStopTimeout
 		if err := d.client.ContainerStop(ctx, containerInfo.DockerID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
 			d.logger.Error("停止容器 %s 失败: %v", containerID, err)
 			return fmt.Errorf("failed to stop container: %w", err)
