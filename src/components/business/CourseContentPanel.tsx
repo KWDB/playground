@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 export interface CourseContentPanelProps {
   renderProgressBar: () => React.ReactNode;
@@ -28,6 +28,14 @@ export default function CourseContentPanel({
   onExit,
 }: CourseContentPanelProps) {
   const isCompleted = currentStep >= stepsLength;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // 监听 currentStep 变化，自动滚动到顶部
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentStep]);
 
   return (
     <div className="h-full bg-white border-r border-gray-200 flex flex-col overflow-hidden">
@@ -42,7 +50,10 @@ export default function CourseContentPanel({
       </div>
 
       {/* 内容区域 - 可滚动区域 */}
-      <div className="flex-1 min-h-0 overflow-y-auto markdown-scroll-container">
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto markdown-scroll-container"
+      >
         <div className="markdown-main-content">
           <div className="markdown-content-wrapper">
             <div className="markdown-prose">
