@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Tag, BookOpen, AlertCircle, Trash2, Activity, X, CheckCircle, AlertTriangle, Terminal, Database } from 'lucide-react';
 import { ContainerInfo, CleanupResult } from '../types/container';
+import ProposeCourseCard from '../components/business/ProposeCourseCard';
 
 interface Course {
   id: string
@@ -264,6 +265,9 @@ export function CourseList() {
                 </Link>
               );
             })}
+            
+            {/* 提议新课程卡片 */}
+            <ProposeCourseCard className="h-full min-h-[280px]" />
           </div>
         )}
       </div>
