@@ -44,17 +44,17 @@ KWDB的跨模查询主要包含以下三项技术：
 **导入时序数据**
 
 ```sql
-import into db_pipec.t_point CSV DATA ("nodelocal://1/t_point");
+import into db_monitor.t_monitor_point CSV DATA ("nodelocal://1/t_monitor_point");
 ```
 
 **导入关系数据**
 
 ```sql
-import into pipec_r.station_info CSV DATA ("nodelocal://1/station_info/station_info.csv");
-import into pipec_r.workarea_info CSV DATA ("nodelocal://1/workarea_info/workarea_info.csv");
-import into pipec_r.pipeline_info CSV DATA ("nodelocal://1/pipeline_info/pipeline_info.csv");
-import into pipec_r.point_info CSV DATA ("nodelocal://1/point_info/point_info.csv");
-import into pipec_r.company_info CSV DATA ("nodelocal://1/company_info/company_info.csv");
+import into monitor_r.site_info CSV DATA ("nodelocal://1/site_info/site_info.csv");
+import into monitor_r.region_info CSV DATA ("nodelocal://1/region_info/region_info.csv");
+import into monitor_r.pipeline_info CSV DATA ("nodelocal://1/pipeline_info/pipeline_info.csv");
+import into monitor_r.point_base_info CSV DATA ("nodelocal://1/point_base_info/point_base_info.csv");
+import into monitor_r.operation_branch CSV DATA ("nodelocal://1/operation_branch/operation_branch.csv");
 ```
 
 ## 表结构设计
@@ -63,60 +63,66 @@ import into pipec_r.company_info CSV DATA ("nodelocal://1/company_info/company_i
 
   ```sql
   // 测点数据表，可以是某些采集传感器，采集温度、电压、电流等实时数据
-  CREATE TABLE db_pipec.t_point (
-    k_timestamp timestamp NOT NULL,
-    measure_value double
+  CREATE TABLE db_monitor.t_monitor_point (
+  k_collect_time timestamp NOT NULL,  
+  monitor_value double               
   ) ATTRIBUTES (
-      point_sn varchar(64) NOT NULL,
-      sub_com_sn varchar(32),
-      work_area_sn varchar(16),
-      station_sn varchar(16),
-      pipeline_sn varchar(16) not null,
-      measure_type smallint,
-      measure_location varchar(64))
-    PRIMARY TAGS(point_sn) 
-    ACTIVETIME 3h;
+    point_id varchar(64) NOT NULL,   
+    branch_id varchar(32),           
+    region_id varchar(16),           
+    site_id varchar(16),             
+    pipeline_id varchar(16) not null,
+    monitor_type smallint,             
+    monitor_position varchar(64)       
+  )
+  PRIMARY TAGS(point_id)             
+  ACTIVETIME 3h;
   ```
 
 * 关系表结构
 
   ```sql
-  // 公司信息表
-  CREATE TABLE pipec_r.company_info (
-    sub_company_sn varchar(32) PRIMARY KEY,
-    sub_company_name varchar(50),
-    sub_compnay_description varchar(128));
+  // 业务实体表
+  CREATE TABLE monitor_r.operation_branch (
+    branch_id varchar(32) PRIMARY KEY, 
+    branch_name varchar(50),            
+    business_scope varchar(128)         
+  );
 
   // 场站信息表，记录站点的静态信息，记录站点SN码、站点名、属于哪个区域、属于哪家公司等
-  CREATE TABLE pipec_r.station_info (
-    station_sn varchar(16) PRIMARY KEY,
-    station_name varchar(80),
-    work_area_sn varchar(16),
-    sub_company_sn varchar(32),
-    station_location varchar(64),
-    station_description varchar(128));
+  CREATE TABLE monitor_r.site_info (
+    site_id varchar(16) PRIMARY KEY,  
+    site_name varchar(80),               
+    region_id varchar(16),             
+    branch_id varchar(32),             
+    site_address varchar(64),            
+    site_desc varchar(128)              
+  );
 
   // 工作区域信息表，记录地区的静态信息
-  CREATE TABLE pipec_r.workarea_info (
-    work_area_sn varchar(16) PRIMARY KEY,
-    work_area_name varchar(80),
-    work_area_location varchar(64),
-    work_area_description varchar(128));
+  CREATE TABLE monitor_r.region_info (
+    region_id varchar(16) PRIMARY KEY, 
+    region_name varchar(80),             
+    region_address varchar(64),          
+    region_desc varchar(128)            
+  );
 
   // 管线表信息表，记录管线的静态信息，记录管线SN码、管线名
-  CREATE TABLE pipec_r.pipeline_info (
-    pipeline_sn varchar(16) PRIMARY KEY,
-    pipeline_name varchar(60),
-    pipe_start varchar(80),
-    pipe_end varchar(80),
-    pipe_properties varchar(30));
+  CREATE TABLE monitor_r.pipeline_info (
+    pipeline_id varchar(16) PRIMARY KEY,
+    pipeline_name varchar(60),            
+    pipe_start_point varchar(80),         
+    pipe_end_point varchar(80),           
+    pipe_spec varchar(30)                 
+  );
 
   // 测点信息表，记录测点的静态信息，记录测点SN码、属于哪条管线、属于哪个站点等
-  CREATE TABLE pipec_r.point_info (
-    point_sn varchar(64) PRIMARY KEY,
-    signal_code varchar(120),
-    signal_description varchar(200),
-    signal_type varchar(50),
-    station_sn varchar(16),
-    pipeline_sn varchar(16));
+  CREATE TABLE monitor_r.point_base_info (
+    point_id varchar(64) PRIMARY KEY, 
+    signal_id varchar(120),            
+    signal_desc varchar(200),           
+    signal_type varchar(50),            
+    site_id varchar(16),               
+    pipeline_id varchar(16)            
+  );
   ```
