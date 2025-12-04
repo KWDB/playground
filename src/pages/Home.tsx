@@ -19,7 +19,7 @@ export function Home() {
   }, [showEnvModal])
 
   return (
-    <div className="h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 overflow-y-auto">
+    <div className="w-full flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="text-center max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 sm:mb-6">
           KWDB Playground

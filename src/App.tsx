@@ -3,6 +3,7 @@ import { Home } from './pages/Home';
 import { CourseList } from './pages/CourseList';
 import { Learn } from './pages/Learn';
 import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer';
 
 // 内部组件，用于根据路由决定是否显示导航栏
 function AppContent() {
@@ -15,11 +16,16 @@ function AppContent() {
     <div className="h-screen flex flex-col bg-gray-50">
       {showNavbar && <Navbar />}
       <main className={`flex-1 ${showNavbar ? 'min-h-0 overflow-y-auto' : 'overflow-hidden'}`}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/courses" element={<CourseList />} />
-          <Route path="/learn/:courseId" element={<Learn />} />
-        </Routes>
+        <div className="flex flex-col min-h-full">
+          <div className="flex-1 flex flex-col">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/courses" element={<CourseList />} />
+              <Route path="/learn/:courseId" element={<Learn />} />
+            </Routes>
+          </div>
+          {showNavbar && <Footer />}
+        </div>
       </main>
     </div>
   );
