@@ -31,6 +31,7 @@ interface TerminalProps {
 /** Terminal 暴露的外部方法，供父组件向容器终端发送命令 */
 export interface TerminalRef {
   sendCommand: (command: string) => void;
+  focus: () => void;
 }
 
 /** XTerm 终端组件：管理容器命令 WebSocket 与镜像进度 WebSocket，提供 sendCommand 能力 */
@@ -56,6 +57,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
   const [isConnected, setIsConnected] = useState(false);
   const [imagePullProgress, setImagePullProgress] = useState<ImagePullProgressMessage | null>(null);
   const [showProgress, setShowProgress] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
   // 防抖函数用于窗口大小调整（浏览器友好类型）
   /** 简单防抖：适配浏览器定时器类型，避免频繁 resize 导致布局抖动 */
@@ -577,7 +579,15 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
-    sendCommand
+    sendCommand,
+    focus: () => {
+      if (xtermRef.current) {
+        xtermRef.current.focus();
+        setIsFocused(true);
+        // 短暂的视觉反馈，可以根据需要调整
+        setTimeout(() => setIsFocused(false), 300);
+      }
+    }
   }), [sendCommand]);
 
   // 组件卸载时的清理 - 独立于状态变化的 Effect
@@ -694,7 +704,13 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
 
   return (
     // 外层容器：采用 Dracula 配色背景、圆角与阴影增强质感；保留现有功能结构不变
-    <div className="relative w-full h-full flex flex-col bg-[#282a36] rounded-xl shadow-2xl terminal-glow p-2 md:p-3" role="region" aria-label="Shell 终端">
+    <div 
+      className={`relative w-full h-full flex flex-col bg-[#282a36] rounded-xl shadow-2xl terminal-glow p-2 md:p-3 transition-all duration-200 ${
+        isFocused ? 'ring-2 ring-blue-500/30' : ''
+      }`} 
+      role="region" 
+      aria-label="Shell 终端"
+    >
       {/* 终端容器 - 优化布局以防止文本重叠 */}
       <div 
         ref={terminalRef} 
@@ -712,11 +728,9 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
       <ImagePullProgress />
       
       {/* 连接状态指示器 */}
-      {containerId && <ConnectionIndicator connected={isConnected} />}
+      <ConnectionIndicator connected={isConnected} />
     </div>
   );
 });
-
-Terminal.displayName = 'Terminal';
 
 export default Terminal;

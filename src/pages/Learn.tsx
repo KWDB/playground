@@ -626,6 +626,7 @@ import { fetchJson } from '../lib/http'
                finalCommand = `${command}; sleep 2`;
             }
             terminalRef.current.sendCommand(finalCommand)
+            terminalRef.current.focus()
           } else {
             console.warn('Terminal组件未准备就绪')
           }
