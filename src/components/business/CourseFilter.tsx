@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, Filter, Clock, Tag, Layers, Check, RotateCcw, Activity } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -39,6 +39,7 @@ export function CourseFilter({
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false); // For mobile/collapsible panel
   const [filters, setFilters] = useState<FilterState>(initialFilters);
+  const filterRef = useRef<HTMLDivElement>(null);
 
   // Debounce search internally or just pass up? 
   // The parent handles debounce for the *effect*, but we need to update input immediately.
@@ -74,6 +75,20 @@ export function CourseFilter({
     setFilters(initialFilters);
   }, [initialFilters]);
 
+  // Handle click outside to close filter panel
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node) && isOpen) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
   // Clear local search if needed (optional, depends on if reset clears search too)
   // Assuming reset clears everything
   useEffect(() => {
@@ -95,7 +110,10 @@ export function CourseFilter({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6 transition-all">
+    <div 
+      ref={filterRef}
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6 transition-all"
+    >
       {/* Top Bar: Search & Filter Toggle */}
       <div className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:max-w-md">
