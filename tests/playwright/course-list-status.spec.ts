@@ -44,7 +44,7 @@ test.describe('课程列表状态与交互测试', () => {
     await expect(courseCardAfterBack).toHaveText(/正在运行/);
     
     // 4. 验证清理功能
-    const cleanupButton = page.getByRole('button', { name: /清理所有运行中容器/ });
+    const cleanupButton = page.getByRole('button', { name: /清理环境/ });
     await expect(cleanupButton).toBeVisible();
     await cleanupButton.click();
     

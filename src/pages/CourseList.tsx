@@ -241,9 +241,21 @@ export function CourseList() {
               <BookOpen className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
               课程列表
             </h1>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              共 {filteredCourses.length} 门课程
-            </span>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                共 {filteredCourses.length} 门课程
+              </span>
+              {containers.length > 0 && (
+                <button
+                  onClick={() => setShowCleanupModal(true)}
+                  className="flex items-center px-3 py-1.5 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
+                  title="清理所有运行中的环境"
+                >
+                  <Trash2 className="w-4 h-4 mr-1.5" />
+                  清理环境 ({containers.length})
+                </button>
+              )}
+            </div>
           </div>
 
           <CourseFilter
