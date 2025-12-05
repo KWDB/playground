@@ -64,4 +64,39 @@ test.describe('课程列表状态与交互测试', () => {
     // 5. 验证卡片恢复初始状态（不显示“正在运行”）
     await expect(courseCard).not.toHaveText(/正在运行/);
   });
+
+  test('验证视图模式切换功能', async ({ page }) => {
+    await page.goto('/courses');
+
+    // 定位切换按钮
+    const gridBtn = page.getByTitle('卡片模式');
+    const listBtn = page.getByTitle('列表模式');
+
+    // 获取课程列表容器（通过查找第一个课程链接的父元素）
+    const firstCourse = page.locator('a[href^="/learn/"]').first();
+    const container = firstCourse.locator('xpath=..');
+
+    // 1. 默认状态验证 (Grid)
+    // 验证 Grid 按钮激活 (检查 text-indigo-600 类，因为选中时有这个颜色)
+    await expect(gridBtn).toHaveClass(/text-indigo-600/);
+    // 验证容器具有 grid 布局类
+    await expect(container).toHaveClass(/grid-cols-1/);
+
+    // 2. 切换到列表模式
+    await listBtn.click();
+    
+    // 验证 List 按钮激活
+    await expect(listBtn).toHaveClass(/text-indigo-600/);
+    // 验证容器变为列表布局 (space-y-3)
+    await expect(container).toHaveClass(/space-y-3/);
+    await expect(container).not.toHaveClass(/grid-cols-1/);
+
+    // 3. 再次切换回网格模式
+    await gridBtn.click();
+    
+    // 验证 Grid 按钮再次激活
+    await expect(gridBtn).toHaveClass(/text-indigo-600/);
+    // 验证容器恢复 grid 布局
+    await expect(container).toHaveClass(/grid-cols-1/);
+  });
 });

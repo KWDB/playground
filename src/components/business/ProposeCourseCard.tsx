@@ -3,9 +3,10 @@ import { PlusCircle, X } from 'lucide-react';
 
 interface ProposeCourseCardProps {
   className?: string;
+  mode?: 'grid' | 'list';
 }
 
-const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className }) => {
+const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode = 'grid' }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     courseName: '',
@@ -47,24 +48,36 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className }) => {
 
   return (
     <>
-      <div 
-        onClick={handleOpenModal}
-        className={`group relative flex flex-col h-full bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-300 ${className}`}
-      >
-        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4 py-8">
-          <div className="w-16 h-16 rounded-full bg-gray-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors duration-300">
-            <PlusCircle className="w-8 h-8 text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-700 transition-colors">
-              提议新课程
-            </h3>
-            <p className="text-sm text-gray-500 mt-2 group-hover:text-blue-600/80">
-              希望有更多课程？<br/>告诉我们你想学什么
-            </p>
+      {mode === 'grid' ? (
+        <div 
+          onClick={handleOpenModal}
+          className={`group relative flex flex-col h-full bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-6 cursor-pointer hover:border-indigo-500 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-300 ${className}`}
+        >
+          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4 py-8">
+            <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 flex items-center justify-center transition-colors duration-300">
+              <PlusCircle className="w-8 h-8 text-gray-400 dark:text-gray-500 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors duration-300" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
+                提议新课程
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 group-hover:text-indigo-600/80 dark:group-hover:text-indigo-400/80">
+                希望有更多课程？<br/>告诉我们你想学什么
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div 
+          onClick={handleOpenModal}
+          className={`group block bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 p-4 cursor-pointer hover:border-indigo-500 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-200 ${className}`}
+        >
+          <div className="flex items-center justify-center gap-3 text-gray-500 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+            <PlusCircle className="w-5 h-5" />
+            <span className="font-medium">提议新课程</span>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Tag, BookOpen, AlertCircle, Trash2, X, CheckCircle, AlertTriangle, Terminal, Database, Activity } from 'lucide-react';
+import { Clock, Tag, BookOpen, AlertCircle, Trash2, X, CheckCircle, AlertTriangle, Terminal, Database, Activity, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { ContainerInfo, CleanupResult } from '../types/container';
 import ProposeCourseCard from '../components/business/ProposeCourseCard';
 import { useDebounce } from '../hooks/useDebounce';
@@ -26,6 +26,16 @@ export function CourseList() {
   const [showCleanupModal, setShowCleanupModal] = useState(false)
   const [cleaning, setCleaning] = useState(false)
   const [cleanupResult, setCleanupResult] = useState<CleanupResult | null>(null)
+  
+  // View Mode State
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    return (localStorage.getItem('courseViewMode') as 'grid' | 'list') || 'grid';
+  });
+
+  const handleViewModeChange = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('courseViewMode', mode);
+  };
 
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -175,8 +185,8 @@ export function CourseList() {
         const wa = weight(a.difficulty)
         const wb = weight(b.difficulty)
         if (wa !== wb) return wa - wb
-        // 次级排序：同难度按预计时长升序，保证排序稳定
-        return (a.estimatedMinutes ?? 0) - (b.estimatedMinutes ?? 0)
+        // 次级排序：同难度按名称首字母 A-Z 排序，保证排序稳定
+        return a.title.localeCompare(b.title, 'zh-CN', { numeric: true })
       })
       setCourses(sorted)
     } catch (err) {
@@ -245,6 +255,33 @@ export function CourseList() {
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 共 {filteredCourses.length} 门课程
               </span>
+              
+              {/* View Mode Toggle */}
+              <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border border-gray-200 dark:border-gray-600">
+                <button
+                  onClick={() => handleViewModeChange('grid')}
+                  className={`p-1.5 rounded-md transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                  title="卡片模式"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleViewModeChange('list')}
+                  className={`p-1.5 rounded-md transition-all ${
+                    viewMode === 'list'
+                      ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                  title="列表模式"
+                >
+                  <ListIcon className="w-4 h-4" />
+                </button>
+              </div>
+
               {containers.length > 0 && (
                 <button
                   onClick={() => setShowCleanupModal(true)}
@@ -283,11 +320,92 @@ export function CourseList() {
           </div>
         ) : (
           <>
-            {/* Existing Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {/* Course List Container */}
+            <div className={viewMode === 'grid' 
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" 
+              : "space-y-3"
+            }>
               {filteredCourses.map((course, index) => {
                 const isRunning = containers.some(c => c.courseId === course.id && c.state === 'running');
                 
+                if (viewMode === 'list') {
+                  return (
+                    <Link 
+                      to={`/learn/${course.id}`}
+                      key={course.id} 
+                      className="group block bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg hover:border-indigo-500 dark:hover:border-indigo-400 transition-all duration-300 ease-in-out overflow-hidden hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 hover:-translate-y-0.5"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <div className="flex items-center p-4 gap-4">
+                         {/* Small Icon/Image */}
+                         <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br ${getDifficultyGradient(course.difficulty)} shadow-sm group-hover:shadow-md transition-shadow duration-300`}>
+                            {course.sqlTerminal ? (
+                              <Database className="w-6 h-6 text-white/90" />
+                            ) : (
+                              <Terminal className="w-6 h-6 text-white/90" />
+                            )}
+                         </div>
+
+                         {/* Main Info - Flattened Structure */}
+                         <div className="flex-1 min-w-0 flex items-center justify-between gap-6">
+                            {/* Title & Description */}
+                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                               <h3 className="text-base font-medium text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                 {course.title}
+                               </h3>
+                               <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
+                                 {course.description}
+                               </p>
+                            </div>
+
+                            {/* Metadata Group - Fixed Widths for Alignment */}
+                            <div className="flex items-center gap-6 flex-shrink-0 text-sm">
+                               {/* Difficulty */}
+                               <div className="w-20 flex justify-center">
+                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                    course.difficulty === 'beginner' 
+                                      ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800' 
+                                      : course.difficulty === 'intermediate'
+                                      ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-800'
+                                      : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
+                                 }`}>
+                                    {course.difficulty === 'beginner' ? '初级' :
+                                     course.difficulty === 'intermediate' ? '中级' : '高级'}
+                                 </span>
+                               </div>
+
+                               {/* Duration */}
+                               <div className="w-24 flex items-center text-gray-500 dark:text-gray-400">
+                                  <Clock className="w-4 h-4 mr-2 text-gray-400" />
+                                  <span>{course.estimatedMinutes} 分钟</span>
+                               </div>
+
+                               {/* Type */}
+                               <div className="w-20 flex items-center text-gray-500 dark:text-gray-400">
+                                  <Tag className="w-4 h-4 mr-2 text-gray-400" />
+                                  <span>{course.sqlTerminal ? 'SQL' : 'Shell'}</span>
+                               </div>
+
+                               {/* Status / Action */}
+                               <div className="w-24 flex justify-end">
+                                 {isRunning ? (
+                                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 animate-pulse">
+                                     <Activity className="w-3 h-3 mr-1" />
+                                     运行中
+                                   </span>
+                                 ) : (
+                                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300 shadow-sm group-hover:shadow hover:bg-indigo-100 dark:hover:bg-indigo-800/50">
+                                     开始学习 <span className="ml-1 text-sm leading-none transform group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+                                   </span>
+                                 )}
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+                    </Link>
+                  );
+                }
+
                 return (
                   <Link 
                     to={`/learn/${course.id}`}
@@ -381,7 +499,11 @@ export function CourseList() {
               })}
               
               {/* Propose New Course Card */}
-              <ProposeCourseCard className="h-full min-h-[280px]" />
+              {viewMode === 'grid' ? (
+                <ProposeCourseCard className="h-full min-h-[280px]" />
+              ) : (
+                <ProposeCourseCard className="w-full" mode="list" />
+              )}
             </div>
 
             {filteredCourses.length === 0 && (

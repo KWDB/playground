@@ -447,8 +447,8 @@ test.describe('端口冲突智能处理功能测试', () => {
       console.log(`错误元素数量: ${errorElements}`);
       
       // 截图调试
-      await page.screenshot({ path: 'debug-no-courses.png', fullPage: true });
-      console.log('已保存调试截图: debug-no-courses.png');
+      await page.screenshot({ path: 'tests/screenshots/debug-no-courses.png', fullPage: true });
+      console.log('已保存调试截图: tests/screenshots/debug-no-courses.png');
     }
     
     // 查找并点击 SQL 课程链接
