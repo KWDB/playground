@@ -13,6 +13,28 @@ type Summary = {
   items: CheckItem[]
 }
 
+function parseMirrorAvailabilityMessage(message: string): { available: string[]; unavailable: string[] } | null {
+  const trimmed = message.trim()
+  if (!trimmed) return null
+
+  const availableMatch = trimmed.match(/可用：([^；]+)(?:；|$)/)
+  const unavailableMatch = trimmed.match(/不可用：(.+)$/)
+  if (!availableMatch && !unavailableMatch) return null
+
+  const splitList = (value: string | undefined) => {
+    if (!value) return []
+    return value
+      .split(/[，,]/g)
+      .map(s => s.trim())
+      .filter(Boolean)
+  }
+
+  return {
+    available: splitList(availableMatch?.[1]),
+    unavailable: splitList(unavailableMatch?.[1]),
+  }
+}
+
 // 增加可选属性以支持弹窗模式：alwaysExpanded 在弹窗内始终展开
 export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpanded?: boolean }) {
   const [data, setData] = useState<Summary | null>(null)
@@ -104,11 +126,51 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
                       <h4 className="text-sm font-medium text-gray-900 truncate">
                         {item.name}
                       </h4>
-                      <p className={`text-sm mt-1 ${
-                        item.ok ? 'text-gray-600' : 'text-red-700'
-                      }`}>
-                        {item.message}
-                      </p>
+                      {(() => {
+                        const isMirror = item.name === '镜像源可用性'
+                        const parsed = isMirror ? parseMirrorAvailabilityMessage(item.message) : null
+                        const hasBoth = !!parsed && (parsed.available.length > 0 || parsed.unavailable.length > 0)
+                        const shouldSplit = !!parsed && parsed.unavailable.length > 0 && parsed.available.length > 0
+
+                        if (!isMirror || !hasBoth || !shouldSplit) {
+                          return (
+                            <p className={`text-sm mt-1 ${item.ok ? 'text-gray-600' : 'text-red-700'}`}>
+                              {item.message}
+                            </p>
+                          )
+                        }
+
+                        return (
+                          <div className="mt-1 text-sm space-y-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-xs font-medium text-green-800 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                                可用
+                              </span>
+                              {parsed.available.map(label => (
+                                <span
+                                  key={`avail-${label}`}
+                                  className="text-xs text-green-800 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full"
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-xs font-medium text-red-800 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                                不可用
+                              </span>
+                              {parsed.unavailable.map(label => (
+                                <span
+                                  key={`unavail-${label}`}
+                                  className="text-xs text-red-800 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full"
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                   

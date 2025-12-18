@@ -40,9 +40,7 @@ KWDB Playground 是一个面向学习与演示的交互式课程平台，支持�
 
 ![SQL 终端类型](./docs/images/SqlTerminal.gif)
 
-## 主要功能
-
-### Docker 镜像源选择器
+### Docker 镜像源选择器(v0.4.1 新增)
 
 支持灵活的镜像源选择，提高容器启动速度：
 
@@ -51,7 +49,7 @@ KWDB Playground 是一个面向学习与演示的交互式课程平台，支持�
 - **自定义源**：支持配置任意 Docker 镜像仓库地址
 - **配置持久化**：自动保存镜像源选择，下次访问时自动恢复
 
-详细使用说明请参阅 [Docker 镜像源选择器文档](./docs/usage-guide.md#docker-镜像源选择器)。
+![Docker 镜像源选择器](./docs/images/ImageSelector.png)
 
 ## 快速开始
 

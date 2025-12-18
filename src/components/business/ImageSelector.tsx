@@ -130,6 +130,7 @@ export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: 
     if (selectedSourceId === 'custom') {
       localStorage.setItem('customImageName', customImage);
     }
+    localStorage.setItem('selectedImageFullName', fullImageName);
 
     onImageSelect(fullImageName);
     onClose();
@@ -142,7 +143,7 @@ export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: 
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Docker 镜像源选择器</h2>
+          <h2 className="text-xl font-semibold text-gray-900">容器镜像源选择器</h2>
           <p className="mt-1 text-sm text-gray-600">选择合适的镜像源以提高下载速度</p>
         </div>
 

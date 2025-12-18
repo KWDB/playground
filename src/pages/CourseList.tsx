@@ -64,9 +64,11 @@ export function CourseList() {
 
   // Update timeRange max when maxDuration changes (only if it was default/initial)
   useEffect(() => {
-    if (maxDuration > 0 && filters.timeRange[1] === 1000) {
-        setFilters(prev => ({ ...prev, timeRange: [0, maxDuration] }));
-    }
+    if (maxDuration <= 0) return
+    setFilters(prev => {
+      if (prev.timeRange[1] !== 1000) return prev
+      return { ...prev, timeRange: [0, maxDuration] }
+    })
   }, [maxDuration]);
 
   // Filtering Logic

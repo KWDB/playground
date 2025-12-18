@@ -274,6 +274,10 @@ func (h *Handler) envCheck(c *gin.Context) {
 	dockerOK, dockerMsg := check.DockerEnv()
 	items = append(items, check.Item{Name: "Docker 环境", OK: dockerOK, Message: dockerMsg})
 
+	// 镜像源可用性
+	imageOK, imageMsg, imageDetails := check.ImageSourcesAvailability()
+	items = append(items, check.Item{Name: "镜像源可用性", OK: imageOK, Message: imageMsg, Details: imageDetails})
+
 	// 课程完整性（使用已加载的服务）
 	coursesOK, coursesMsg := check.CoursesIntegrity(h.courseService)
 	items = append(items, check.Item{Name: "课程加载与完整性", OK: coursesOK, Message: coursesMsg})
@@ -1543,7 +1547,7 @@ func (h *Handler) getImageSources(c *gin.Context) {
 	sources := []gin.H{
 		{
 			"id":          "docker-hub",
-			"name":        "Docker Hub (官方)",
+			"name":        "Docker Hub (默认)",
 			"prefix":      "",
 			"description": "Docker官方镜像仓库",
 			"example":     "kwdb/kwdb:latest",
@@ -1552,14 +1556,14 @@ func (h *Handler) getImageSources(c *gin.Context) {
 			"id":          "ghcr",
 			"name":        "GitHub Container Registry",
 			"prefix":      "ghcr.io/",
-			"description": "GitHub容器镜像仓库",
+			"description": "GitHub 容器镜像仓库",
 			"example":     "ghcr.io/kwdb/kwdb:latest",
 		},
 		{
 			"id":          "aliyun",
-			"name":        "阿里云镜像加速",
+			"name":        "阿里云 ACR",
 			"prefix":      "registry.cn-hangzhou.aliyuncs.com/",
-			"description": "阿里云Docker镜像加速服务",
+			"description": "阿里云容器镜像服务",
 			"example":     "registry.cn-hangzhou.aliyuncs.com/kwdb/kwdb:latest",
 		},
 		{

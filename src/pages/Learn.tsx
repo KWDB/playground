@@ -62,6 +62,41 @@ import { fetchJson } from '../lib/http'
   // 镜像选择器相关状态
   const [showImageSelector, setShowImageSelector] = useState<boolean>(false)
   const [selectedImage, setSelectedImage] = useState<string>('')
+  const [selectedImageSourceId, setSelectedImageSourceId] = useState<string>('')
+
+  useEffect(() => {
+    const savedSourceId = localStorage.getItem('imageSourceId')?.trim()
+    if (savedSourceId) {
+      setSelectedImageSourceId(savedSourceId)
+    }
+
+    const savedImage = localStorage.getItem('selectedImageFullName')?.trim()
+    if (savedImage) {
+      setSelectedImage(savedImage)
+    }
+  }, [])
+
+  const effectiveImage = useMemo(() => {
+    const v = selectedImage.trim()
+    if (v) return v
+    return course?.backend?.imageid || 'kwdb/kwdb:latest'
+  }, [course?.backend?.imageid, selectedImage])
+
+  const imageSourceLabel = useMemo(() => {
+    const id = selectedImageSourceId.trim()
+    if (id === 'ghcr') return 'ghcr.io'
+    if (id === 'aliyun') return 'Aliyun ACR'
+    if (id === 'custom') return 'Custom'
+    if (id === 'docker-hub') return 'Docker Hub'
+
+    const img = effectiveImage.trim()
+    const first = img.split('/')[0] || ''
+    const hasRegistry = first === 'localhost' || first.includes('.') || first.includes(':')
+    if (first === 'ghcr.io') return 'ghcr.io'
+    if (first === 'registry.cn-hangzhou.aliyuncs.com') return 'Aliyun ACR'
+    if (hasRegistry) return 'Custom'
+    return 'Docker Hub'
+  }, [effectiveImage, selectedImageSourceId])
 
   // 确认弹窗模式：区分来源以动态文案
   const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
@@ -1241,9 +1276,13 @@ import { fetchJson } from '../lib/http'
                 <button
                   onClick={() => setShowImageSelector(true)}
                   className="group relative inline-flex items-center justify-center px-3 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
-                  title="选择镜像源"
+                  title={`镜像源：${imageSourceLabel}（${effectiveImage}）`}
                 >
                   <ImageIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline ml-2">镜像源</span>
+                  <span className="ml-2 inline-block rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 max-w-40 truncate align-middle">
+                    {imageSourceLabel}
+                  </span>
                 </button>
               )}
               
@@ -1373,7 +1412,10 @@ import { fetchJson } from '../lib/http'
       {course?.id && (
         <ImageSelector
           defaultImage={course?.backend?.imageid || 'kwdb/kwdb:latest'}
-          onImageSelect={(image) => setSelectedImage(image)}
+          onImageSelect={(image) => {
+            setSelectedImage(image)
+            setSelectedImageSourceId(localStorage.getItem('imageSourceId')?.trim() || '')
+          }}
           isOpen={showImageSelector}
           onClose={() => setShowImageSelector(false)}
         />

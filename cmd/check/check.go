@@ -31,7 +31,12 @@ func NewCommand(staticFiles embed.FS) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "检查本地开发环境",
-		Long:  "全面检查本地开发环境：\n1) Docker 环境是否可用\n2) 指定端口是否被占用\n3) 课程资源加载与数据完整性\n4) Playground 服务运行与健康状态",
+		Long: `全面检查本地开发环境：
+1) Docker 环境是否可用
+2) 镜像源可用性(Docker Hub/ghcr.io/Aliyun ACR)
+3) 指定端口是否被占用
+4) 课程资源加载与数据完整性
+5) Playground 服务运行与健康状态`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// 静默模式：禁用标准库日志输出，避免内部模块在检查期间输出日志
 			// 注意：仅影响该命令的执行周期，结束后通过 defer 恢复，避免影响其他命令
