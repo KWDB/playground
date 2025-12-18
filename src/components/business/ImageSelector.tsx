@@ -18,18 +18,16 @@ interface ImageAvailability {
 }
 
 interface ImageSelectorProps {
-  courseId: string;
   defaultImage: string;
   onImageSelect: (imageWithSource: string) => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function ImageSelector({ courseId, defaultImage, onImageSelect, isOpen, onClose }: ImageSelectorProps) {
+export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: ImageSelectorProps) {
   const [sources, setSources] = useState<ImageSource[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string>('docker-hub');
   const [customImage, setCustomImage] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
   const [checking, setChecking] = useState<boolean>(false);
   const [availability, setAvailability] = useState<ImageAvailability | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -27,7 +27,10 @@ interface Course {
     finish: { content: string }
   }
   sqlTerminal?: boolean
-  backend?: { port?: number }
+  backend?: { 
+    port?: number
+    imageid?: string
+  }
 }
 
 // 更严格的容器状态类型
@@ -318,7 +321,7 @@ import { fetchJson } from '../lib/http'
     } finally {
       setIsStartingContainer(false)
     }
-  }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal, startStatusMonitoring])
+  }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal, startStatusMonitoring, selectedImage])
 
   // 端口冲突处理回调函数
   const handlePortConflictClose = useCallback(() => {
@@ -1369,7 +1372,6 @@ import { fetchJson } from '../lib/http'
       {/* 镜像选择器组件 */}
       {course?.id && course?.backend?.imageid && (
         <ImageSelector
-          courseId={course.id}
           defaultImage={course.backend.imageid}
           onImageSelect={(image) => setSelectedImage(image)}
           isOpen={showImageSelector}
