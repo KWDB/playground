@@ -235,6 +235,118 @@ go run . check
 ================ 环境检查结束 ================
 ```
 
+## Docker 镜像源选择器
+
+KWDB Playground 支持灵活的 Docker 镜像源选择功能，允许用户根据网络环境选择最佳的镜像源，提高容器启动速度。
+
+### 功能特性
+
+1. **预设镜像源**
+   - Docker Hub（官方）：默认镜像仓库
+   - 阿里云镜像加速：`registry.cn-hangzhou.aliyuncs.com/`
+   - 腾讯云镜像加速：`ccr.ccs.tencentyun.com/`
+   - 网易云镜像加速：`hub-mirror.c.163.com/`
+   - 自定义源：支持输入任意镜像仓库地址
+
+2. **镜像可用性检查**
+   - 在启动容器前检查镜像是否可访问
+   - 显示响应时间，帮助选择最快的镜像源
+   - 支持本地镜像检测和远程仓库验证
+
+3. **配置持久化**
+   - 镜像源选择自动保存到浏览器本地存储
+   - 下次访问时自动恢复上次选择的镜像源
+
+### 使用方法
+
+1. **打开镜像选择器**
+   - 在课程详情页面，当容器停止时，点击"启动容器"按钮旁边的镜像图标
+   - 或者在容器错误状态下，通过镜像选择器切换到可用的镜像源
+
+2. **选择镜像源**
+   - 从预设的镜像源列表中选择合适的源
+   - 或选择"自定义源"，输入完整的镜像地址
+
+3. **检查可用性**
+   - 点击"检查可用性"按钮验证选择的镜像源是否可访问
+   - 查看响应时间和可用性状态
+
+4. **应用配置**
+   - 确认镜像源可用后，点击"应用"按钮
+   - 再次启动容器时将使用选择的镜像源
+
+### API 接口
+
+#### 获取镜像源列表
+
+```bash
+GET /api/images/sources
+```
+
+响应示例：
+```json
+{
+  "sources": [
+    {
+      "id": "docker-hub",
+      "name": "Docker Hub (官方)",
+      "prefix": "",
+      "description": "Docker官方镜像仓库",
+      "example": "kwdb/kwdb:latest"
+    },
+    {
+      "id": "docker-hub-mirror-aliyun",
+      "name": "阿里云镜像加速",
+      "prefix": "registry.cn-hangzhou.aliyuncs.com/",
+      "description": "阿里云Docker镜像加速服务",
+      "example": "registry.cn-hangzhou.aliyuncs.com/kwdb/kwdb:latest"
+    }
+  ]
+}
+```
+
+#### 检查镜像可用性
+
+```bash
+POST /api/images/check-availability
+Content-Type: application/json
+
+{
+  "imageName": "kwdb/kwdb:latest"
+}
+```
+
+响应示例：
+```json
+{
+  "available": true,
+  "imageName": "kwdb/kwdb:latest",
+  "message": "镜像可从远程仓库获取",
+  "checkedAt": "2024-12-18T10:30:00Z",
+  "responseTime": 1250
+}
+```
+
+### 配置说明
+
+课程配置文件（`index.yaml`）中的 `backend.imageid` 字段定义默认镜像：
+
+```yaml
+backend:
+  imageid: kwdb/kwdb:latest
+  port: 26257
+  workspace: /kaiwudb/bin
+```
+
+用户通过镜像选择器选择的镜像将覆盖此默认配置。
+
+### 注意事项
+
+1. 镜像可用性检查会发起网络请求，可能需要一些时间
+2. 选择的镜像源会保存在浏览器本地存储中，清除浏览器数据会重置为默认配置
+3. 如果镜像源不可用，建议切换到其他镜像源或使用默认的 Docker Hub
+4. 自定义镜像源需要输入完整的镜像地址，包括仓库地址和镜像名称
+
 ## e2e Playwright 测试
 
 ### 1. 测试环境准备
