@@ -372,10 +372,8 @@ func (h *Handler) startCourse(c *gin.Context) {
 	var requestBody struct {
 		Image string `json:"image"`
 	}
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		// 如果没有请求体或解析失败，继续使用默认镜像
-		h.logger.Debug("[startCourse] 未提供自定义镜像或解析失败，将使用默认镜像")
-	}
+	// 尝试解析JSON，如果失败（例如空body）则忽略错误
+	_ = c.ShouldBindJSON(&requestBody)
 
 	// 使用互斥锁防止并发创建容器
 	h.containerMutex.Lock()
@@ -1551,25 +1549,11 @@ func (h *Handler) getImageSources(c *gin.Context) {
 			"example":     "kwdb/kwdb:latest",
 		},
 		{
-			"id":          "docker-hub-mirror-aliyun",
-			"name":        "阿里云镜像加速",
-			"prefix":      "registry.cn-hangzhou.aliyuncs.com/",
-			"description": "阿里云Docker镜像加速服务",
-			"example":     "registry.cn-hangzhou.aliyuncs.com/kwdb/kwdb:latest",
-		},
-		{
-			"id":          "docker-hub-mirror-tencent",
-			"name":        "腾讯云镜像加速",
-			"prefix":      "ccr.ccs.tencentyun.com/",
-			"description": "腾讯云Docker镜像加速服务",
-			"example":     "ccr.ccs.tencentyun.com/kwdb/kwdb:latest",
-		},
-		{
-			"id":          "docker-hub-mirror-163",
-			"name":        "网易云镜像加速",
-			"prefix":      "hub-mirror.c.163.com/",
-			"description": "网易云Docker镜像加速服务",
-			"example":     "hub-mirror.c.163.com/kwdb/kwdb:latest",
+			"id":          "ghcr",
+			"name":        "GitHub Container Registry",
+			"prefix":      "ghcr.io/",
+			"description": "GitHub容器镜像仓库",
+			"example":     "ghcr.io/kwdb/kwdb:latest",
 		},
 		{
 			"id":          "custom",

@@ -243,9 +243,7 @@ KWDB Playground 支持灵活的 Docker 镜像源选择功能，允许用户根�
 
 1. **预设镜像源**
    - Docker Hub（官方）：默认镜像仓库
-   - 阿里云镜像加速：`registry.cn-hangzhou.aliyuncs.com/`
-   - 腾讯云镜像加速：`ccr.ccs.tencentyun.com/`
-   - 网易云镜像加速：`hub-mirror.c.163.com/`
+   - GitHub Container Registry (ghcr.io)：GitHub容器镜像仓库
    - 自定义源：支持输入任意镜像仓库地址
 
 2. **镜像可用性检查**
@@ -295,11 +293,11 @@ GET /api/images/sources
       "example": "kwdb/kwdb:latest"
     },
     {
-      "id": "docker-hub-mirror-aliyun",
-      "name": "阿里云镜像加速",
-      "prefix": "registry.cn-hangzhou.aliyuncs.com/",
-      "description": "阿里云Docker镜像加速服务",
-      "example": "registry.cn-hangzhou.aliyuncs.com/kwdb/kwdb:latest"
+      "id": "ghcr",
+      "name": "GitHub Container Registry",
+      "prefix": "ghcr.io/",
+      "description": "GitHub容器镜像仓库",
+      "example": "ghcr.io/kwdb/kwdb:latest"
     }
   ]
 }
