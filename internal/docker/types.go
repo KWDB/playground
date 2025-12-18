@@ -64,3 +64,12 @@ type containerStateCache struct {
 	lastChecked time.Time
 	cacheTTL    time.Duration
 }
+
+// ImageAvailability 镜像可用性检查结果
+type ImageAvailability struct {
+	Available    bool      `json:"available"`    // 镜像是否可用
+	ImageName    string    `json:"imageName"`    // 镜像名称
+	Message      string    `json:"message"`      // 状态消息
+	CheckedAt    time.Time `json:"checkedAt"`    // 检查时间
+	ResponseTime int64     `json:"responseTime"` // 响应时间（毫秒）
+}

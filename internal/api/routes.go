@@ -108,6 +108,13 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 			containers.POST("/:id/stop", h.stopContainerByID)
 		}
 
+		// 镜像相关路由
+		images := api.Group("/images")
+		{
+			images.POST("/check-availability", h.checkImageAvailability)
+			images.GET("/sources", h.getImageSources)
+		}
+
 		// SQL 信息与健康（REST 信息类）
 		api.GET("/sql/info", h.sqlInfo)
 		api.GET("/sql/health", h.sqlHealth)
@@ -267,6 +274,10 @@ func (h *Handler) envCheck(c *gin.Context) {
 	dockerOK, dockerMsg := check.DockerEnv()
 	items = append(items, check.Item{Name: "Docker 环境", OK: dockerOK, Message: dockerMsg})
 
+	// 镜像源可用性
+	imageOK, imageMsg, imageDetails := check.ImageSourcesAvailability()
+	items = append(items, check.Item{Name: "镜像源可用性", OK: imageOK, Message: imageMsg, Details: imageDetails})
+
 	// 课程完整性（使用已加载的服务）
 	coursesOK, coursesMsg := check.CoursesIntegrity(h.courseService)
 	items = append(items, check.Item{Name: "课程加载与完整性", OK: coursesOK, Message: coursesMsg})
@@ -361,6 +372,13 @@ func (h *Handler) startCourse(c *gin.Context) {
 		return
 	}
 
+	// 解析请求体，获取可选的镜像参数
+	var requestBody struct {
+		Image string `json:"image"`
+	}
+	// 尝试解析JSON，如果失败（例如空body）则忽略错误
+	_ = c.ShouldBindJSON(&requestBody)
+
 	// 使用互斥锁防止并发创建容器
 	h.containerMutex.Lock()
 	defer h.containerMutex.Unlock()
@@ -384,8 +402,11 @@ func (h *Handler) startCourse(c *gin.Context) {
 	// 构建容器配置
 	imageName := "kwdb/kwdb:latest" // 默认镜像
 
-	// 如果课程配置中指定了镜像，使用课程指定的镜像
-	if course.Backend.ImageID != "" {
+	// 优先级：1. 请求体中的自定义镜像 2. 课程配置的镜像 3. 默认镜像
+	if requestBody.Image != "" {
+		imageName = requestBody.Image
+		h.logger.Debug("[startCourse] 使用请求中指定的镜像: %s", imageName)
+	} else if course.Backend.ImageID != "" {
 		imageName = course.Backend.ImageID
 		h.logger.Debug("[startCourse] 使用课程指定镜像: %s", imageName)
 	} else {
@@ -1463,5 +1484,98 @@ func (h *Handler) cleanupCourseContainers(c *gin.Context) {
 		"cleanedContainers": cleanupResult.CleanedContainers,
 		"errors":            []string{}, // 错误信息现在包含在 Message 中
 		"message":           cleanupResult.Message,
+	})
+}
+
+// checkImageAvailability 检查镜像可用性
+// POST /api/images/check-availability
+// 请求体: {"imageName": "kwdb/kwdb:latest"}
+// 响应:
+//
+//	200: 镜像可用性检查结果
+//	400: 参数错误
+//	500: 检查失败
+func (h *Handler) checkImageAvailability(c *gin.Context) {
+	var req struct {
+		ImageName string `json:"imageName" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("[checkImageAvailability] 参数解析失败: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "镜像名称不能为空",
+		})
+		return
+	}
+
+	h.logger.Info("[checkImageAvailability] 检查镜像可用性: %s", req.ImageName)
+
+	// 检查Docker控制器是否可用
+	if h.dockerController == nil {
+		h.logger.Error("[checkImageAvailability] Docker控制器未初始化")
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Docker服务暂不可用",
+		})
+		return
+	}
+
+	// 调用Docker控制器检查镜像可用性
+	ctx := context.Background()
+	availability, err := h.dockerController.CheckImageAvailability(ctx, req.ImageName)
+	if err != nil {
+		h.logger.Error("[checkImageAvailability] 检查失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("检查镜像可用性失败: %v", err),
+		})
+		return
+	}
+
+	h.logger.Info("[checkImageAvailability] 检查完成: %s, 可用: %v", req.ImageName, availability.Available)
+
+	c.JSON(http.StatusOK, availability)
+}
+
+// getImageSources 获取可用的镜像源列表
+// GET /api/images/sources
+// 响应:
+//
+//	200: 镜像源列表
+func (h *Handler) getImageSources(c *gin.Context) {
+	h.logger.Info("[getImageSources] 获取镜像源列表")
+
+	// 定义常用的镜像源
+	sources := []gin.H{
+		{
+			"id":          "docker-hub",
+			"name":        "Docker Hub (默认)",
+			"prefix":      "",
+			"description": "Docker官方镜像仓库",
+			"example":     "kwdb/kwdb:latest",
+		},
+		{
+			"id":          "ghcr",
+			"name":        "GitHub Container Registry",
+			"prefix":      "ghcr.io/",
+			"description": "GitHub 容器镜像仓库",
+			"example":     "ghcr.io/kwdb/kwdb:latest",
+		},
+		{
+			"id":          "aliyun",
+			"name":        "阿里云 ACR",
+			"prefix":      "registry.cn-hangzhou.aliyuncs.com/",
+			"description": "阿里云容器镜像服务",
+			"example":     "registry.cn-hangzhou.aliyuncs.com/kwdb/kwdb:latest",
+		},
+		{
+			"id":          "custom",
+			"name":        "自定义源",
+			"prefix":      "",
+			"description": "使用自定义的镜像仓库地址",
+			"example":     "your-registry.com/kwdb/kwdb:latest",
+		},
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"sources": sources,
 	})
 }

@@ -13,6 +13,7 @@ import (
 	"kwdb-playground/internal/logger"
 
 	"github.com/containerd/errdefs"
+	"github.com/distribution/reference"
 	"github.com/docker/go-connections/nat"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
@@ -46,25 +47,7 @@ func createDockerClient(log *logger.Logger) (*client.Client, error) {
 		"unix:///var/run/docker.sock",
 	}
 
-	// 首先尝试使用环境变量配置
-	log.Info("尝试使用环境变量配置创建Docker客户端...")
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err == nil {
-		// 测试连接
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_, pingErr := cli.Ping(ctx)
-		if pingErr == nil {
-			log.Info("成功使用环境变量配置连接到Docker")
-			return cli, nil
-		}
-		log.Warn("环境变量配置的Docker连接测试失败: %v", pingErr)
-		cli.Close()
-	} else {
-		log.Warn("使用环境变量创建Docker客户端失败: %v", err)
-	}
-
-	// 尝试不同的socket路径
+	// 优先尝试本机 socket，避免因 DOCKER_HOST/上下文配置指向其他 daemon 导致镜像/容器视图不一致
 	for _, socketPath := range socketPaths {
 		log.Info("尝试连接Docker socket: %s", socketPath)
 
@@ -99,6 +82,23 @@ func createDockerClient(log *logger.Logger) (*client.Client, error) {
 
 		log.Warn("Docker连接测试失败 (socket: %s): %v", socketPath, pingErr)
 		cli.Close()
+	}
+
+	// 若本机 socket 都不可用，再回退到环境变量配置（用于远程 daemon 或特殊部署）
+	log.Info("本机socket均不可用，尝试使用环境变量配置创建Docker客户端...")
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, pingErr := cli.Ping(ctx)
+		if pingErr == nil {
+			log.Info("成功使用环境变量配置连接到Docker")
+			return cli, nil
+		}
+		log.Warn("环境变量配置的Docker连接测试失败: %v", pingErr)
+		cli.Close()
+	} else {
+		log.Warn("使用环境变量创建Docker客户端失败: %v", err)
 	}
 
 	return nil, fmt.Errorf("无法连接到Docker守护进程，已尝试所有可用路径: %v", socketPaths)
@@ -791,6 +791,24 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 	courseMutex := d.getCourseMutex(courseID)
 	courseMutex.Lock()
 	defer courseMutex.Unlock()
+
+	config.Image = strings.TrimSpace(config.Image)
+	resolvedImage, ok, err := d.resolveLocalImageReference(ctx, config.Image)
+	if err != nil {
+		return nil, d.enhanceImageError(err, config.Image)
+	}
+	if ok {
+		if resolvedImage != config.Image {
+			d.logger.Info("本地镜像命中: %s -> %s", config.Image, resolvedImage)
+			config.Image = resolvedImage
+		}
+	} else {
+		normalizedImage := d.normalizeImageReference(config.Image)
+		if normalizedImage != "" && normalizedImage != config.Image {
+			d.logger.Info("规范化镜像引用: %s -> %s", config.Image, normalizedImage)
+			config.Image = normalizedImage
+		}
+	}
 
 	// 检查镜像是否存在，如果不存在则自动拉取
 	if err := d.ensureImageExistsWithProgress(ctx, config.Image, progressCallback); err != nil {
@@ -1562,7 +1580,7 @@ func (d *dockerController) ensureImageExistsWithProgress(ctx context.Context, im
 	d.logger.Info("检查镜像是否存在: %s", imageName)
 
 	// 检查本地是否存在镜像
-	exists, err := d.checkImageExists(ctx, imageName)
+	exists, err := d.imageExistsExact(ctx, imageName)
 	if err != nil {
 		return fmt.Errorf("检查镜像存在性失败: %w", err)
 	}
@@ -1620,20 +1638,119 @@ func (d *dockerController) ensureImageExistsWithProgress(ctx context.Context, im
 	return nil
 }
 
+func (d *dockerController) normalizeImageReference(imageName string) string {
+	imageName = strings.TrimSpace(imageName)
+	if imageName == "" {
+		return imageName
+	}
+	named, err := reference.ParseNormalizedNamed(imageName)
+	if err != nil {
+		return imageName
+	}
+	named = reference.TagNameOnly(named)
+	if reference.Domain(named) == "docker.io" {
+		return reference.FamiliarString(named)
+	}
+	return named.String()
+}
+
+func (d *dockerController) imageReferenceCandidates(imageName string) []string {
+	imageName = strings.TrimSpace(imageName)
+	if imageName == "" {
+		return []string{imageName}
+	}
+
+	seen := make(map[string]struct{}, 8)
+	out := make([]string, 0, 8)
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return
+		}
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+
+	add(imageName)
+	add(d.normalizeImageReference(imageName))
+
+	named, err := reference.ParseNormalizedNamed(imageName)
+	if err == nil {
+		named = reference.TagNameOnly(named)
+		add(named.String())
+		add(reference.FamiliarString(named))
+	}
+
+	if len(out) == 0 {
+		return []string{imageName}
+	}
+	return out
+}
+
+func (d *dockerController) isImageNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errdefs.IsNotFound(err) {
+		return true
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "no such image") || strings.Contains(lower, "not found")
+}
+
+func (d *dockerController) imageExistsExact(ctx context.Context, imageName string) (bool, error) {
+	imageName = strings.TrimSpace(imageName)
+	if imageName == "" {
+		return false, nil
+	}
+	_, _, err := d.client.ImageInspectWithRaw(ctx, imageName)
+	if err == nil {
+		return true, nil
+	}
+	if d.isImageNotFound(err) {
+		return false, nil
+	}
+	errorMsg := d.classifyImageCheckError(err, imageName)
+	return false, fmt.Errorf(errorMsg)
+}
+
+func (d *dockerController) resolveLocalImageReference(ctx context.Context, imageName string) (string, bool, error) {
+	imageName = strings.TrimSpace(imageName)
+	if imageName == "" {
+		return imageName, false, nil
+	}
+	candidates := d.imageReferenceCandidates(imageName)
+	d.logger.Debug("[resolveLocalImageReference] 候选镜像引用: %v", candidates)
+
+	for _, candidate := range candidates {
+		exists, err := d.imageExistsExact(ctx, candidate)
+		if err != nil {
+			return "", false, err
+		}
+		if exists {
+			return candidate, true, nil
+		}
+	}
+	return imageName, false, nil
+}
+
 // checkImageExists 检查本地是否存在指定镜像
 func (d *dockerController) checkImageExists(ctx context.Context, imageName string) (bool, error) {
-	// 使用 ImageInspect 检查镜像是否存在
-	_, _, err := d.client.ImageInspectWithRaw(ctx, imageName)
+	d.logger.Debug("[checkImageExists] 检查镜像是否存在: %s", imageName)
+
+	match, ok, err := d.resolveLocalImageReference(ctx, imageName)
 	if err != nil {
-		// 如果是镜像不存在的错误，返回 false
-		if errdefs.IsNotFound(err) {
-			return false, nil
-		}
-		// 其他错误使用详细的错误分类
-		errorMsg := d.classifyImageCheckError(err, imageName)
-		return false, fmt.Errorf(errorMsg)
+		return false, err
 	}
-	return true, nil
+	if ok {
+		d.logger.Debug("[checkImageExists] 镜像已存在: %s (match: %s)", imageName, match)
+		return true, nil
+	}
+	d.logger.Debug("[checkImageExists] 镜像不存在: %s", imageName)
+	return false, nil
 }
 
 // pullImageWithProgress 拉取镜像并支持进度回调
@@ -1744,6 +1861,87 @@ func (d *dockerController) pullImageWithProgress(ctx context.Context, imageName 
 		d.logger.Warn("[镜像拉取] 进度回调函数为空，无法发送完成通知: %s", imageName)
 	}
 	return nil
+}
+
+// CheckImageAvailability 检查Docker镜像的可用性
+// 通过尝试检查镜像是否存在来验证其可访问性，不会实际拉取镜像
+func (d *dockerController) CheckImageAvailability(ctx context.Context, imageName string) (*ImageAvailability, error) {
+	startTime := time.Now()
+	d.logger.Info("开始检查镜像可用性: %s", imageName)
+
+	result := &ImageAvailability{
+		ImageName: imageName,
+		CheckedAt: time.Now(),
+	}
+
+	// 先检查本地是否已有该镜像
+	exists, err := d.checkImageExists(ctx, imageName)
+	if err != nil {
+		result.Available = false
+		result.Message = err.Error()
+		result.ResponseTime = time.Since(startTime).Milliseconds()
+		return result, nil
+	}
+	if exists {
+		// 本地已存在该镜像
+		result.Available = true
+		result.Message = "镜像在本地可用"
+		result.ResponseTime = time.Since(startTime).Milliseconds()
+		d.logger.Info("镜像可用性检查完成: %s - 本地已存在", imageName)
+		return result, nil
+	}
+
+	// 本地不存在，尝试从远程仓库检查
+	d.logger.Debug("本地未找到镜像，尝试从远程检查: %s", imageName)
+
+	// 创建带超时的上下文（60秒超时，给网络较慢的环境更多时间）
+	checkCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	// 尝试拉取镜像以验证可用性（仅开始拉取过程，然后立即取消）
+	reader, err := d.client.ImagePull(checkCtx, imageName, client.ImagePullOptions{})
+	if err != nil {
+		// 检查是否是超时错误
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "TLS handshake") {
+			result.Available = false
+			result.Message = "网络超时，无法连接到镜像仓库。请检查网络连接或稍后重试"
+			result.ResponseTime = time.Since(startTime).Milliseconds()
+			d.logger.Warn("镜像可用性检查超时: %s - 可能是网络问题", imageName)
+		} else if strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "manifest unknown") {
+			result.Available = false
+			result.Message = "镜像不存在于该仓库"
+			result.ResponseTime = time.Since(startTime).Milliseconds()
+			d.logger.Warn("镜像可用性检查失败: %s - 镜像不存在", imageName)
+		} else {
+			result.Available = false
+			result.Message = fmt.Sprintf("镜像检查失败: %v", err)
+			result.ResponseTime = time.Since(startTime).Milliseconds()
+			d.logger.Warn("镜像可用性检查失败: %s - %v", imageName, err)
+		}
+		return result, nil
+	}
+
+	// 读取少量响应以确认镜像确实可以被访问，然后立即关闭流
+	// 这样可以避免下载整个镜像
+	buf := make([]byte, 512)
+	_, readErr := reader.Read(buf)
+	// 立即关闭reader以取消拉取操作
+	reader.Close()
+
+	if readErr != nil && readErr != io.EOF {
+		result.Available = false
+		result.Message = fmt.Sprintf("读取镜像信息失败: %v", readErr)
+		result.ResponseTime = time.Since(startTime).Milliseconds()
+		d.logger.Warn("镜像可用性检查失败: %s - %v", imageName, readErr)
+		return result, nil
+	}
+
+	result.Available = true
+	result.Message = "镜像可从远程仓库获取"
+	result.ResponseTime = time.Since(startTime).Milliseconds()
+	d.logger.Info("镜像可用性检查完成: %s - 远程可用", imageName)
+	return result, nil
 }
 
 // enhanceImageError 增强镜像相关错误信息，提供更详细的诊断和解决方案

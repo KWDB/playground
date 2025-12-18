@@ -100,6 +100,10 @@ type Controller interface {
 	// 停止并删除所有kwdb-playground相关的容器
 	CleanupAllContainers(ctx context.Context) (*CleanupResult, error)
 
+	// CheckImageAvailability 检查Docker镜像的可用性
+	// 尝试从指定源拉取镜像以验证其可访问性
+	CheckImageAvailability(ctx context.Context, imageName string) (*ImageAvailability, error)
+
 	// Close 关闭控制器
 	Close() error
 }

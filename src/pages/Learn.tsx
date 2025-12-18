@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Server } from 'lucide-react'
+import { ArrowLeft, Server, ImageIcon } from 'lucide-react'
 import SqlTerminal, { SqlTerminalRef } from '../components/business/SqlTerminal'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -13,6 +13,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StatusIndicator, { StatusType } from '../components/ui/StatusIndicator';
 import CourseContentPanel from '../components/business/CourseContentPanel';
 import PortConflictHandler from '../components/business/PortConflictHandler';
+import { ImageSelector } from '../components/business/ImageSelector';
 import '../styles/markdown.css';
 import { ContainerInfo } from '../types/container';
 
@@ -26,7 +27,10 @@ interface Course {
     finish: { content: string }
   }
   sqlTerminal?: boolean
-  backend?: { port?: number }
+  backend?: { 
+    port?: number
+    imageid?: string
+  }
 }
 
 // 更严格的容器状态类型
@@ -54,6 +58,45 @@ import { fetchJson } from '../lib/http'
 
   // 端口冲突处理相关状态
   const [showPortConflictHandler, setShowPortConflictHandler] = useState<boolean>(false)
+
+  // 镜像选择器相关状态
+  const [showImageSelector, setShowImageSelector] = useState<boolean>(false)
+  const [selectedImage, setSelectedImage] = useState<string>('')
+  const [selectedImageSourceId, setSelectedImageSourceId] = useState<string>('')
+
+  useEffect(() => {
+    const savedSourceId = localStorage.getItem('imageSourceId')?.trim()
+    if (savedSourceId) {
+      setSelectedImageSourceId(savedSourceId)
+    }
+
+    const savedImage = localStorage.getItem('selectedImageFullName')?.trim()
+    if (savedImage) {
+      setSelectedImage(savedImage)
+    }
+  }, [])
+
+  const effectiveImage = useMemo(() => {
+    const v = selectedImage.trim()
+    if (v) return v
+    return course?.backend?.imageid || 'kwdb/kwdb:latest'
+  }, [course?.backend?.imageid, selectedImage])
+
+  const imageSourceLabel = useMemo(() => {
+    const id = selectedImageSourceId.trim()
+    if (id === 'ghcr') return 'ghcr.io'
+    if (id === 'aliyun') return 'Aliyun ACR'
+    if (id === 'custom') return 'Custom'
+    if (id === 'docker-hub') return 'Docker Hub'
+
+    const img = effectiveImage.trim()
+    const first = img.split('/')[0] || ''
+    const hasRegistry = first === 'localhost' || first.includes('.') || first.includes(':')
+    if (first === 'ghcr.io') return 'ghcr.io'
+    if (first === 'registry.cn-hangzhou.aliyuncs.com') return 'Aliyun ACR'
+    if (hasRegistry) return 'Custom'
+    return 'Docker Hub'
+  }, [effectiveImage, selectedImageSourceId])
 
   // 确认弹窗模式：区分来源以动态文案
   const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
@@ -188,7 +231,21 @@ import { fetchJson } from '../lib/http'
       startAbortControllerRef.current?.abort()
       const controller = new AbortController()
       startAbortControllerRef.current = controller
-      const data = await fetchJson<{ containerId: string }>(`/api/courses/${courseId}/start`, { method: 'POST', signal: controller.signal })
+      
+      // 准备请求体，包含可选的镜像参数
+      const requestBody = selectedImage ? { image: selectedImage } : {}
+      
+      const data = await fetchJson<{ containerId: string }>(
+        `/api/courses/${courseId}/start`, 
+        { 
+          method: 'POST', 
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: Object.keys(requestBody).length > 0 ? JSON.stringify(requestBody) : undefined,
+        }
+      )
       console.log('容器启动成功，响应数据:', data)
 
       setContainerId(data.containerId)
@@ -299,7 +356,7 @@ import { fetchJson } from '../lib/http'
     } finally {
       setIsStartingContainer(false)
     }
-  }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal, startStatusMonitoring])
+  }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal, startStatusMonitoring, selectedImage])
 
   // 端口冲突处理回调函数
   const handlePortConflictClose = useCallback(() => {
@@ -1214,6 +1271,21 @@ import { fetchJson } from '../lib/http'
 
             {/* 操作按钮组 */}
             <div className="flex items-center space-x-3">
+              {/* 镜像选择器按钮 - 仅在容器停止时显示 */}
+              {(containerStatus === 'stopped' || containerStatus === 'error' || containerStatus === 'exited' || containerStatus === 'completed') && (
+                <button
+                  onClick={() => setShowImageSelector(true)}
+                  className="group relative inline-flex items-center justify-center px-3 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+                  title={`镜像源：${imageSourceLabel}（${effectiveImage}）`}
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline ml-2">镜像源</span>
+                  <span className="ml-2 inline-block rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 max-w-40 truncate align-middle">
+                    {imageSourceLabel}
+                  </span>
+                </button>
+              )}
+              
               {containerStatus === 'stopped' || containerStatus === 'error' || containerStatus === 'exited' || containerStatus === 'completed' ? (
                 <button
                   onClick={() => course?.id && startCourseContainer(course.id)}
@@ -1333,6 +1405,19 @@ import { fetchJson } from '../lib/http'
           onClose={handlePortConflictClose}
           onRetry={handlePortConflictRetry}
           onSuccess={handlePortConflictSuccess}
+        />
+      )}
+
+      {/* 镜像选择器组件 */}
+      {course?.id && (
+        <ImageSelector
+          defaultImage={course?.backend?.imageid || 'kwdb/kwdb:latest'}
+          onImageSelect={(image) => {
+            setSelectedImage(image)
+            setSelectedImageSourceId(localStorage.getItem('imageSourceId')?.trim() || '')
+          }}
+          isOpen={showImageSelector}
+          onClose={() => setShowImageSelector(false)}
         />
       )}
     </div>

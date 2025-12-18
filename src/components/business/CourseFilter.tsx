@@ -89,16 +89,6 @@ export function CourseFilter({
     };
   }, [isOpen]);
 
-  // Clear local search if needed (optional, depends on if reset clears search too)
-  // Assuming reset clears everything
-  useEffect(() => {
-    if (filterCount === 0 && searchQuery === '' && filters.type === 'all') {
-       // This check is a bit loose, but basically if parent resets, we might want to clear search?
-       // For now, let's keep search separate from "Filter Reset" button in the panel, 
-       // but the "Reset All" might clear search too.
-    }
-  }, [filterCount]);
-
   const handleResetAll = () => {
     setSearchQuery('');
     onSearch('');

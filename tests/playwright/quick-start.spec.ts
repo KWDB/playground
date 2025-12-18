@@ -10,11 +10,39 @@ test.describe('Quick Start', () => {
       // 忽略任何错误，仅用于确保初始状态
     }
 
+    // 0.5) 清理可能残留的镜像源选择（保证“切换”测试可重复）
+    // 这里必须在 page.goto 之前注入，否则 Learn 页初次渲染已读取 localStorage
+    await page.addInitScript(() => {
+      localStorage.removeItem('imageSourceId')
+      localStorage.removeItem('selectedImageFullName')
+      localStorage.removeItem('customImageName')
+    })
+
     const health = await request.get('/health');
     expect(health.ok()).toBeTruthy();
 
     // 1) 直接进入 quick-start 学习页
     await page.goto('/learn/quick-start');
+
+    // 1.5) 切换容器镜像源为 ghcr.io，并验证 UI 与 localStorage 写入
+    // 说明：选择 ghcr.io 通常比 Docker Hub 更稳定，避免因网络限制导致镜像拉取失败
+    const imageSourceBtn = page.locator('button[title^="镜像源："]')
+    await expect(imageSourceBtn).toBeVisible()
+    await imageSourceBtn.click()
+
+    await expect(page.getByRole('heading', { name: '容器镜像源选择器' })).toBeVisible()
+    await page.getByText('GitHub Container Registry').click()
+    await page.getByRole('button', { name: '应用' }).click()
+
+    await expect(imageSourceBtn).toHaveAttribute('title', /镜像源：ghcr\.io/)
+    await expect(imageSourceBtn.getByText('ghcr.io')).toBeVisible()
+
+    const saved = await page.evaluate(() => ({
+      imageSourceId: localStorage.getItem('imageSourceId'),
+      selectedImageFullName: localStorage.getItem('selectedImageFullName'),
+    }))
+    expect(saved.imageSourceId).toBe('ghcr')
+    expect(saved.selectedImageFullName).toContain('ghcr.io/')
 
     // 2) 确认进入学习页，显示“请先启动容器”文案
     await expect(page.getByText('请先启动容器')).toBeVisible();

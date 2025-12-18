@@ -575,7 +575,7 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
         terminal.dispose();
       }
     };
-  }, [debouncedResize]);
+  }, [debouncedResize, resizeTerminal, smartWrapCommand]);
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
