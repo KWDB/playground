@@ -1776,17 +1776,31 @@ func (d *dockerController) CheckImageAvailability(ctx context.Context, imageName
 	// 本地不存在，尝试从远程仓库检查
 	d.logger.Debug("本地未找到镜像，尝试从远程检查: %s", imageName)
 	
-	// 创建带超时的上下文（30秒超时）
-	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	// 创建带超时的上下文（60秒超时，给网络较慢的环境更多时间）
+	checkCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	// 尝试拉取镜像以验证可用性（仅开始拉取过程，然后立即取消）
 	reader, err := d.client.ImagePull(checkCtx, imageName, client.ImagePullOptions{})
 	if err != nil {
-		result.Available = false
-		result.Message = fmt.Sprintf("镜像不可用: %v", err)
-		result.ResponseTime = time.Since(startTime).Milliseconds()
-		d.logger.Warn("镜像可用性检查失败: %s - %v", imageName, err)
+		// 检查是否是超时错误
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "TLS handshake") {
+			result.Available = false
+			result.Message = "网络超时，无法连接到镜像仓库。请检查网络连接或稍后重试"
+			result.ResponseTime = time.Since(startTime).Milliseconds()
+			d.logger.Warn("镜像可用性检查超时: %s - 可能是网络问题", imageName)
+		} else if strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "manifest unknown") {
+			result.Available = false
+			result.Message = "镜像不存在于该仓库"
+			result.ResponseTime = time.Since(startTime).Milliseconds()
+			d.logger.Warn("镜像可用性检查失败: %s - 镜像不存在", imageName)
+		} else {
+			result.Available = false
+			result.Message = fmt.Sprintf("镜像检查失败: %v", err)
+			result.ResponseTime = time.Since(startTime).Milliseconds()
+			d.logger.Warn("镜像可用性检查失败: %s - %v", imageName, err)
+		}
 		return result, nil
 	}
 
