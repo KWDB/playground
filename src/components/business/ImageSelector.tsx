@@ -74,9 +74,20 @@ export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: 
       return customImage || defaultImage;
     }
 
-    // 移除默认镜像中可能存在的源前缀
-    const baseImage = defaultImage.replace(/^[^/]+\//, '');
-    return selectedSource.prefix ? `${selectedSource.prefix}${baseImage}` : baseImage;
+    // 对于非自定义源，如果已有镜像源前缀则使用默认镜像，否则添加前缀
+    // 检查 defaultImage 是否已包含镜像源前缀（包含域名或端口）
+    const hasRegistryPrefix = /^[a-zA-Z0-9.-]+[.:][0-9]+\//.test(defaultImage) || 
+                               /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\//.test(defaultImage);
+    
+    if (hasRegistryPrefix) {
+      // 如果默认镜像已有源前缀，移除它（取最后一个/后的部分作为镜像名）
+      const lastSlashIndex = defaultImage.lastIndexOf('/');
+      const imageName = lastSlashIndex >= 0 ? defaultImage.substring(lastSlashIndex + 1) : defaultImage;
+      return selectedSource.prefix ? `${selectedSource.prefix}${imageName}` : imageName;
+    }
+    
+    // 默认镜像没有源前缀，直接添加
+    return selectedSource.prefix ? `${selectedSource.prefix}${defaultImage}` : defaultImage;
   };
 
   // 检查镜像可用性
