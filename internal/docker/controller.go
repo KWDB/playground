@@ -1775,7 +1775,7 @@ func (d *dockerController) CheckImageAvailability(ctx context.Context, imageName
 	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	// 尝试拉取镜像以验证可用性
+	// 尝试拉取镜像以验证可用性（仅开始拉取过程，然后立即取消）
 	reader, err := d.client.ImagePull(checkCtx, imageName, client.ImagePullOptions{})
 	if err != nil {
 		result.Available = false
@@ -1784,12 +1784,14 @@ func (d *dockerController) CheckImageAvailability(ctx context.Context, imageName
 		d.logger.Warn("镜像可用性检查失败: %s - %v", imageName, err)
 		return result, nil
 	}
-	defer reader.Close()
 
-	// 读取响应以确认镜像确实可以被拉取
-	// 只读取开始部分即可，不需要完全下载
-	buf := make([]byte, 1024)
+	// 读取少量响应以确认镜像确实可以被访问，然后立即关闭流
+	// 这样可以避免下载整个镜像
+	buf := make([]byte, 512)
 	_, readErr := reader.Read(buf)
+	// 立即关闭reader以取消拉取操作
+	reader.Close()
+	
 	if readErr != nil && readErr != io.EOF {
 		result.Available = false
 		result.Message = fmt.Sprintf("读取镜像信息失败: %v", readErr)

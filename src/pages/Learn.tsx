@@ -1370,9 +1370,9 @@ import { fetchJson } from '../lib/http'
       )}
 
       {/* 镜像选择器组件 */}
-      {course?.id && course?.backend?.imageid && (
+      {course?.id && (
         <ImageSelector
-          defaultImage={course.backend.imageid}
+          defaultImage={course?.backend?.imageid || 'kwdb/kwdb:latest'}
           onImageSelect={(image) => setSelectedImage(image)}
           isOpen={showImageSelector}
           onClose={() => setShowImageSelector(false)}

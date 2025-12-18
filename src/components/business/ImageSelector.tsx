@@ -35,8 +35,12 @@ export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: 
   // 从 localStorage 加载保存的镜像源设置
   useEffect(() => {
     const savedSourceId = localStorage.getItem('imageSourceId');
+    const savedCustomImage = localStorage.getItem('customImageName');
     if (savedSourceId) {
       setSelectedSourceId(savedSourceId);
+    }
+    if (savedCustomImage && savedSourceId === 'custom') {
+      setCustomImage(savedCustomImage);
     }
   }, []);
 
