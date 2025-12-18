@@ -1556,6 +1556,13 @@ func (h *Handler) getImageSources(c *gin.Context) {
 			"example":     "ghcr.io/kwdb/kwdb:latest",
 		},
 		{
+			"id":          "aliyun",
+			"name":        "阿里云镜像加速",
+			"prefix":      "registry.cn-hangzhou.aliyuncs.com/",
+			"description": "阿里云Docker镜像加速服务",
+			"example":     "registry.cn-hangzhou.aliyuncs.com/kwdb/kwdb:latest",
+		},
+		{
 			"id":          "custom",
 			"name":        "自定义源",
 			"prefix":      "",

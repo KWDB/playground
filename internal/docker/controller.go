@@ -1622,17 +1622,22 @@ func (d *dockerController) ensureImageExistsWithProgress(ctx context.Context, im
 
 // checkImageExists 检查本地是否存在指定镜像
 func (d *dockerController) checkImageExists(ctx context.Context, imageName string) (bool, error) {
+	d.logger.Debug("[checkImageExists] 检查镜像是否存在: %s", imageName)
+	
 	// 使用 ImageInspect 检查镜像是否存在
 	_, _, err := d.client.ImageInspectWithRaw(ctx, imageName)
 	if err != nil {
 		// 如果是镜像不存在的错误，返回 false
 		if errdefs.IsNotFound(err) {
+			d.logger.Debug("[checkImageExists] 镜像不存在: %s", imageName)
 			return false, nil
 		}
 		// 其他错误使用详细的错误分类
 		errorMsg := d.classifyImageCheckError(err, imageName)
+		d.logger.Error("[checkImageExists] 检查镜像失败: %s, 错误: %s", imageName, errorMsg)
 		return false, fmt.Errorf(errorMsg)
 	}
+	d.logger.Debug("[checkImageExists] 镜像已存在: %s", imageName)
 	return true, nil
 }
 
