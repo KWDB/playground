@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Server } from 'lucide-react'
+import { ArrowLeft, Server, ImageIcon } from 'lucide-react'
 import SqlTerminal, { SqlTerminalRef } from '../components/business/SqlTerminal'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -13,6 +13,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StatusIndicator, { StatusType } from '../components/ui/StatusIndicator';
 import CourseContentPanel from '../components/business/CourseContentPanel';
 import PortConflictHandler from '../components/business/PortConflictHandler';
+import { ImageSelector } from '../components/business/ImageSelector';
 import '../styles/markdown.css';
 import { ContainerInfo } from '../types/container';
 
@@ -54,6 +55,10 @@ import { fetchJson } from '../lib/http'
 
   // 端口冲突处理相关状态
   const [showPortConflictHandler, setShowPortConflictHandler] = useState<boolean>(false)
+
+  // 镜像选择器相关状态
+  const [showImageSelector, setShowImageSelector] = useState<boolean>(false)
+  const [selectedImage, setSelectedImage] = useState<string>('')
 
   // 确认弹窗模式：区分来源以动态文案
   const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
@@ -188,7 +193,21 @@ import { fetchJson } from '../lib/http'
       startAbortControllerRef.current?.abort()
       const controller = new AbortController()
       startAbortControllerRef.current = controller
-      const data = await fetchJson<{ containerId: string }>(`/api/courses/${courseId}/start`, { method: 'POST', signal: controller.signal })
+      
+      // 准备请求体，包含可选的镜像参数
+      const requestBody = selectedImage ? { image: selectedImage } : {}
+      
+      const data = await fetchJson<{ containerId: string }>(
+        `/api/courses/${courseId}/start`, 
+        { 
+          method: 'POST', 
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: Object.keys(requestBody).length > 0 ? JSON.stringify(requestBody) : undefined,
+        }
+      )
       console.log('容器启动成功，响应数据:', data)
 
       setContainerId(data.containerId)
@@ -1214,6 +1233,17 @@ import { fetchJson } from '../lib/http'
 
             {/* 操作按钮组 */}
             <div className="flex items-center space-x-3">
+              {/* 镜像选择器按钮 - 仅在容器停止时显示 */}
+              {(containerStatus === 'stopped' || containerStatus === 'error' || containerStatus === 'exited' || containerStatus === 'completed') && (
+                <button
+                  onClick={() => setShowImageSelector(true)}
+                  className="group relative inline-flex items-center justify-center px-3 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+                  title="选择镜像源"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                </button>
+              )}
+              
               {containerStatus === 'stopped' || containerStatus === 'error' || containerStatus === 'exited' || containerStatus === 'completed' ? (
                 <button
                   onClick={() => course?.id && startCourseContainer(course.id)}
@@ -1333,6 +1363,17 @@ import { fetchJson } from '../lib/http'
           onClose={handlePortConflictClose}
           onRetry={handlePortConflictRetry}
           onSuccess={handlePortConflictSuccess}
+        />
+      )}
+
+      {/* 镜像选择器组件 */}
+      {course?.id && course?.backend?.imageid && (
+        <ImageSelector
+          courseId={course.id}
+          defaultImage={course.backend.imageid}
+          onImageSelect={(image) => setSelectedImage(image)}
+          isOpen={showImageSelector}
+          onClose={() => setShowImageSelector(false)}
         />
       )}
     </div>

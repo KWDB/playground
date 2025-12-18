@@ -1746,6 +1746,65 @@ func (d *dockerController) pullImageWithProgress(ctx context.Context, imageName 
 	return nil
 }
 
+// CheckImageAvailability 检查Docker镜像的可用性
+// 通过尝试检查镜像是否存在来验证其可访问性，不会实际拉取镜像
+func (d *dockerController) CheckImageAvailability(ctx context.Context, imageName string) (*ImageAvailability, error) {
+	startTime := time.Now()
+	d.logger.Info("开始检查镜像可用性: %s", imageName)
+
+	result := &ImageAvailability{
+		ImageName: imageName,
+		CheckedAt: time.Now(),
+	}
+
+	// 先检查本地是否已有该镜像
+	_, _, err := d.client.ImageInspectWithRaw(ctx, imageName)
+	if err == nil {
+		// 本地已存在该镜像
+		result.Available = true
+		result.Message = "镜像在本地可用"
+		result.ResponseTime = time.Since(startTime).Milliseconds()
+		d.logger.Info("镜像可用性检查完成: %s - 本地已存在", imageName)
+		return result, nil
+	}
+
+	// 本地不存在，尝试从远程仓库检查
+	d.logger.Debug("本地未找到镜像，尝试从远程检查: %s", imageName)
+	
+	// 创建带超时的上下文（30秒超时）
+	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	// 尝试拉取镜像以验证可用性
+	reader, err := d.client.ImagePull(checkCtx, imageName, client.ImagePullOptions{})
+	if err != nil {
+		result.Available = false
+		result.Message = fmt.Sprintf("镜像不可用: %v", err)
+		result.ResponseTime = time.Since(startTime).Milliseconds()
+		d.logger.Warn("镜像可用性检查失败: %s - %v", imageName, err)
+		return result, nil
+	}
+	defer reader.Close()
+
+	// 读取响应以确认镜像确实可以被拉取
+	// 只读取开始部分即可，不需要完全下载
+	buf := make([]byte, 1024)
+	_, readErr := reader.Read(buf)
+	if readErr != nil && readErr != io.EOF {
+		result.Available = false
+		result.Message = fmt.Sprintf("读取镜像信息失败: %v", readErr)
+		result.ResponseTime = time.Since(startTime).Milliseconds()
+		d.logger.Warn("镜像可用性检查失败: %s - %v", imageName, readErr)
+		return result, nil
+	}
+
+	result.Available = true
+	result.Message = "镜像可从远程仓库获取"
+	result.ResponseTime = time.Since(startTime).Milliseconds()
+	d.logger.Info("镜像可用性检查完成: %s - 远程可用", imageName)
+	return result, nil
+}
+
 // enhanceImageError 增强镜像相关错误信息，提供更详细的诊断和解决方案
 func (d *dockerController) enhanceImageError(err error, imageName string) error {
 	errorStr := err.Error()
