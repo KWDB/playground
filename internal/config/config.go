@@ -26,9 +26,9 @@ type Config struct {
 // ServerConfig 服务器配置
 // 定义HTTP服务器的监听地址和端口
 type ServerConfig struct {
-	// Host 服务器监听地址，默认为localhost
+	// Host 服务器监听地址，默认为0.0.0.0
 	Host string `json:"host" yaml:"host"` // 服务器监听地址
-	// Port 服务器监听端口，默认为8080
+	// Port 服务器监听端口，默认为3006
 	Port         int `json:"port" yaml:"port"`                 // 服务器监听端口
 	SessionLimit int `json:"sessionLimit" yaml:"sessionLimit"` // 并发会话限制
 }
@@ -57,8 +57,8 @@ type LogConfig struct {
 // Load 从环境变量加载配置
 // 读取环境变量并构建配置对象，如果环境变量不存在则使用默认值
 // 支持的环境变量:
-//   - SERVER_HOST: 服务器监听地址 (默认: localhost)
-//   - SERVER_PORT: 服务器监听端口 (默认: 8080)
+//   - SERVER_HOST: 服务器监听地址 (默认: 0.0.0.0)
+//   - SERVER_PORT: 服务器监听端口 (默认: 3006)
 //   - COURSE_DIR: 课程文件目录 (默认: ./courses)
 //   - COURSES_RELOAD: 是否启用课程热重载 (默认: true)
 //   - COURSES_USE_EMBED: 是否使用嵌入式FS作为课程数据来源 (默认: false 或由 BuildDefaultUseEmbed 指定)
@@ -74,7 +74,7 @@ func Load() *Config {
 
 	config := &Config{
 		Server: ServerConfig{
-			Host:         getEnv("SERVER_HOST", "localhost"),
+			Host:         getEnv("SERVER_HOST", "0.0.0.0"),
 			Port:         getEnvInt("SERVER_PORT", 3006),
 			SessionLimit: getEnvInt("SESSION_LIMIT", 1),
 		},

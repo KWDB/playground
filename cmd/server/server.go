@@ -249,7 +249,7 @@ func printHelp() {
 	fmt.Println("  -d, --daemon        以守护进程模式运行")
 	fmt.Println("  -h, --help          显示此帮助")
 	fmt.Println("\n环境变量(常用):")
-	fmt.Println("  SERVER_HOST         服务器监听地址 (默认: localhost)")
+	fmt.Println("  SERVER_HOST         服务器监听地址 (默认: 0.0.0.0)")
 	fmt.Println("  SERVER_PORT         服务器端口 (默认: 3006/配置)")
 	fmt.Println("  COURSES_USE_EMBED   是否使用嵌入式FS (默认: 由编译期/环境决定)")
 	fmt.Println("  COURSES_RELOAD      是否启用课程热重载 (开发模式友好)")
