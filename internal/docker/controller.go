@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"strings"
 	"sync"
@@ -14,8 +15,8 @@ import (
 
 	"github.com/containerd/errdefs"
 	"github.com/distribution/reference"
-	"github.com/docker/go-connections/nat"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 )
 
@@ -72,7 +73,7 @@ func createDockerClient(log *logger.Logger) (*client.Client, error) {
 
 		// 测试连接
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_, pingErr := cli.Ping(ctx)
+		_, pingErr := cli.Ping(ctx, client.PingOptions{})
 		cancel()
 
 		if pingErr == nil {
@@ -90,7 +91,7 @@ func createDockerClient(log *logger.Logger) (*client.Client, error) {
 	if err == nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_, pingErr := cli.Ping(ctx)
+		_, pingErr := cli.Ping(ctx, client.PingOptions{})
 		if pingErr == nil {
 			log.Info("成功使用环境变量配置连接到Docker")
 			return cli, nil
@@ -211,7 +212,8 @@ func (d *dockerController) loadExistingContainers(ctx context.Context) error {
 		ports := make(map[string]string)
 		for port, bindings := range inspect.NetworkSettings.Ports {
 			if len(bindings) > 0 {
-				ports[port.Port()] = bindings[0].HostPort
+				// Port.String() returns the port in the format "port/protocol"
+				ports[port.String()] = bindings[0].HostPort
 			}
 		}
 
@@ -477,7 +479,7 @@ func (d *dockerController) CheckPortConflict(ctx context.Context, courseID strin
 					DockerID: container.ID,
 					Name:     containerName,
 					Port:     port,
-					State:    d.mapDockerStateFromString(container.State),
+					State:    d.mapDockerStateFromString(string(container.State)),
 					Message:  fmt.Sprintf("Container using port %d", port),
 				}
 				break
@@ -567,7 +569,7 @@ func (d *dockerController) CleanupCourseContainers(ctx context.Context, courseID
 					CourseID: courseID,
 					DockerID: container.ID,
 					Name:     cleanName,
-					State:    d.mapDockerStateFromString(container.State),
+					State:    d.mapDockerStateFromString(string(container.State)),
 					Message:  "Container cleaned up",
 				}
 				cleanedContainers = append(cleanedContainers, containerInfo)
@@ -669,7 +671,7 @@ func (d *dockerController) CleanupAllContainers(ctx context.Context) (*CleanupRe
 					CourseID: courseID,
 					DockerID: container.ID,
 					Name:     cleanName,
-					State:    d.mapDockerStateFromString(container.State),
+					State:    d.mapDockerStateFromString(string(container.State)),
 					Message:  "Container cleaned up",
 				}
 				cleanedContainers = append(cleanedContainers, containerInfo)
@@ -828,17 +830,17 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 	}
 
 	// 构建端口映射
-	exposedPorts := make(nat.PortSet)
-	portBindings := make(nat.PortMap)
+	exposedPorts := make(network.PortSet)
+	portBindings := make(network.PortMap)
 	for containerPort, hostPort := range config.Ports {
-		port, err := nat.NewPort("tcp", containerPort)
+		port, err := network.ParsePort(containerPort + "/tcp")
 		if err != nil {
 			return nil, fmt.Errorf("invalid port %s: %w", containerPort, err)
 		}
 		exposedPorts[port] = struct{}{}
-		portBindings[port] = []nat.PortBinding{
+		portBindings[port] = []network.PortBinding{
 			{
-				HostIP:   "0.0.0.0",
+				HostIP:   netip.IPv4Unspecified(),
 				HostPort: hostPort,
 			},
 		}
@@ -1178,7 +1180,7 @@ func (d *dockerController) ExecCommand(ctx context.Context, containerID string, 
 	}
 
 	// 创建执行配置
-	execConfig := container.ExecOptions{
+	execConfig := client.ExecCreateOptions{
 		Cmd:          cmd,
 		AttachStdout: true,
 		AttachStderr: true,
@@ -1191,14 +1193,14 @@ func (d *dockerController) ExecCommand(ctx context.Context, containerID string, 
 	}
 
 	// 启动执行
-	attachResp, err := d.client.ContainerExecAttach(ctx, execResp.ID, container.ExecAttachOptions{})
+	attachResp, err := d.client.ContainerExecAttach(ctx, execResp.ID, client.ExecAttachOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to attach exec: %w", err)
 	}
 	defer attachResp.Close()
 
 	// 启动命令执行
-	err = d.client.ContainerExecStart(ctx, execResp.ID, container.ExecStartOptions{})
+	err = d.client.ContainerExecStart(ctx, execResp.ID, client.ExecStartOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to start exec: %w", err)
 	}
@@ -1240,12 +1242,12 @@ func (d *dockerController) ExecCommandInteractive(ctx context.Context, container
 	env, user, workingDir := d.prepareExecEnvironment(inspect, true)
 
 	// 创建交互式执行配置
-	execConfig := container.ExecOptions{
+	execConfig := client.ExecCreateOptions{
 		Cmd:          cmd,
 		AttachStdout: true,
 		AttachStderr: true,
 		AttachStdin:  true, // 支持标准输入
-		Tty:          true, // 使用TTY支持交互式命令
+		TTY:          true, // 使用TTY支持交互式命令
 		WorkingDir:   workingDir,
 		Env:          env,
 		User:         user,
@@ -1259,8 +1261,8 @@ func (d *dockerController) ExecCommandInteractive(ctx context.Context, container
 	}
 
 	// 启动执行并附加输入输出流
-	attachResp, err := d.client.ContainerExecAttach(ctx, execResp.ID, container.ExecAttachOptions{
-		Tty: true,
+	attachResp, err := d.client.ContainerExecAttach(ctx, execResp.ID, client.ExecAttachOptions{
+		TTY: true,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to attach exec: %w", err)
@@ -1268,7 +1270,7 @@ func (d *dockerController) ExecCommandInteractive(ctx context.Context, container
 	defer attachResp.Close()
 
 	// 启动命令执行
-	err = d.client.ContainerExecStart(ctx, execResp.ID, container.ExecStartOptions{})
+	err = d.client.ContainerExecStart(ctx, execResp.ID, client.ExecStartOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to start exec: %w", err)
 	}
@@ -1459,7 +1461,7 @@ func (d *dockerController) ResizeTerminal(ctx context.Context, execID string, he
 	}
 
 	// 调整终端大小
-	err := d.client.ContainerExecResize(ctx, execID, client.ContainerResizeOptions{
+	err := d.client.ContainerExecResize(ctx, execID, client.ExecResizeOptions{
 		Height: height,
 		Width:  width,
 	})
@@ -1472,7 +1474,7 @@ func (d *dockerController) ResizeTerminal(ctx context.Context, execID string, he
 
 // ContainerExecResize 调整执行实例的终端大小
 func (d *dockerController) ContainerExecResize(ctx context.Context, execID string, options client.ContainerResizeOptions) error {
-	return d.client.ContainerExecResize(ctx, execID, options)
+	return d.client.ContainerExecResize(ctx, execID, client.ExecResizeOptions(options))
 }
 
 // mapDockerState 将Docker状态映射为内部状态

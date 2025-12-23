@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/moby/moby/api/types"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/network"
@@ -24,12 +23,12 @@ type DockerClientInterface interface {
 	ContainerLogs(ctx context.Context, containerID string, options client.ContainerLogsOptions) (io.ReadCloser, error)
 	ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (io.ReadCloser, error)
 	ImageInspectWithRaw(ctx context.Context, imageID string) (image.InspectResponse, []byte, error)
-	ContainerExecCreate(ctx context.Context, containerID string, config container.ExecOptions) (container.ExecCreateResponse, error)
-	ContainerExecAttach(ctx context.Context, execID string, config container.ExecAttachOptions) (client.HijackedResponse, error)
-	ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error
-	ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error)
-	ContainerExecResize(ctx context.Context, execID string, options client.ContainerResizeOptions) error
-	Ping(ctx context.Context) (types.Ping, error)
+	ContainerExecCreate(ctx context.Context, containerID string, config client.ExecCreateOptions) (client.ExecCreateResult, error)
+	ContainerExecAttach(ctx context.Context, execID string, config client.ExecAttachOptions) (client.HijackedResponse, error)
+	ContainerExecStart(ctx context.Context, execID string, config client.ExecStartOptions) error
+	ContainerExecInspect(ctx context.Context, execID string) (client.ExecInspectResult, error)
+	ContainerExecResize(ctx context.Context, execID string, options client.ExecResizeOptions) error
+	Ping(ctx context.Context) (client.PingResult, error)
 	Close() error
 }
 

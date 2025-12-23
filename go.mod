@@ -13,8 +13,8 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
-	github.com/moby/moby/api v1.52.0-beta.1
-	github.com/moby/moby/client v0.1.0-beta.0
+	github.com/moby/moby/api v1.53.0-rc.1
+	github.com/moby/moby/client v0.2.2-rc.1
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/yaml.v3 v3.0.1
