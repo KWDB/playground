@@ -80,10 +80,10 @@ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWE
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/moby/docker-image-spec v1.3.1 h1:jMKff3w6PgbfSa69GfNg+zN/XLhfXJGnEx3Nl2EsFP0=
 github.com/moby/docker-image-spec v1.3.1/go.mod h1:eKmb5VW8vQEh/BAr2yvVNvuiJuY6UIocYsFu/DxxRpo=
-github.com/moby/moby/api v1.52.0-beta.1 h1:r5U4U72E7xSHh4zX72ndY1mA/FOGiAPiGiz2a8rBW+w=
-github.com/moby/moby/api v1.52.0-beta.1/go.mod h1:8sBV0soUREiudtow4vqJGOxa4GyHI5vLQmvgKdHq5Ok=
-github.com/moby/moby/client v0.1.0-beta.0 h1:eXzrwi0YkzLvezOBKHafvAWNmH1B9HFh4n13yb2QgFE=
-github.com/moby/moby/client v0.1.0-beta.0/go.mod h1:irAv8jRi4yKKBeND96Y+3AM9ers+KaJYk9Vmcm7loxs=
+github.com/moby/moby/api v1.53.0-rc.1 h1:M5SUwRbTrNy+plCTiV6gn4ZiN/Csynk0imIsUmOgHGI=
+github.com/moby/moby/api v1.53.0-rc.1/go.mod h1:8mb+ReTlisw4pS6BRzCMts5M49W5M7bKt1cJy/YbAqc=
+github.com/moby/moby/client v0.2.2-rc.1 h1:Ah2bPvdR3ZzHK+AvZeyLMyHHfEHifYlAyuWY33dLIno=
+github.com/moby/moby/client v0.2.2-rc.1/go.mod h1:tbJAygdiC6iCbKkVez27Jjm9y8vdvs8y9mizjiQrNRI=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
