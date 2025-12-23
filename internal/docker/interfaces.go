@@ -82,7 +82,7 @@ type Controller interface {
 	ResizeTerminal(ctx context.Context, execID string, height, width uint) error
 
 	// ContainerExecResize 调整执行实例的终端大小
-	ContainerExecResize(ctx context.Context, execID string, options client.ContainerResizeOptions) error
+	ContainerExecResize(ctx context.Context, execID string, options client.ExecResizeOptions) error
 
 	// IsContainerRunning 检查容器是否正在运行
 	IsContainerRunning(containerID string) (bool, error)

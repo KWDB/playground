@@ -212,8 +212,10 @@ func (d *dockerController) loadExistingContainers(ctx context.Context) error {
 		ports := make(map[string]string)
 		for port, bindings := range inspect.NetworkSettings.Ports {
 			if len(bindings) > 0 {
-				// Port.String() returns the port in the format "port/protocol"
-				ports[port.String()] = bindings[0].HostPort
+				// Extract just the port number to maintain backward compatibility
+				// Port.Num() returns the port number as uint16
+				portNum := fmt.Sprintf("%d", port.Num())
+				ports[portNum] = bindings[0].HostPort
 			}
 		}
 
@@ -1473,8 +1475,8 @@ func (d *dockerController) ResizeTerminal(ctx context.Context, execID string, he
 }
 
 // ContainerExecResize 调整执行实例的终端大小
-func (d *dockerController) ContainerExecResize(ctx context.Context, execID string, options client.ContainerResizeOptions) error {
-	return d.client.ContainerExecResize(ctx, execID, client.ExecResizeOptions(options))
+func (d *dockerController) ContainerExecResize(ctx context.Context, execID string, options client.ExecResizeOptions) error {
+	return d.client.ContainerExecResize(ctx, execID, options)
 }
 
 // mapDockerState 将Docker状态映射为内部状态
