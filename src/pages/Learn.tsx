@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import { Group, Panel, Separator } from 'react-resizable-panels';
 import TerminalComponent, { TerminalRef } from '../components/business/Terminal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StatusIndicator, { StatusType } from '../components/ui/StatusIndicator';
@@ -1328,7 +1328,7 @@ import { fetchJson } from '../lib/http'
 
       {/* 主要内容区域 */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <PanelGroup direction="horizontal">
+        <Group orientation="horizontal">
           {/* 左侧内容面板 */}
           <Panel defaultSize={50} minSize={30}>
             <CourseContentPanel
@@ -1346,7 +1346,7 @@ import { fetchJson } from '../lib/http'
             />
           </Panel>
 
-          <PanelResizeHandle className="w-2 bg-gray-300 hover:bg-gray-400 transition-colors cursor-col-resize" />
+          <Separator className="w-2 bg-gray-300 hover:bg-gray-400 transition-colors cursor-col-resize" />
 
           {/* 右侧终端面板 */}
           <Panel defaultSize={50} minSize={30}>
@@ -1381,7 +1381,7 @@ import { fetchJson } from '../lib/http'
               </div>
             </div>
           </Panel>
-        </PanelGroup>
+        </Group>
       </div>
 
       {/* 确认对话框 */}
