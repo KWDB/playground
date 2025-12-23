@@ -24,7 +24,7 @@
     "@codemirror/language": "^6.11.3",
     "@codemirror/lint": "^6.9.0",
     "@codemirror/state": "^6.5.2",
-    "@codemirror/view": "^6.38.6",
+    "@codemirror/view": "^6.39.4",
     "@lezer/highlight": "^1.2.2",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@xterm/addon-fit": "^0.10.0",
