@@ -486,8 +486,6 @@ import { fetchJson } from '../lib/http'
     console.log('当前页面容器ID:', containerId)
 
     try {
-      setContainerStatus('paused')
-
       // 优先按容器ID暂停
       if (containerId) {
         const url = `/api/containers/${containerId}/pause`
@@ -499,6 +497,9 @@ import { fetchJson } from '../lib/http'
         console.log('缺少容器ID，回退按课程ID暂停，URL:', fallbackUrl)
         await fetchJson<void>(fallbackUrl, { method: 'POST' })
       }
+
+      // 只有暂停成功后才更新状态
+      setContainerStatus('paused')
 
       // 暂停状态监控
       if (statusCheckIntervalRef.current) {
@@ -520,8 +521,6 @@ import { fetchJson } from '../lib/http'
     console.log('当前页面容器ID:', containerId)
 
     try {
-      setContainerStatus('starting')
-
       // 优先按容器ID恢复
       if (containerId) {
         const url = `/api/containers/${containerId}/unpause`
@@ -534,6 +533,7 @@ import { fetchJson } from '../lib/http'
         await fetchJson<void>(fallbackUrl, { method: 'POST' })
       }
 
+      // 只有恢复成功后才更新状态
       setContainerStatus('running')
 
       // 恢复后重新连接终端
