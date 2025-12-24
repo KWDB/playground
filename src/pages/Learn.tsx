@@ -1468,9 +1468,9 @@ import { fetchJson } from '../lib/http'
 
       {/* 主要内容区域 */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <Group orientation="horizontal">
+        <Group orientation="horizontal" id="course-layout">
           {/* 左侧内容面板 */}
-          <Panel defaultSize={50} minSize={30}>
+          <Panel defaultSize={50} minSize={30} id="course-content">
             <CourseContentPanel
               renderProgressBar={renderProgressBar}
               title={currentTitle}
@@ -1489,7 +1489,7 @@ import { fetchJson } from '../lib/http'
           <Separator className="w-2 bg-gray-300 hover:bg-gray-400 transition-colors cursor-col-resize" />
 
           {/* 右侧终端面板 */}
-          <Panel defaultSize={50} minSize={30}>
+          <Panel defaultSize={50} minSize={30} id="terminal">
             <div className="h-full text-white flex flex-col" style={{ backgroundColor: '#0d1117' }}>
               {/* 终端内容区域 - 移除内边距，确保完全填充可用空间 */}
               <div className="flex-1 flex flex-col min-h-0">
