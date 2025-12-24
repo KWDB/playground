@@ -1415,39 +1415,23 @@ import { fetchJson } from '../lib/http'
                   </button>
                 </div>
               ) : containerStatus === 'running' || containerStatus === 'stopping' ? (
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => course?.id && pauseContainer(course.id)}
-                    disabled={containerStatus === 'stopping'}
-                    className={`group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-lg shadow-yellow-500/25 hover:shadow-yellow-500/40 hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition-all duration-300 transform ${containerStatus === 'stopping' ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <div className="flex space-x-0.5">
-                        <div className="w-1 h-3 bg-white"></div>
-                        <div className="w-1 h-3 bg-white"></div>
-                      </div>
-                      <span>暂停容器</span>
-                    </div>
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-yellow-400 to-yellow-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-                  </button>
-                  <button
-                    onClick={() => course?.id && stopContainer(course.id)}
-                    disabled={containerStatus === 'stopping'}
-                    className={`group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform ${containerStatus === 'stopping' ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      {containerStatus === 'stopping' ? (
-                        <div className="w-2 h-2 rounded-full bg-white animate-spin"></div>
-                      ) : (
-                        <div className="w-2 h-2 rounded-sm bg-white"></div>
-                      )}
-                      <span>{containerStatus === 'stopping' ? '停止中...' : '停止容器'}</span>
-                    </div>
-                    {containerStatus !== 'stopping' && (
-                      <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-400 to-red-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                <button
+                  onClick={() => course?.id && stopContainer(course.id)}
+                  disabled={containerStatus === 'stopping'}
+                  className={`group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform ${containerStatus === 'stopping' ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                >
+                  <div className="flex items-center space-x-2">
+                    {containerStatus === 'stopping' ? (
+                      <div className="w-2 h-2 rounded-full bg-white animate-spin"></div>
+                    ) : (
+                      <div className="w-2 h-2 rounded-sm bg-white"></div>
                     )}
-                  </button>
-                </div>
+                    <span>{containerStatus === 'stopping' ? '停止中...' : '停止容器'}</span>
+                  </div>
+                  {containerStatus !== 'stopping' && (
+                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-400 to-red-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                  )}
+                </button>
               ) : null}
             </div>
           </div>
