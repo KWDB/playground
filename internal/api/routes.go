@@ -1903,4 +1903,3 @@ func (h *Handler) unpauseContainer(c *gin.Context) {
 		"containerId": id,
 	})
 }
-}
