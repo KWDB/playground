@@ -573,7 +573,9 @@ import { fetchJson } from '../lib/http'
   const checkExistingContainer = useCallback(async (currentCourseId: string, signal?: AbortSignal) => {
     try {
       const containers = await fetchJson<ContainerInfo[]>('/api/containers', { signal })
-      const existingContainer = containers.find(c => c.courseId === currentCourseId && c.state === 'running')
+      
+      // 优先查找运行中的容器
+      let existingContainer = containers.find(c => c.courseId === currentCourseId && c.state === 'running')
       
       if (existingContainer) {
         console.log('发现已有运行中容器，自动连接:', existingContainer)
@@ -592,6 +594,20 @@ import { fetchJson } from '../lib/http'
         
         // 启动状态监控
         startStatusMonitoring(existingContainer.id)
+        return
+      }
+      
+      // 查找暂停的容器
+      existingContainer = containers.find(c => c.courseId === currentCourseId && c.state === 'paused')
+      
+      if (existingContainer) {
+        console.log('发现暂停的容器，可以恢复:', existingContainer)
+        setContainerId(existingContainer.id)
+        setContainerStatus('paused')
+        setIsStartingContainer(false)
+        
+        // 不自动恢复，让用户手动点击恢复按钮
+        // 这样用户可以看到暂停状态并决定是否恢复
       }
     } catch (err) {
       console.error('检查已有容器失败:', err)
@@ -611,7 +627,7 @@ import { fetchJson } from '../lib/http'
 
   useEffect(() => {
     return () => {
-      // 组件卸载时优先按容器ID停止（使用ref避免闭包问题）
+      // 组件卸载时优先按容器ID暂停（使用ref避免闭包问题）
       const id = containerIdRef.current
 
       // 清理定期状态监控定时器，避免内存泄漏或卸载后仍然轮询
@@ -630,15 +646,15 @@ import { fetchJson } from '../lib/http'
       }
 
       if (id) {
-        console.log('组件卸载：按容器ID停止容器，containerId:', id)
-        fetchJson<void>(`/api/containers/${id}/stop`, { method: 'POST' }).catch(error => {
-          console.error('组件卸载时按容器ID停止容器失败:', error)
+        console.log('组件卸载：按容器ID暂停容器以保存进度，containerId:', id)
+        fetchJson<void>(`/api/containers/${id}/pause`, { method: 'POST' }).catch(error => {
+          console.error('组件卸载时按容器ID暂停容器失败:', error)
         })
       } else if (courseIdRef.current) {
-        // 回退逻辑：缺少容器ID时按课程ID停止
-        console.log('组件卸载：按课程ID停止容器，课程ID:', courseIdRef.current)
-        fetchJson<void>(`/api/courses/${courseIdRef.current}/stop`, { method: 'POST' }).catch(error => {
-          console.error('组件卸载时按课程ID停止容器失败:', error)
+        // 回退逻辑：缺少容器ID时按课程ID暂停
+        console.log('组件卸载：按课程ID暂停容器以保存进度，课程ID:', courseIdRef.current)
+        fetchJson<void>(`/api/courses/${courseIdRef.current}/pause`, { method: 'POST' }).catch(error => {
+          console.error('组件卸载时按课程ID暂停容器失败:', error)
         })
       }
       // 清空容器ID，避免卸载后残留导致重连
