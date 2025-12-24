@@ -19,7 +19,7 @@ interface ImagePullProgressMessage {
 // 终端组件属性接口
 // 更精确的容器状态类型，便于类型收敛与代码可读性
 /** 容器生命周期状态，驱动终端 WS 连接策略与进度显示 */
-export type ContainerStatus = 'running' | 'starting' | 'stopping' | 'stopped' | 'exited' | 'completed' | 'unknown' | 'error';
+export type ContainerStatus = 'running' | 'starting' | 'stopping' | 'paused' | 'stopped' | 'exited' | 'completed' | 'unknown' | 'error';
 
 /** Terminal 组件入参：通过 containerId 与 containerStatus 控制连接与显示 */
 interface TerminalProps {
