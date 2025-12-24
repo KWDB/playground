@@ -1021,6 +1021,12 @@ import { fetchJson } from '../lib/http'
 
   // 退出课程函数
   const exitCourse = async () => {
+    // 如果容器处于暂停状态，不停止它，保留进度
+    if (containerStatus === 'paused') {
+      console.log('容器已暂停，跳过停止操作，保留进度')
+      return
+    }
+    // 只有运行中的容器才需要停止
     if (containerStatus === 'running' && course?.id) {
       await stopContainer(course.id)
     }
@@ -1034,6 +1040,12 @@ import { fetchJson } from '../lib/http'
 
   // 处理返回按钮点击事件，显示确认对话框
   const handleBackClick = () => {
+    // 如果容器已暂停，直接返回课程列表，不显示确认对话框
+    if (containerStatus === 'paused') {
+      console.log('容器已暂停，直接返回课程列表')
+      navigate('/courses')
+      return
+    }
     setConfirmDialogMode('back')
     setShowConfirmDialog(true)
   }
