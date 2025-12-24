@@ -92,6 +92,8 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 			courses.GET("/:id", h.getCourse)
 			courses.POST("/:id/start", h.startCourse)
 			courses.POST("/:id/stop", h.stopCourse)
+			courses.POST("/:id/pause", h.pauseCourse)
+			courses.POST("/:id/resume", h.resumeCourse)
 			// 端口冲突检查和容器清理接口
 			courses.GET("/:id/check-port-conflict", h.checkPortConflict)
 			courses.POST("/:id/cleanup-containers", h.cleanupCourseContainers)
@@ -106,6 +108,8 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 			containers.GET("/:id/logs", h.getContainerLogs)
 			containers.POST("/:id/restart", h.restartContainer)
 			containers.POST("/:id/stop", h.stopContainerByID)
+			containers.POST("/:id/pause", h.pauseContainer)
+			containers.POST("/:id/unpause", h.unpauseContainer)
 		}
 
 		// 镜像相关路由
@@ -687,6 +691,212 @@ func (h *Handler) stopCourse(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "课程容器停止成功",
+		"courseId":    id,
+		"containerId": target.ID,
+	})
+}
+
+// pauseCourse 暂停课程容器
+// 暂停指定课程的Docker容器，保留容器状态以便后续恢复
+// 路径参数:
+//
+//	id: 课程ID
+//
+// 响应:
+//
+//	200: {"message": "课程容器暂停成功", "courseId": id, "containerId": containerId} - 暂停成功
+//	400: {"error": "课程ID不能为空"} - 课程ID为空
+//	404: {"error": "未找到课程对应的容器"} - 容器不存在
+//	500: {"error": "容器暂停失败: 错误信息"} - 容器暂停失败
+func (h *Handler) pauseCourse(c *gin.Context) {
+	id := c.Param("id")
+	h.logger.Info("[pauseCourse] 开始暂停课程容器，课程ID: %s", id)
+
+	if strings.TrimSpace(id) == "" {
+		h.logger.Error("[pauseCourse] 错误: 课程ID为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "课程ID不能为空",
+		})
+		return
+	}
+
+	// 使用互斥锁防止并发操作容器
+	h.containerMutex.Lock()
+	defer h.containerMutex.Unlock()
+	h.logger.Debug("[pauseCourse] 获取容器操作锁，课程ID: %s", id)
+
+	// 检查Docker控制器是否可用
+	if h.dockerController == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Docker服务暂不可用",
+		})
+		return
+	}
+
+	// 查找课程对应的容器
+	coursePrefix := fmt.Sprintf("kwdb-playground-%s-", id)
+	h.logger.Debug("[pauseCourse] 查找容器前缀: %s", coursePrefix)
+	ctx := context.Background()
+	containers, err := h.dockerController.ListContainers(ctx)
+	if err != nil {
+		h.logger.Error("[pauseCourse] 获取容器列表失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("获取容器列表失败: %v", err),
+		})
+		return
+	}
+
+	// 优先选择运行中的容器
+	var target *docker.ContainerInfo
+	for _, container := range containers {
+		h.logger.Debug("[pauseCourse] 检查容器: %s", container.ID)
+		if strings.HasPrefix(container.ID, coursePrefix) {
+			if container.State == docker.StateRunning {
+				target = container
+				h.logger.Debug("[pauseCourse] 找到匹配的运行中容器: %s (状态: %s)", container.ID, container.State)
+				break
+			}
+			if target == nil || container.StartedAt.After(target.StartedAt) {
+				target = container
+				h.logger.Debug("[pauseCourse] 找到候选容器: %s (状态: %s)", container.ID, container.State)
+			}
+		}
+	}
+
+	if target == nil {
+		h.logger.Error("[pauseCourse] 未找到课程 %s 的容器", id)
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "未找到课程对应的容器",
+		})
+		return
+	}
+
+	// 只有运行中的容器才能暂停
+	if target.State != docker.StateRunning {
+		h.logger.Warn("[pauseCourse] 容器状态不是运行中: %s, 状态: %s", target.ID, target.State)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("容器状态为 %s，只能暂停运行中的容器", target.State),
+		})
+		return
+	}
+
+	// 暂停容器
+	h.logger.Debug("[pauseCourse] 正在暂停容器: %s", target.ID)
+	err = h.dockerController.PauseContainer(ctx, target.ID)
+	if err != nil {
+		h.logger.Error("[pauseCourse] 暂停容器失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("容器暂停失败: %v", err),
+		})
+		return
+	}
+
+	h.logger.Info("[pauseCourse] 容器暂停成功: %s", target.ID)
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "课程容器暂停成功",
+		"courseId":    id,
+		"containerId": target.ID,
+	})
+}
+
+// resumeCourse 恢复课程容器
+// 恢复之前暂停的Docker容器
+// 路径参数:
+//
+//	id: 课程ID
+//
+// 响应:
+//
+//	200: {"message": "课程容器恢复成功", "courseId": id, "containerId": containerId} - 恢复成功
+//	400: {"error": "课程ID不能为空"} - 课程ID为空
+//	404: {"error": "未找到课程对应的容器"} - 容器不存在
+//	500: {"error": "容器恢复失败: 错误信息"} - 容器恢复失败
+func (h *Handler) resumeCourse(c *gin.Context) {
+	id := c.Param("id")
+	h.logger.Info("[resumeCourse] 开始恢复课程容器，课程ID: %s", id)
+
+	if strings.TrimSpace(id) == "" {
+		h.logger.Error("[resumeCourse] 错误: 课程ID为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "课程ID不能为空",
+		})
+		return
+	}
+
+	// 使用互斥锁防止并发操作容器
+	h.containerMutex.Lock()
+	defer h.containerMutex.Unlock()
+	h.logger.Debug("[resumeCourse] 获取容器操作锁，课程ID: %s", id)
+
+	// 检查Docker控制器是否可用
+	if h.dockerController == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Docker服务暂不可用",
+		})
+		return
+	}
+
+	// 查找课程对应的容器
+	coursePrefix := fmt.Sprintf("kwdb-playground-%s-", id)
+	h.logger.Debug("[resumeCourse] 查找容器前缀: %s", coursePrefix)
+	ctx := context.Background()
+	containers, err := h.dockerController.ListContainers(ctx)
+	if err != nil {
+		h.logger.Error("[resumeCourse] 获取容器列表失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("获取容器列表失败: %v", err),
+		})
+		return
+	}
+
+	// 优先选择暂停的容器
+	var target *docker.ContainerInfo
+	for _, container := range containers {
+		h.logger.Debug("[resumeCourse] 检查容器: %s", container.ID)
+		if strings.HasPrefix(container.ID, coursePrefix) {
+			if container.State == docker.StatePaused {
+				target = container
+				h.logger.Debug("[resumeCourse] 找到匹配的暂停容器: %s (状态: %s)", container.ID, container.State)
+				break
+			}
+			if target == nil || container.StartedAt.After(target.StartedAt) {
+				target = container
+				h.logger.Debug("[resumeCourse] 找到候选容器: %s (状态: %s)", container.ID, container.State)
+			}
+		}
+	}
+
+	if target == nil {
+		h.logger.Error("[resumeCourse] 未找到课程 %s 的容器", id)
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "未找到课程对应的容器",
+		})
+		return
+	}
+
+	// 只有暂停的容器才能恢复
+	if target.State != docker.StatePaused {
+		h.logger.Warn("[resumeCourse] 容器状态不是暂停: %s, 状态: %s", target.ID, target.State)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("容器状态为 %s，只能恢复暂停的容器", target.State),
+		})
+		return
+	}
+
+	// 恢复容器
+	h.logger.Debug("[resumeCourse] 正在恢复容器: %s", target.ID)
+	err = h.dockerController.UnpauseContainer(ctx, target.ID)
+	if err != nil {
+		h.logger.Error("[resumeCourse] 恢复容器失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("容器恢复失败: %v", err),
+		})
+		return
+	}
+
+	h.logger.Info("[resumeCourse] 容器恢复成功: %s", target.ID)
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "课程容器恢复成功",
 		"courseId":    id,
 		"containerId": target.ID,
 	})
@@ -1578,4 +1788,119 @@ func (h *Handler) getImageSources(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"sources": sources,
 	})
+}
+
+// pauseContainer 暂停容器
+// POST /api/containers/:id/pause
+// 路径参数:
+//
+//	id: 容器ID
+//
+// 响应:
+//
+//	200: {"message": "容器暂停成功", "containerId": id} - 暂停成功
+//	400: {"error": "容器ID不能为空"} - 容器ID为空
+//	404: {"error": "容器不存在"} - 容器不存在
+//	500: {"error": "容器暂停失败: 错误信息"} - 暂停失败
+func (h *Handler) pauseContainer(c *gin.Context) {
+	id := c.Param("id")
+	h.logger.Info("[pauseContainer] 暂停容器，容器ID: %s", id)
+
+	// 验证容器ID不能为空
+	if strings.TrimSpace(id) == "" {
+		h.logger.Error("[pauseContainer] 错误: 容器ID为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "容器ID不能为空",
+		})
+		return
+	}
+
+	// 检查Docker控制器是否可用
+	if h.dockerController == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Docker服务暂不可用",
+		})
+		return
+	}
+
+	// 暂停容器
+	ctx := context.Background()
+	err := h.dockerController.PauseContainer(ctx, id)
+	if err != nil {
+		h.logger.Error("[pauseContainer] 暂停容器失败: %v", err)
+		if strings.Contains(err.Error(), "No such container") || strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "容器不存在",
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": fmt.Sprintf("容器暂停失败: %v", err),
+			})
+		}
+		return
+	}
+
+	h.logger.Info("[pauseContainer] 容器暂停成功，容器ID: %s", id)
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "容器暂停成功",
+		"containerId": id,
+	})
+}
+
+// unpauseContainer 恢复容器
+// POST /api/containers/:id/unpause
+// 路径参数:
+//
+//	id: 容器ID
+//
+// 响应:
+//
+//	200: {"message": "容器恢复成功", "containerId": id} - 恢复成功
+//	400: {"error": "容器ID不能为空"} - 容器ID为空
+//	404: {"error": "容器不存在"} - 容器不存在
+//	500: {"error": "容器恢复失败: 错误信息"} - 恢复失败
+func (h *Handler) unpauseContainer(c *gin.Context) {
+	id := c.Param("id")
+	h.logger.Info("[unpauseContainer] 恢复容器，容器ID: %s", id)
+
+	// 验证容器ID不能为空
+	if strings.TrimSpace(id) == "" {
+		h.logger.Error("[unpauseContainer] 错误: 容器ID为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "容器ID不能为空",
+		})
+		return
+	}
+
+	// 检查Docker控制器是否可用
+	if h.dockerController == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Docker服务暂不可用",
+		})
+		return
+	}
+
+	// 恢复容器
+	ctx := context.Background()
+	err := h.dockerController.UnpauseContainer(ctx, id)
+	if err != nil {
+		h.logger.Error("[unpauseContainer] 恢复容器失败: %v", err)
+		if strings.Contains(err.Error(), "No such container") || strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "容器不存在",
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": fmt.Sprintf("容器恢复失败: %v", err),
+			})
+		}
+		return
+	}
+
+	h.logger.Info("[unpauseContainer] 容器恢复成功，容器ID: %s", id)
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "容器恢复成功",
+		"containerId": id,
+	})
+}
 }

@@ -436,6 +436,60 @@ func (d *dockerController) StopContainer(ctx context.Context, containerID string
 	return nil
 }
 
+// PauseContainer 暂停容器
+func (d *dockerController) PauseContainer(ctx context.Context, containerID string) error {
+	d.logger.Info("开始暂停容器: %s", containerID)
+
+	d.mu.RLock()
+	containerInfo, exists := d.containers[containerID]
+	d.mu.RUnlock()
+
+	if !exists {
+		d.logger.Warn("容器 %s 不存在于内存中", containerID)
+		return fmt.Errorf("container %s not found", containerID)
+	}
+
+	d.logger.Info("正在暂停Docker容器，Docker ID: %s", containerInfo.DockerID[:12])
+
+	err := d.client.ContainerPause(ctx, containerInfo.DockerID)
+	if err != nil {
+		d.logger.Error("暂停容器 %s 失败: %v", containerID, err)
+		d.updateContainerState(containerID, StateError, fmt.Sprintf("Failed to pause: %v", err))
+		return fmt.Errorf("failed to pause container: %w", err)
+	}
+
+	d.logger.Info("容器 %s 暂停成功", containerID)
+	d.updateContainerState(containerID, StatePaused, "")
+	return nil
+}
+
+// UnpauseContainer 恢复容器
+func (d *dockerController) UnpauseContainer(ctx context.Context, containerID string) error {
+	d.logger.Info("开始恢复容器: %s", containerID)
+
+	d.mu.RLock()
+	containerInfo, exists := d.containers[containerID]
+	d.mu.RUnlock()
+
+	if !exists {
+		d.logger.Warn("容器 %s 不存在于内存中", containerID)
+		return fmt.Errorf("container %s not found", containerID)
+	}
+
+	d.logger.Info("正在恢复Docker容器，Docker ID: %s", containerInfo.DockerID[:12])
+
+	err := d.client.ContainerUnpause(ctx, containerInfo.DockerID)
+	if err != nil {
+		d.logger.Error("恢复容器 %s 失败: %v", containerID, err)
+		d.updateContainerState(containerID, StateError, fmt.Sprintf("Failed to unpause: %v", err))
+		return fmt.Errorf("failed to unpause container: %w", err)
+	}
+
+	d.logger.Info("容器 %s 恢复成功", containerID)
+	d.updateContainerState(containerID, StateRunning, "")
+	return nil
+}
+
 // CheckPortConflict 检查指定端口是否被课程容器占用
 func (d *dockerController) CheckPortConflict(ctx context.Context, courseID string, port int) (*PortConflictInfo, error) {
 	d.logger.Info("检查课程 %s 的端口 %d 冲突情况", courseID, port)
@@ -731,7 +785,7 @@ func (d *dockerController) mapDockerStateFromString(state string) ContainerState
 	case "removing":
 		return StateExited
 	case "paused":
-		return StateExited
+		return StatePaused
 	case "dead":
 		return StateError
 	default:
@@ -1481,6 +1535,9 @@ func (d *dockerController) ContainerExecResize(ctx context.Context, execID strin
 
 // mapDockerState 将Docker状态映射为内部状态
 func (d *dockerController) mapDockerState(state *container.State) ContainerState {
+	if state.Paused {
+		return StatePaused
+	}
 	if state.Running {
 		return StateRunning
 	}
