@@ -99,7 +99,7 @@ import { fetchJson } from '../lib/http'
   }, [effectiveImage, selectedImageSourceId])
 
   // 确认弹窗模式：区分来源以动态文案
-  const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
+  // const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const statusAbortControllerRef = useRef<AbortController | null>(null)
   const startAbortControllerRef = useRef<AbortController | null>(null)
@@ -627,8 +627,6 @@ import { fetchJson } from '../lib/http'
 
   useEffect(() => {
     return () => {
-      // 组件卸载时优先按容器ID停止（使用ref避免闭包问题）
-      const id = containerIdRef.current
 
       // 清理定期状态监控定时器，避免内存泄漏或卸载后仍然轮询
       if (statusCheckIntervalRef.current) {
@@ -645,18 +643,9 @@ import { fetchJson } from '../lib/http'
         startAbortControllerRef.current = null
       }
 
-      if (id) {
-        console.log('组件卸载：按容器ID停止容器，containerId:', id)
-        fetchJson<void>(`/api/containers/${id}/stop`, { method: 'POST' }).catch(error => {
-          console.error('组件卸载时按容器ID停止容器失败:', error)
-        })
-      } else if (courseIdRef.current) {
-        // 回退逻辑：缺少容器ID时按课程ID停止
-        console.log('组件卸载：按课程ID停止容器，课程ID:', courseIdRef.current)
-        fetchJson<void>(`/api/courses/${courseIdRef.current}/stop`, { method: 'POST' }).catch(error => {
-          console.error('组件卸载时按课程ID停止容器失败:', error)
-        })
-      }
+      // 组件卸载时不再自动停止/删除容器，以保持容器后台运行
+      console.log('组件卸载：清理定时器和请求，但保留容器运行')
+      
       // 清空容器ID，避免卸载后残留导致重连
       setContainerId(null)
     }
@@ -1038,21 +1027,14 @@ import { fetchJson } from '../lib/http'
   //   navigate('/courses')
   // }
 
-  // 处理返回按钮点击事件，显示确认对话框
+  // 处理返回按钮点击事件，直接返回课程列表
   const handleBackClick = () => {
-    // 如果容器已暂停，直接返回课程列表，不显示确认对话框
-    if (containerStatus === 'paused') {
-      console.log('容器已暂停，直接返回课程列表')
-      navigate('/courses')
-      return
-    }
-    setConfirmDialogMode('back')
-    setShowConfirmDialog(true)
+    navigate('/courses')
   }
 
   // 处理“退出课程”按钮点击事件，复用返回逻辑但更简短提示
   const handleExitClick = () => {
-    setConfirmDialogMode('exit')
+    // setConfirmDialogMode('exit')
     setShowConfirmDialog(true)
   }
 
@@ -1528,8 +1510,8 @@ import { fetchJson } from '../lib/http'
       <ConfirmDialog
         isOpen={showConfirmDialog}
         title="确认退出课程"
-        message={confirmDialogMode === 'exit' ? '确认要退出当前课程吗？' : '返回课程列表将停止课程容器并丢失所有课程进度，确定要继续吗？'}
-        confirmText={confirmDialogMode === 'exit' ? '确定' : '确定退出'}
+        message="确认要退出当前课程吗？"
+        confirmText="确定"
         cancelText="取消"
         onConfirm={handleConfirmExit}
         onCancel={handleCancelExit}
