@@ -1346,8 +1346,9 @@ import { fetchJson } from '../lib/http'
               label={`容器: ${containerStatus === 'running' ? '运行中' :
                 containerStatus === 'starting' ? '启动中' :
                   containerStatus === 'stopping' ? '停止中' :
-                    containerStatus === 'error' ? '错误' :
-                      '已停止'}`}
+                    containerStatus === 'paused' ? '已暂停' :
+                      containerStatus === 'error' ? '错误' :
+                        '已停止'}`}
               icon={Server}
               size="sm"
             />

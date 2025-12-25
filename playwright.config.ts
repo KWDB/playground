@@ -60,5 +60,13 @@ export default defineConfig({
       dependencies: ['sql-terminal'],
       use: { ...devices['Desktop Chrome'] },
     },
+    // 5. Course Pause - 课程暂停功能测试
+    {
+      name: 'course-pause',
+      testMatch: ['tests/playwright/course-pause.spec.ts'],
+      workers: 1,
+      fullyParallel: false,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 });
