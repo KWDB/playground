@@ -1468,7 +1468,7 @@ import { fetchJson } from '../lib/http'
 
       {/* 主要内容区域 */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <Group orientation="horizontal" id="course-layout">
+        <Group orientation="horizontal" id="course-layout" className="h-full">
           {/* 左侧内容面板 */}
           <Panel defaultSize={50} minSize={30} id="course-content">
             <CourseContentPanel
