@@ -66,6 +66,7 @@ export default defineConfig({
       testMatch: ['tests/playwright/course-pause.spec.ts'],
       workers: 1,
       fullyParallel: false,
+      dependencies: ['port-conflict-serial'],
       use: { ...devices['Desktop Chrome'] },
     },
   ],

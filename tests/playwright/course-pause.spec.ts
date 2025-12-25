@@ -61,7 +61,6 @@ test.describe('课程暂停与恢复功能', () => {
     // 在列表模式下
     const courseCard = page.locator('a[href="/learn/quick-start"]');
     await expect(courseCard).toBeVisible();
-    
     // 检查是否有暂停标识 (根据之前的代码修改，会有 "已暂停" 的文本)
     await expect(courseCard.getByText('已暂停')).toBeVisible();
     
