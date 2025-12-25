@@ -34,7 +34,7 @@ interface Course {
 }
 
 // 更严格的容器状态类型
-type ContainerStatus = 'stopped' | 'starting' | 'running' | 'exited' | 'error' | 'completed' | 'stopping'
+type ContainerStatus = 'stopped' | 'starting' | 'running' | 'paused' | 'exited' | 'error' | 'completed' | 'stopping'
 
 // 接口响应类型
 interface ContainerStatusResponse { status: ContainerStatus; exitCode?: number }
@@ -99,7 +99,7 @@ import { fetchJson } from '../lib/http'
   }, [effectiveImage, selectedImageSourceId])
 
   // 确认弹窗模式：区分来源以动态文案
-  const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
+  // const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const statusAbortControllerRef = useRef<AbortController | null>(null)
   const startAbortControllerRef = useRef<AbortController | null>(null)
@@ -481,6 +481,79 @@ import { fetchJson } from '../lib/http'
     }
   }, [containerId])
 
+  const pauseContainer = useCallback(async (courseId: string) => {
+    console.log('暂停容器请求开始，课程ID:', courseId)
+    console.log('当前页面容器ID:', containerId)
+
+    try {
+      // 优先按容器ID暂停
+      if (containerId) {
+        const url = `/api/containers/${containerId}/pause`
+        console.log('按容器ID暂停，URL:', url)
+        await fetchJson<void>(url, { method: 'POST' })
+      } else {
+        // 回退：按课程ID暂停
+        const fallbackUrl = `/api/courses/${courseId}/pause`
+        console.log('缺少容器ID，回退按课程ID暂停，URL:', fallbackUrl)
+        await fetchJson<void>(fallbackUrl, { method: 'POST' })
+      }
+
+      // 只有暂停成功后才更新状态
+      setContainerStatus('paused')
+
+      // 暂停状态监控
+      if (statusCheckIntervalRef.current) {
+        console.log('容器已暂停，停止状态监控')
+        clearInterval(statusCheckIntervalRef.current)
+        statusCheckIntervalRef.current = null
+      }
+
+      console.log('容器暂停成功')
+    } catch (error) {
+      console.error('暂停容器异常:', error)
+      setError(error instanceof Error ? error.message : '暂停容器失败')
+      setContainerStatus('error')
+    }
+  }, [containerId])
+
+  const resumeContainer = useCallback(async (courseId: string) => {
+    console.log('恢复容器请求开始，课程ID:', courseId)
+    console.log('当前页面容器ID:', containerId)
+
+    try {
+      // 优先按容器ID恢复
+      if (containerId) {
+        const url = `/api/containers/${containerId}/unpause`
+        console.log('按容器ID恢复，URL:', url)
+        await fetchJson<void>(url, { method: 'POST' })
+      } else {
+        // 回退：按课程ID恢复
+        const fallbackUrl = `/api/courses/${courseId}/resume`
+        console.log('缺少容器ID，回退按课程ID恢复，URL:', fallbackUrl)
+        await fetchJson<void>(fallbackUrl, { method: 'POST' })
+      }
+
+      // 只有恢复成功后才更新状态
+      setContainerStatus('running')
+
+      // 恢复后重新连接终端
+      if (containerId) {
+        setTimeout(() => {
+          connectToTerminal(containerId)
+        }, 500)
+
+        // 恢复状态监控
+        startStatusMonitoring(containerId)
+      }
+
+      console.log('容器恢复成功')
+    } catch (error) {
+      console.error('恢复容器异常:', error)
+      setError(error instanceof Error ? error.message : '恢复容器失败')
+      setContainerStatus('error')
+    }
+  }, [containerId])
+
   const fetchCourse = useCallback(async (id: string, signal?: AbortSignal) => {
     try {
       const data = await fetchJson<{ course: Course }>(`/api/courses/${id}`, { signal })
@@ -500,7 +573,9 @@ import { fetchJson } from '../lib/http'
   const checkExistingContainer = useCallback(async (currentCourseId: string, signal?: AbortSignal) => {
     try {
       const containers = await fetchJson<ContainerInfo[]>('/api/containers', { signal })
-      const existingContainer = containers.find(c => c.courseId === currentCourseId && c.state === 'running')
+      
+      // 优先查找运行中的容器
+      let existingContainer = containers.find(c => c.courseId === currentCourseId && c.state === 'running')
       
       if (existingContainer) {
         console.log('发现已有运行中容器，自动连接:', existingContainer)
@@ -519,6 +594,20 @@ import { fetchJson } from '../lib/http'
         
         // 启动状态监控
         startStatusMonitoring(existingContainer.id)
+        return
+      }
+      
+      // 查找暂停的容器
+      existingContainer = containers.find(c => c.courseId === currentCourseId && c.state === 'paused')
+      
+      if (existingContainer) {
+        console.log('发现暂停的容器，可以恢复:', existingContainer)
+        setContainerId(existingContainer.id)
+        setContainerStatus('paused')
+        setIsStartingContainer(false)
+        
+        // 不自动恢复，让用户手动点击恢复按钮
+        // 这样用户可以看到暂停状态并决定是否恢复
       }
     } catch (err) {
       console.error('检查已有容器失败:', err)
@@ -538,8 +627,6 @@ import { fetchJson } from '../lib/http'
 
   useEffect(() => {
     return () => {
-      // 组件卸载时优先按容器ID停止（使用ref避免闭包问题）
-      const id = containerIdRef.current
 
       // 清理定期状态监控定时器，避免内存泄漏或卸载后仍然轮询
       if (statusCheckIntervalRef.current) {
@@ -556,18 +643,9 @@ import { fetchJson } from '../lib/http'
         startAbortControllerRef.current = null
       }
 
-      if (id) {
-        console.log('组件卸载：按容器ID停止容器，containerId:', id)
-        fetchJson<void>(`/api/containers/${id}/stop`, { method: 'POST' }).catch(error => {
-          console.error('组件卸载时按容器ID停止容器失败:', error)
-        })
-      } else if (courseIdRef.current) {
-        // 回退逻辑：缺少容器ID时按课程ID停止
-        console.log('组件卸载：按课程ID停止容器，课程ID:', courseIdRef.current)
-        fetchJson<void>(`/api/courses/${courseIdRef.current}/stop`, { method: 'POST' }).catch(error => {
-          console.error('组件卸载时按课程ID停止容器失败:', error)
-        })
-      }
+      // 组件卸载时不再自动停止/删除容器，以保持容器后台运行
+      console.log('组件卸载：清理定时器和请求，但保留容器运行')
+      
       // 清空容器ID，避免卸载后残留导致重连
       setContainerId(null)
     }
@@ -932,6 +1010,12 @@ import { fetchJson } from '../lib/http'
 
   // 退出课程函数
   const exitCourse = async () => {
+    // 如果容器处于暂停状态，不停止它，保留进度
+    if (containerStatus === 'paused') {
+      console.log('容器已暂停，跳过停止操作，保留进度')
+      return
+    }
+    // 只有运行中的容器才需要停止
     if (containerStatus === 'running' && course?.id) {
       await stopContainer(course.id)
     }
@@ -943,15 +1027,14 @@ import { fetchJson } from '../lib/http'
   //   navigate('/courses')
   // }
 
-  // 处理返回按钮点击事件，显示确认对话框
+  // 处理返回按钮点击事件，直接返回课程列表
   const handleBackClick = () => {
-    setConfirmDialogMode('back')
-    setShowConfirmDialog(true)
+    navigate('/courses')
   }
 
   // 处理“退出课程”按钮点击事件，复用返回逻辑但更简短提示
   const handleExitClick = () => {
-    setConfirmDialogMode('exit')
+    // setConfirmDialogMode('exit')
     setShowConfirmDialog(true)
   }
 
@@ -1263,8 +1346,9 @@ import { fetchJson } from '../lib/http'
               label={`容器: ${containerStatus === 'running' ? '运行中' :
                 containerStatus === 'starting' ? '启动中' :
                   containerStatus === 'stopping' ? '停止中' :
-                    containerStatus === 'error' ? '错误' :
-                      '已停止'}`}
+                    containerStatus === 'paused' ? '已暂停' :
+                      containerStatus === 'error' ? '错误' :
+                        '已停止'}`}
               icon={Server}
               size="sm"
             />
@@ -1302,24 +1386,63 @@ import { fetchJson } from '../lib/http'
                     <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-400 to-blue-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
                   )}
                 </button>
-              ) : containerStatus === 'running' || containerStatus === 'stopping' ? (
-                <button
-                  onClick={() => course?.id && stopContainer(course.id)}
-                  disabled={containerStatus === 'stopping'}
-                  className={`group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform ${containerStatus === 'stopping' ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
-                >
-                  <div className="flex items-center space-x-2">
-                    {containerStatus === 'stopping' ? (
-                      <div className="w-2 h-2 rounded-full bg-white animate-spin"></div>
-                    ) : (
+              ) : containerStatus === 'paused' ? (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => course?.id && resumeContainer(course.id)}
+                    className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 active:scale-95"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 rounded-full bg-white"></div>
+                      <span>恢复容器</span>
+                    </div>
+                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-green-400 to-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                  </button>
+                  <button
+                    onClick={() => course?.id && stopContainer(course.id)}
+                    className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 active:scale-95"
+                  >
+                    <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 rounded-sm bg-white"></div>
-                    )}
-                    <span>{containerStatus === 'stopping' ? '停止中...' : '停止容器'}</span>
-                  </div>
-                  {containerStatus !== 'stopping' && (
+                      <span>停止容器</span>
+                    </div>
                     <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-400 to-red-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-                  )}
-                </button>
+                  </button>
+                </div>
+              ) : containerStatus === 'running' || containerStatus === 'stopping' ? (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => course?.id && pauseContainer(course.id)}
+                    disabled={containerStatus === 'stopping'}
+                    className={`group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-lg shadow-yellow-500/25 hover:shadow-yellow-500/40 hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition-all duration-300 transform ${containerStatus === 'stopping' ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className="flex space-x-0.5">
+                        <div className="w-1 h-3 bg-white"></div>
+                        <div className="w-1 h-3 bg-white"></div>
+                      </div>
+                      <span>暂停容器</span>
+                    </div>
+                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-yellow-400 to-yellow-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                  </button>
+                  <button
+                    onClick={() => course?.id && stopContainer(course.id)}
+                    disabled={containerStatus === 'stopping'}
+                    className={`group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform ${containerStatus === 'stopping' ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      {containerStatus === 'stopping' ? (
+                        <div className="w-2 h-2 rounded-full bg-white animate-spin"></div>
+                      ) : (
+                        <div className="w-2 h-2 rounded-sm bg-white"></div>
+                      )}
+                      <span>{containerStatus === 'stopping' ? '停止中...' : '停止容器'}</span>
+                    </div>
+                    {containerStatus !== 'stopping' && (
+                      <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-400 to-red-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                    )}
+                  </button>
+                </div>
               ) : null}
             </div>
           </div>
@@ -1328,9 +1451,9 @@ import { fetchJson } from '../lib/http'
 
       {/* 主要内容区域 */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <Group orientation="horizontal">
+        <Group orientation="horizontal" id="course-layout" className="h-full">
           {/* 左侧内容面板 */}
-          <Panel defaultSize={50} minSize={30}>
+          <Panel defaultSize={50} minSize={30} id="course-content">
             <CourseContentPanel
               renderProgressBar={renderProgressBar}
               title={currentTitle}
@@ -1349,7 +1472,7 @@ import { fetchJson } from '../lib/http'
           <Separator className="w-2 bg-gray-300 hover:bg-gray-400 transition-colors cursor-col-resize" />
 
           {/* 右侧终端面板 */}
-          <Panel defaultSize={50} minSize={30}>
+          <Panel defaultSize={50} minSize={30} id="terminal">
             <div className="h-full text-white flex flex-col" style={{ backgroundColor: '#0d1117' }}>
               {/* 终端内容区域 - 移除内边距，确保完全填充可用空间 */}
               <div className="flex-1 flex flex-col min-h-0">
@@ -1388,8 +1511,8 @@ import { fetchJson } from '../lib/http'
       <ConfirmDialog
         isOpen={showConfirmDialog}
         title="确认退出课程"
-        message={confirmDialogMode === 'exit' ? '确认要退出当前课程吗？' : '返回课程列表将停止课程容器并丢失所有课程进度，确定要继续吗？'}
-        confirmText={confirmDialogMode === 'exit' ? '确定' : '确定退出'}
+        message="确认要退出当前课程吗？"
+        confirmText="确定"
         cancelText="取消"
         onConfirm={handleConfirmExit}
         onCancel={handleCancelExit}

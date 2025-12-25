@@ -9,6 +9,7 @@ const (
 	StateCreating ContainerState = "creating"
 	StateStarting ContainerState = "starting"
 	StateRunning  ContainerState = "running"
+	StatePaused   ContainerState = "paused"
 	StateStopped  ContainerState = "stopped"
 	StateExited   ContainerState = "exited"
 	StateError    ContainerState = "error"

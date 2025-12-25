@@ -16,6 +16,8 @@ type DockerClientInterface interface {
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error)
 	ContainerStart(ctx context.Context, containerID string, options client.ContainerStartOptions) error
 	ContainerStop(ctx context.Context, containerID string, options client.ContainerStopOptions) error
+	ContainerPause(ctx context.Context, containerID string) error
+	ContainerUnpause(ctx context.Context, containerID string) error
 	ContainerRestart(ctx context.Context, containerID string, options client.ContainerStopOptions) error
 	ContainerRemove(ctx context.Context, containerID string, options client.ContainerRemoveOptions) error
 	ContainerInspect(ctx context.Context, containerID string) (container.InspectResponse, error)
@@ -59,6 +61,10 @@ type Controller interface {
 	StartContainer(ctx context.Context, containerID string) error
 	// StopContainer 停止容器
 	StopContainer(ctx context.Context, containerID string) error
+	// PauseContainer 暂停容器
+	PauseContainer(ctx context.Context, containerID string) error
+	// UnpauseContainer 恢复容器
+	UnpauseContainer(ctx context.Context, containerID string) error
 	// RestartContainer 重启容器
 	RestartContainer(ctx context.Context, containerID string) error
 	// RemoveContainer 删除容器

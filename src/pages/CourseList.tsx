@@ -329,6 +329,7 @@ export function CourseList() {
             }>
               {filteredCourses.map((course, index) => {
                 const isRunning = containers.some(c => c.courseId === course.id && c.state === 'running');
+                const isPaused = containers.some(c => c.courseId === course.id && c.state === 'paused');
                 
                 if (viewMode === 'list') {
                   return (
@@ -395,6 +396,11 @@ export function CourseList() {
                                      <Activity className="w-3 h-3 mr-1" />
                                      运行中
                                    </span>
+                                 ) : isPaused ? (
+                                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                     <span className="w-2 h-2 rounded-full bg-yellow-500 mr-1.5" />
+                                     已暂停
+                                   </span>
                                  ) : (
                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300 shadow-sm group-hover:shadow hover:bg-indigo-100 dark:hover:bg-indigo-800/50">
                                      开始学习 <span className="ml-1 text-sm leading-none transform group-hover:translate-x-0.5 transition-transform">&rarr;</span>
@@ -444,10 +450,15 @@ export function CourseList() {
                       </div>
                       
                       {/* 运行状态条 */}
-                      {isRunning && (
+                      {isRunning ? (
                         <div className="absolute bottom-0 left-0 right-0 bg-green-500/90 text-white text-xs py-1.5 px-2 text-center font-medium backdrop-blur-sm flex items-center justify-center">
                           <Activity className="w-3 h-3 mr-1 animate-pulse" />
                           正在运行
+                        </div>
+                      ) : isPaused && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-yellow-500/90 text-white text-xs py-1.5 px-2 text-center font-medium backdrop-blur-sm flex items-center justify-center">
+                          <span className="w-2 h-2 rounded-full bg-white mr-2" />
+                          已暂停
                         </div>
                       )}
                     </div>

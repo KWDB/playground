@@ -99,7 +99,7 @@
 .markdown-main-content {
   padding: 1.5rem;
   background-color: #ffffff;
-  min-height: 100%;
+  /* min-height: 100%; 移除 min-height: 100%，让内容自然撑开，避免 Flexbox 计算问题 */
   height: auto;
 }
 
@@ -111,57 +111,53 @@
   position: relative;
   overflow-y: auto;
   overflow-x: hidden;
-  height: 100%;
-  max-height: 100%;
+  /* 移除固定高度，由 Flexbox 控制 */
+  /* height: 100%; */
+  /* max-height: 100%; */
   /* 强制显示滚动条，即使内容较少 */
   scrollbar-gutter: stable;
 }
 
 /* Webkit浏览器滚动条样式 - 现代化设计 */
 .markdown-scroll-container::-webkit-scrollbar {
-  width: 10px;
+  width: 12px; /* 增加宽度以确保易于点击 */
   background: transparent;
 }
 
 .markdown-scroll-container::-webkit-scrollbar-track {
-  background: #f8fafc;
+  background: #f1f5f9; /* 加深轨道颜色 */
   border-radius: 6px;
   margin: 4px 0;
   border: 1px solid #e2e8f0;
 }
 
 .markdown-scroll-container::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+  background: #cbd5e1; /* 使用纯色增加对比度 */
   border-radius: 6px;
-  border: 2px solid #f8fafc;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 3px solid #f1f5f9; /* 增加边框模拟 padding */
+  transition: all 0.2s ease;
 }
 
 .markdown-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
-  border-color: #f1f5f9;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: scaleY(1.1);
+  background: #94a3b8; /* 悬停加深 */
 }
 
 .markdown-scroll-container::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
-  transform: scaleY(1.05);
+  background: #64748b;
 }
 
 /* Firefox滚动条样式 - 改进版本 */
 .markdown-scroll-container {
   scrollbar-width: thin;
-  scrollbar-color: #94a3b8 #f8fafc;
+  scrollbar-color: #cbd5e1 #f1f5f9;
 }
 
 /* 确保内容区域不会产生额外的滚动条 */
 .markdown-main-content {
   overflow: visible;
   height: auto;
-  /* 添加底部内边距，确保内容不会被滚动条遮挡 */
-  padding-right: 4px;
+  /* 添加底部内边距，防止内容贴底 */
+  padding-bottom: 2rem;
 }
 
 .markdown-content-wrapper {
@@ -526,27 +522,28 @@
   /* 暗色主题滚动条样式 */
   .markdown-scroll-container::-webkit-scrollbar-track {
     background: #1e293b;
-    border-color: #475569;
+    border-color: #334155;
   }
   
   .markdown-scroll-container::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #475569 0%, #64748b 100%);
+    background: #475569;
     border-color: #1e293b;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
+    border-width: 3px;
+    border-style: solid;
   }
   
   .markdown-scroll-container::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%);
+    background: #64748b;
     border-color: #334155;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
   }
   
   .markdown-scroll-container::-webkit-scrollbar-thumb:active {
-    background: linear-gradient(135deg, #94a3b8 0%, #cbd5e1 100%);
+    background: #94a3b8;
   }
   
   .markdown-scroll-container {
-    scrollbar-color: #64748b #1e293b;
+    scrollbar-color: #475569 #1e293b;
   }
   
   .markdown-inline-code {

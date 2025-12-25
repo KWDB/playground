@@ -53,6 +53,18 @@ func (d *dockerClientAdapter) ContainerStop(ctx context.Context, containerID str
 	return err
 }
 
+// ContainerPause 暂停容器
+func (d *dockerClientAdapter) ContainerPause(ctx context.Context, containerID string) error {
+	_, err := d.client.ContainerPause(ctx, containerID, client.ContainerPauseOptions{})
+	return err
+}
+
+// ContainerUnpause 恢复容器
+func (d *dockerClientAdapter) ContainerUnpause(ctx context.Context, containerID string) error {
+	_, err := d.client.ContainerUnpause(ctx, containerID, client.ContainerUnpauseOptions{})
+	return err
+}
+
 // ContainerRestart 重启容器
 func (d *dockerClientAdapter) ContainerRestart(ctx context.Context, containerID string, options client.ContainerStopOptions) error {
 	_, err := d.client.ContainerRestart(ctx, containerID, client.ContainerRestartOptions{

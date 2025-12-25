@@ -2,7 +2,7 @@ export interface ContainerInfo {
   id: string
   courseId: string
   dockerId: string
-  state: 'creating' | 'starting' | 'running' | 'stopped' | 'exited' | 'error'
+  state: 'creating' | 'starting' | 'running' | 'paused' | 'stopped' | 'exited' | 'error'
   image: string
   startedAt: string
   message?: string

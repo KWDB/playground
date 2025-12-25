@@ -2,7 +2,7 @@ import React from 'react';
 import { LucideIcon } from 'lucide-react';
 
 // 状态类型定义
-export type StatusType = 'running' | 'stopped' | 'starting' | 'stopping' | 'error' | 'connected' | 'disconnected' | 'connecting';
+export type StatusType = 'running' | 'stopped' | 'starting' | 'stopping' | 'paused' | 'error' | 'connected' | 'disconnected' | 'connecting';
 
 // 状态配置接口
 interface StatusConfig {
@@ -39,6 +39,13 @@ const statusConfigs: Record<StatusType, StatusConfig> = {
     bgColor: 'bg-slate-50/80',
     borderColor: 'border-slate-200',
     shadowColor: 'shadow-slate-200/50',
+  },
+  paused: {
+    label: '已暂停',
+    color: 'bg-yellow-500',
+    bgColor: 'bg-yellow-50/80',
+    borderColor: 'border-yellow-200',
+    shadowColor: 'shadow-yellow-200/50',
   },
   starting: {
     label: '启动中',
@@ -187,6 +194,7 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
            status === 'starting' ? '启动' :
            status === 'stopping' ? '停止' :
            status === 'stopped' ? '停止' :
+           status === 'paused' ? '暂停' :
            status === 'error' ? '错误' :
            status === 'connected' ? '连接' :
            status === 'connecting' ? '连接中' :
