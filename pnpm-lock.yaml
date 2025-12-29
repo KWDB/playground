@@ -84,8 +84,8 @@ importers:
         specifier: ^4.0.1
         version: 4.0.1
       tailwind-merge:
-        specifier: ^3.0.2
-        version: 3.3.1
+        specifier: ^3.4.0
+        version: 3.4.0
       ws:
         specifier: ^8.18.3
         version: 8.18.3
@@ -1977,8 +1977,8 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
-  tailwind-merge@3.3.1:
-    resolution: {integrity: sha512-gBXpgUm/3rp1lMZZrM/w7D8GKqshif0zAymAhbCyIt8KMe+0v9DQ7cdYLR4FHH/cKpdTXb+A/tKKU3eolfsI+g==}
+  tailwind-merge@3.4.0:
+    resolution: {integrity: sha512-uSaO4gnW+b3Y2aWoWfFpX62vn2sR3skfhbjsEnaBI81WD1wBLlHZe5sWf0AqjksNdYTbGBEd0UasQMT3SNV15g==}
 
   tailwind-scrollbar@4.0.2:
     resolution: {integrity: sha512-wAQiIxAPqk0MNTPptVe/xoyWi27y+NRGnTwvn4PQnbvB9kp8QUBiGl/wsfoVBHnQxTmhXJSNt9NHTmcz9EivFA==}
@@ -4344,7 +4344,7 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  tailwind-merge@3.3.1: {}
+  tailwind-merge@3.4.0: {}
 
   tailwind-scrollbar@4.0.2(react@18.3.1)(tailwindcss@3.4.17(ts-node@10.9.1(@types/node@22.18.1)(typescript@5.8.3))):
     dependencies:
