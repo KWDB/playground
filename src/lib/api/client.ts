@@ -143,7 +143,7 @@ export const api = {
       request<void>(`/containers/${id}/pause`, { method: 'POST', signal }),
 
     resume: (id: string, signal?: AbortSignal): Promise<void> =>
-      request<void>(`/containers/${id}/resume`, { method: 'POST', signal }),
+      request<void>(`/containers/${id}/unpause`, { method: 'POST', signal }),
 
     remove: (id: string, signal?: AbortSignal): Promise<void> =>
       request<void>(`/containers/${id}`, { method: 'DELETE', signal }),

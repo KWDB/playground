@@ -228,7 +228,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
           const state = get();
           try {
             const url = containerId
-              ? `/api/containers/${containerId}/resume`
+              ? `/api/containers/${containerId}/unpause`
               : `/api/courses/${courseId}/resume`;
 
             await fetch(url, { method: 'POST' });
