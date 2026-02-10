@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+!dist/.gitkeep
 *.local
 
 # Editor directories and files
@@ -41,4 +42,5 @@ __pycache__
 
 # Documentation (internal only)
 docs/ARCHITECTURE_ISSUES.md
+docs/LOGGING.md
 tests/e2e/__pycache__

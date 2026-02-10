@@ -1,5 +1,4 @@
 import type {
-  ApiError,
   ContainerInfo,
   ContainerStatusResponse,
   Course,
@@ -8,6 +7,9 @@ import type {
   SqlInfo,
   PortConflictInfo,
 } from './types'
+
+// ApiError 是从 ApiClientError 类重新导出的类型别名
+// 这是一个模式：类用于实现，类型别名用于导入
 
 const DEFAULT_TIMEOUT = 30000
 const DEFAULT_RETRIES = 2

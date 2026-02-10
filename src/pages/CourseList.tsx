@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Tag, BookOpen, AlertCircle, Trash2, X, CheckCircle, AlertTriangle, Terminal, Database, Activity, LayoutGrid, List as ListIcon } from 'lucide-react';
-import { ContainerInfo, CleanupResult } from '../types/container';
+import { ContainerInfo, CleanupResult } from '@/types';
 import ProposeCourseCard from '../components/business/ProposeCourseCard';
 import { useDebounce } from '../hooks/useDebounce';
 import { CourseFilter, FilterState } from '../components/business/CourseFilter';

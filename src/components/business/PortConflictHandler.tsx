@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Trash2, RefreshCw, X, CheckCircle, Server } from 'lucide-react';
 import {
   PortConflictInfo,
-  CleanupResult,
+  ExtendedCleanupResult,
   PortConflictHandlerProps,
   PortConflictHandlerState,
   ConflictHandlingStatus
-} from '@/types/port-conflict';
+} from '@/types';
 
 /**
  * 端口冲突智能处理组件
@@ -62,7 +62,7 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
   }, [courseId, port]);
 
   // 清理课程容器
-  const cleanupContainers = useCallback(async (): Promise<CleanupResult | null> => {
+  const cleanupContainers = useCallback(async (): Promise<ExtendedCleanupResult | null> => {
     try {
       console.log(`[PortConflictHandler] 开始清理课程容器，课程ID: ${courseId}`);
       

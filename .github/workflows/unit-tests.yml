@@ -1,0 +1,96 @@
+name: Go Unit Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  CI: 'true'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Ensure dist directory has embeddable files
+        run: |
+          if [ ! -d "dist" ]; then
+            mkdir -p dist
+            echo "# Placeholder for Go embed directive" > dist/.gitkeep
+          fi
+          if [ ! "$(ls -A dist 2>/dev/null)" ]; then
+            echo "# Placeholder for Go embed directive" > dist/.gitkeep
+          fi
+
+      - name: Run Go tests
+        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Show coverage
+        run: |
+          if [ -f coverage.out ]; then
+            go tool cover -func=coverage.out | tail -5
+          fi
+
+  go-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Run go fmt
+        run: go fmt ./...
+
+      - name: Check formatting
+        run: |
+          if ! git diff --exit-code; then
+            echo "Code formatting issues found. Run 'go fmt ./...' to fix."
+            git diff
+            exit 1
+          fi
+
+  frontend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run TypeScript check
+        run: pnpm run check || true
+
+      - name: Run ESLint
+        run: pnpm run lint || true

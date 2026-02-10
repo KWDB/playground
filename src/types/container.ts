@@ -1,16 +1,4 @@
-export interface ContainerInfo {
-  id: string
-  courseId: string
-  dockerId: string
-  state: 'creating' | 'starting' | 'running' | 'paused' | 'stopped' | 'exited' | 'error'
-  image: string
-  startedAt: string
-  message?: string
-  name?: string
-}
+// 容器类型已移至 src/types/index.ts
+// 此文件保留用于向后兼容，请直接导入 src/types/index
 
-export interface CleanupResult {
-  success: boolean
-  message: string
-  cleanedContainers: ContainerInfo[]
-}
+export * from './index'

@@ -38,19 +38,19 @@ type CourseFile struct {
 
 // Backend 后端配置
 type Backend struct {
-    ImageID    string   `json:"imageid" yaml:"imageid"`
-    Workspace  string   `json:"workspace" yaml:"workspace"`
-    Cmd        []string `json:"cmd" yaml:"cmd"`
-    Privileged bool     `json:"privileged" yaml:"privileged"`
-    // Port KWDB服务端口（主机映射端口）
-    Port int `json:"port" yaml:"port"`
-    // Volumes 主机与容器的挂载绑定，例如:
-    // - "./meta.sql:/kaiwudb/bin/meta.sql"
-    // 采用列表形式便于在 YAML 中书写
-    Volumes []string `json:"volumes" yaml:"volumes"`
-    // Env 环境变量，例如:
-    // - "KW_VERSION=3.0.0"
-    Env []string `json:"env" yaml:"env"`
+	ImageID    string   `json:"imageid" yaml:"imageid"`
+	Workspace  string   `json:"workspace" yaml:"workspace"`
+	Cmd        []string `json:"cmd" yaml:"cmd"`
+	Privileged bool     `json:"privileged" yaml:"privileged"`
+	// Port KWDB服务端口（主机映射端口）
+	Port int `json:"port" yaml:"port"`
+	// Volumes 主机与容器的挂载绑定，例如:
+	// - "./meta.sql:/kaiwudb/bin/meta.sql"
+	// 采用列表形式便于在 YAML 中书写
+	Volumes []string `json:"volumes" yaml:"volumes"`
+	// Env 环境变量，例如:
+	// - "KW_VERSION=3.0.0"
+	Env []string `json:"env" yaml:"env"`
 }
 
 // UserProgress 用户课程进度

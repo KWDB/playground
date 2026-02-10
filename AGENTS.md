@@ -1,158 +1,101 @@
-# AGENTS.md
+# AGENTS.md - KWDB Playground Guidelines for AI Coding Agents
 
-This file provides guidelines for AI coding agents working on the KWDB Playground codebase.
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| Install deps | `make install` |
+| Dev server | `make dev` (port 3006) |
+| Run all Go tests | `go test ./...` |
+| Single test | `go test -v -run TestName ./package` |
+| Go coverage | `go test ./... -coverprofile=c.out && go tool cover -func=c.out` |
+| TypeScript check | `pnpm run check` |
+| Lint fix | `pnpm run lint:fix` |
+| Go format | `go fmt ./...` |
 
 ## Project Overview
 
-KWDB Playground is a full-stack web application for interactive KWDB learning. It consists of:
+**KWDB Playground** - Full-stack web app for interactive KWDB learning:
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS
-- **Backend**: Go with Gin framework, Docker integration, WebSocket terminal
-- **Testing**: Playwright for E2E tests
+- **Backend**: Go (Gin), Docker integration, WebSocket terminal
+- **Testing**: Playwright E2E tests
 
-## Build Commands
+**Tech Stack**: pnpm, Node.js 20, Go 1.24
 
-### Development
+## Build & Development
+
+### Core Commands
 ```bash
-# Install all dependencies
-make install
-
-# Install dev tools (air, dlv)
-make install-tools
-
-# Start development server (hot reload)
-make dev
-
-# Check environment
-make check
+make install          # Install all dependencies
+make dev             # Hot-reload dev server (port 3006)
+make check            # Verify dev environment
+make build            # Full production build
+make release          # Single binary with embedded assets
+make fmt              # Format all code
 ```
 
-### Build
+### Testing Commands
 ```bash
-# Build frontend only
-pnpm run build
+# Go Tests
+go test ./...                              # All tests
+go test -v ./internal/api/...               # Specific package
+go test -v -run TestFindContainer api/...  # Single test function
+go test -v -cover ./...                    # With coverage
 
-# Build backend (includes frontend)
-make backend
-
-# Full production build
-make build
-
-# Release build (embedded assets, single binary)
-make release
-
-# Cross-platform builds
-make release-linux-amd64
-make release-darwin-arm64
-make release-windows-amd64
-make release-all
-```
-
-### Lint/Format
-```bash
-# Type check
-pnpm run check
-
-# Lint TypeScript/React
-pnpm run lint
-pnpm run lint:fix
-
-# Format Go code
-go fmt ./...
-
-# Format all
-make fmt
-```
-
-### Testing
-
-#### Go Tests
-```bash
-# Run all Go tests
-go test ./...
-
-# Run specific package test
-go test ./internal/docker/...
-
-# Run single test function
-go test -v -run TestFunctionName ./package
-
-# Run with coverage
-go test -v -cover ./...
-```
-
-#### Playwright E2E Tests
-```bash
-# Install browsers (first time)
-pnpm run pw:install
-
-# Run all tests
-pnpm run test:pw
-make e2e-playwright
-
-# Run specific test file
-npx playwright test tests/playwright/quick-start.spec.ts
-
-# Run specific project
-npx playwright test --project=quick-start
-
-# Run with UI mode
-npx playwright test --ui
-
-# Debug mode
-npx playwright test --debug
-
-# Start test server only
-make playwright
-```
-
-### Cleanup
-```bash
-make clean          # Remove build artifacts
-make stop           # Stop all services
+# Playwright E2E
+pnpm run pw:install                       # Install browsers
+pnpm run test:pw                          # Run all E2E tests
+npx playwright test --project=quick-start  # Specific project
 ```
 
 ## Code Style Guidelines
 
 ### TypeScript/React
 
-#### Imports
-- Group imports: React/external libs → internal aliases → relative imports
-- Use `@/*` alias for internal modules (configured in vite.config.ts and tsconfig.json)
-- Example:
+**Imports** (order matters):
 ```typescript
+// 1. React and external libs
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Database, Home } from 'lucide-react';
-import { useCourseStore } from '@/store/courseStore';
+
+// 2. Internal aliases (@/*)
+import { useLearnStore } from '@/store/learnStore';
+import { ContainerInfo } from '@/types';
+
+// 3. Relative imports
 import { NavbarProps } from './types';
 ```
 
-#### Naming
-- Components: PascalCase (e.g., `CourseList.tsx`)
-- Hooks: camelCase with `use` prefix (e.g., `useContainer`)
-- Stores: camelCase with `Store` suffix (e.g., `courseStore`)
-- Types/Interfaces: PascalCase (e.g., `ContainerInfo`)
-- Constants: UPPER_SNAKE_CASE for true constants
+**Naming Conventions**:
+| Pattern | Example |
+|---------|---------|
+| Components | `CourseList.tsx` (PascalCase) |
+| Hooks | `useCourseContainer.ts` (camelCase + use prefix) |
+| Stores | `courseStore.ts` (camelCase + Store suffix) |
+| Types | `ContainerInfo` (PascalCase) |
+| Constants | `MAX_RETRY_COUNT` (UPPER_SNAKE_CASE) |
+| Files | `kebab-case.ts` (kebab-case) |
 
-#### Components
-- Use functional components with hooks
-- Props interface defined inline or in `types.ts`
-- Export default for page components, named exports for reusable components
-- Use React.FC type for components with props:
+**Components**:
 ```typescript
-const MyComponent: React.FC<MyProps> = ({ prop1, prop2 }) => {
-  // component logic
+// Props interface
+interface MyComponentProps {
+  title: string;
+  onSubmit: () => void;
+}
+
+// Functional component with explicit typing
+const MyComponent: React.FC<MyComponentProps> = ({ title, onSubmit }) => {
+  // logic
 };
 ```
 
-#### State Management
-- Use Zustand for global state
-- Use React hooks (useState, useEffect) for local state
-- Custom hooks in `src/hooks/` directory
+**State Management**:
+- Global state: Zustand in `src/store/`
+- Local state: React hooks (`useState`, `useEffect`)
+- Custom hooks: `src/hooks/`
 
-#### Styling
-- Use Tailwind CSS classes
-- Combine classes with `clsx` and `tailwind-merge`:
+**Styling**: Tailwind CSS + `clsx` + `tailwind-merge`
 ```typescript
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -164,10 +107,7 @@ function cn(...inputs: ClassValue[]) {
 
 ### Go
 
-#### Imports
-- Standard library → Third-party → Internal packages
-- Group with blank lines between groups
-- Example:
+**Imports** (grouped, no spaces between groups):
 ```go
 import (
     "context"
@@ -181,83 +121,107 @@ import (
 )
 ```
 
-#### Naming
-- Packages: lowercase, single word (e.g., `docker`, `course`)
-- Exported: PascalCase (e.g., `NewService`, `ContainerInfo`)
-- Unexported: camelCase (e.g., `createClient`, `containerCache`)
-- Interfaces: `-er` suffix (e.g., `DockerClientInterface`)
-- Constants: use const blocks with clear comments
+**Naming**:
+| Pattern | Example |
+|---------|---------|
+| Packages | `docker`, `course` (lowercase, single word) |
+| Exported | `NewService`, `ContainerInfo` (PascalCase) |
+| Unexported | `createClient`, `containerCache` (camelCase) |
+| Interfaces | `DockerClientInterface` (-er suffix) |
+| Constants | `const blocks with comments` |
 
-#### Error Handling
-- Return errors, don't panic in library code
-- Wrap errors with context using `fmt.Errorf("context: %w", err)`
-- Log errors at appropriate levels
+**Error Handling**:
+```go
+// ✅ Do: Return errors with context
+return nil, fmt.Errorf("failed to create container: %w", err)
 
-#### Comments
-- Package comments at top of file
-- Exported functions/structs must have doc comments
-- Comments in Chinese for consistency with existing codebase
+// ❌ Don't: Panic in library code
+if err != nil {
+    panic("should never happen")
+}
 
-#### Project Structure
+// Log at appropriate level
+logger.Error("容器启动失败", "错误", err.Error())
+```
+
+**Comments**:
+- Package comment at top of file
+- Exported functions require doc comments
+- Use Chinese for consistency with existing codebase
+
+## Logging Standards (see docs/LOGGING.md)
+
+**Format**: `[LEVEL] [MODULE] message key=value`
+
+**Examples**:
+```go
+// ✅ Recommended
+logger.Info("容器创建成功", "容器ID", containerID, "镜像", image)
+logger.Debug("[CourseService] 开始加载课程", "路径", coursesDir)
+logger.Error("容器启动失败", "错误", err.Error())
+
+// ❌ Avoid
+logger.Info("Container created successfully: " + containerID)
+```
+
+**Language**: Chinese messages, English identifiers
+
+## Type Definitions
+
+Centralized at `src/types/index.ts`:
+```typescript
+// Import from centralized location
+import { ContainerInfo, PortConflictInfo, SqlInfo } from '@/types';
+
+// Legacy files still work (re-exports from index)
+import { ContainerInfo } from '@/types/container';
+import { PortConflictInfo } from '@/types/port-conflict';
+```
+
+## Project Structure
+
 ```
 internal/
-  docker/      # Docker client and container management
-  course/      # Course content loading and parsing
-  api/         # HTTP handlers and routes
-  websocket/   # WebSocket terminal handlers
-  logger/      # Logging utilities
-  config/      # Configuration management
+  api/           # HTTP handlers
+  docker/        # Container management
+  course/        # Course content
+  websocket/     # WebSocket terminals
+  logger/        # Logging
+  config/        # Configuration
+src/
+  components/    # React components
+  pages/         # Page components
+  store/         # Zustand stores
+  hooks/         # Custom hooks
+  types/         # Centralized types
+  lib/api/       # API client
+```
+
+## Common Tasks
+
+### Add API Endpoint
+1. Handler: `internal/api/routes.go`
+2. Business logic: appropriate package in `internal/`
+3. Types: `src/types/index.ts`
+4. API client: `src/lib/api/client.ts`
+
+### Add Frontend Component
+1. Create: `src/components/business/ComponentName.tsx`
+2. Types: `src/types/index.ts` (if shared)
+3. Export from parent's `index.ts` if reusable
+
+### Run Verification
+```bash
+go build ./... && pnpm run check  # TypeScript + build
+go test ./...                      # All tests
+go fmt ./... && pnpm run lint:fix  # Code formatting
 ```
 
 ## Environment Variables
 
-Key variables (defined in `.env` or Makefile):
-- `SERVER_PORT`: Server port (default: 3006)
-- `DEBUG_PORT`: Debug port (default: 2345)
-- `COURSES_USE_EMBED`: Use embedded filesystem (default: false in dev, true in release)
-- `GIN_MODE`: Gin framework mode (debug/release)
-- `LOG_LEVEL`: Log level (debug/info/warn/error)
-
-## Testing Best Practices
-
-### Playwright Tests
-- Tests in `tests/playwright/*.spec.ts`
-- Each test file focuses on one feature
-- Tests are sequential (fullyParallel: false in config)
-- Use dependencies for test ordering
-- Tests use baseURL from playwright.config.ts
-
-### Go Tests
-- Test files: `*_test.go`
-- Use table-driven tests
-- Mock external dependencies (Docker client, etc.)
-- Tests alongside source files in same package
-
-## Common Tasks
-
-### Add New API Endpoint
-1. Add handler in `internal/api/routes.go`
-2. Add business logic in appropriate package
-3. Add types if needed
-4. Test with `curl` or Playwright
-
-### Add New Course
-1. Create directory in `courses/`
-2. Add `course.yaml` metadata
-3. Add `README.md` content
-4. Reload server to pick up changes
-
-### Frontend Component
-1. Create in appropriate subdirectory of `src/components/`
-2. Use existing UI components from `src/components/ui/`
-3. Add to barrel exports if reusable
-
-## CI/CD
-
-GitHub Actions workflows:
-- `.github/workflows/playwright.yml`: Run E2E tests on PR/push
-- `.github/workflows/release.yml`: Build and release binaries
-
-Package manager: pnpm (specified in package.json)
-Node version: 20
-Go version: 1.24
+| Variable | Default | Description |
+|----------|---------|-------------|
+| SERVER_PORT | 3006 | HTTP server port |
+| DEBUG_PORT | 2345 | Debugger port |
+| LOG_LEVEL | info | debug/info/warn/error |
+| GIN_MODE | debug | Gin mode |
