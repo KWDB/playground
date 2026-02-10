@@ -70,24 +70,10 @@ export function Learn() {
     setIsConnected,
     connectionError,
     setConnectionError,
-    startCourse,
-    stopCourse,
   } = useLearnStore()
 
-  const terminalRef = useRef<TerminalRef>(null)
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
-
-  useEffect(() => {
-    const savedSourceId = localStorage.getItem('imageSourceId')?.trim()
-    if (savedSourceId) {
-      setSelectedImageSourceId(savedSourceId)
-    }
-
-    const savedImage = localStorage.getItem('selectedImageFullName')?.trim()
-    if (savedImage) {
-      setSelectedImage(savedImage)
-    }
-  }, [])
+  const terminalRef = useRef<TerminalRef>(null)
 
   const effectiveImage = useMemo(() => effectiveImageSelector({ course, selectedImage } as any), [course, selectedImage])
   const imageSourceLabel = useMemo(() => imageSourceLabelSelector({ selectedImageSourceId, selectedImage, course } as any), [selectedImageSourceId, selectedImage, course])
