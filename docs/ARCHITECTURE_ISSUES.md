@@ -256,6 +256,8 @@ WebSocket 终端连接没有实现 ping/pong 心跳机制。在网络不稳定�
 
 ### 5. 前端状态管理混乱
 
+**状态**: **部分修复** (2026-02-10)
+
 **位置**: `src/pages/Learn.tsx`
 
 **问题描述**:
@@ -277,24 +279,57 @@ const [containerStatus, setContainerStatus] = useState<ContainerStatus>('stopped
 - 难以测试和维护
 - 状态不一致风险
 
-**建议修复**:
-使用 Zustand 重构状态管理：
-```typescript
-// src/store/learnStore.ts
-import { create } from 'zustand'
+**修复方案**:
 
+1. **创建 Zustand 状态管理 Store** (`src/store/learnStore.ts`):
+```typescript
 interface LearnState {
   course: Course | null
-  containerStatus: ContainerStatus
   currentStep: number
-  // 使用 immer 简化嵌套状态更新
-  actions: {
-    startCourse: () => Promise<void>
-    stopCourse: () => Promise<void>
-    // ...
-  }
+  loading: boolean
+  error: string | null
+  showConfirmDialog: boolean
+  containerId: string | null
+  containerStatus: ContainerStatus
+  isStartingContainer: boolean
+  showPortConflictHandler: boolean
+  showImageSelector: boolean
+  selectedImage: string
+  selectedImageSourceId: string
+  isConnected: boolean
+  connectionError: string | null
+}
+
+interface LearnActions {
+  setCourse: (course: Course | null) => void
+  setContainerStatus: (status: ContainerStatus) => void
+  startCourse: (courseId: string, image?: string) => Promise<void>
+  stopCourse: (courseId: string, containerId?: string | null) => Promise<void>
+  pauseCourse: (courseId: string, containerId?: string | null) => Promise<void>
+  resumeCourse: (courseId: string, containerId?: string | null) => Promise<void>
+  checkContainerStatus: (containerId: string) => Promise<ContainerStatus | null>
+  resetState: () => void
 }
 ```
+
+2. **Store 特性**:
+   - 使用 `zustand/middleware` 的 `devtools` 和 `persist`
+   - 持久化存储：selectedImage、selectedImageSourceId
+   - 选择器：`effectiveImageSelector`、`imageSourceLabelSelector`
+   - 所有状态更新集中在 Store 内部
+
+3. **待完成**:
+   - Learn.tsx 的完整迁移需要较大改动（1590行）
+   - 建议分阶段进行：
+     阶段1：新页面/组件可直接使用 LearnStore
+     阶段2：渐进式迁移 Learn.tsx（建议后续迭代）
+
+**相关文件**:
+- `src/store/learnStore.ts`: Zustand 状态管理实现
+
+**验证**:
+- TypeScript 类型检查通过
+- Store API 设计完成
 
 ---
 
