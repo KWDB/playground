@@ -44,7 +44,11 @@ func NewCommand(staticFiles embed.FS) *cobra.Command {
 			defer log.SetOutput(os.Stderr)
 
 			// 仅在实际运行时加载配置，避免 help/-h 加载配置
-			cfg := config.Load()
+			cfg, err := config.Load()
+			if err != nil {
+				log.Printf("Error: Failed to load configuration: %v\n", err)
+				os.Exit(1)
+			}
 
 			// 计算有效参数：优先使用用户通过 Flags 设置的值；否则回退到配置
 			effectiveHost := cfg.Server.Host

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"kwdb-playground/internal/logger"
 )
@@ -63,8 +64,8 @@ type LogConfig struct {
 //   - COURSES_RELOAD: 是否启用课程热重载 (默认: true)
 //   - COURSES_USE_EMBED: 是否使用嵌入式FS作为课程数据来源 (默认: false 或由 BuildDefaultUseEmbed 指定)
 //
-// 返回完整的配置对象，如果配置验证失败会记录警告但不会中断程序
-func Load() *Config {
+// 返回完整的配置对象，如果配置验证失败会返回错误
+func Load() (*Config, error) {
 	// 创建临时logger实例用于配置加载过程
 	// 取消临时 DEBUG 输出，避免启动期噪声
 	_ = logger.NewLogger(logger.ERROR) // 保留占位，如需未来扩展可使用
@@ -101,14 +102,20 @@ func Load() *Config {
 
 	// 验证配置
 	if err := validateConfig(config, configLogger); err != nil {
-		configLogger.Warn("Configuration validation warning: %v", err)
+		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	return config
+	return config, nil
+}
+
+// LoadStrict 从环境变量加载配置（严格模式）
+// 与 Load 功能相同，但在配置无效时返回错误而不是使用默认值
+func LoadStrict() (*Config, error) {
+	return Load()
 }
 
 // validateConfig 验证配置的有效性
-// 检查配置项是否符合要求，包括端口范围和目录存在性
+// 检查配置项是否符合要求，包括端口范围、目录存在性和Docker socket
 // 如果验证失败返回错误，但不会中断程序运行
 func validateConfig(cfg *Config, logger *logger.Logger) error {
 	// 检查端口范围
@@ -116,14 +123,42 @@ func validateConfig(cfg *Config, logger *logger.Logger) error {
 		return fmt.Errorf("invalid port number: %d, must be between 1 and 65535", cfg.Server.Port)
 	}
 
+	// 检查Docker超时
 	if cfg.Docker.Timeout < 1 {
 		return fmt.Errorf("invalid docker timeout: %d, must be positive", cfg.Docker.Timeout)
 	}
 
-	// 检查课程目录是否存在（仅在非嵌入模式下）
+	// 检查Docker socket路径
+	if cfg.Docker.Host != "" {
+		if !isValidDockerHost(cfg.Docker.Host) {
+			return fmt.Errorf("invalid docker host: %s, must be a valid socket path (unix://...) or TCP address", cfg.Docker.Host)
+		}
+	}
+
+	// 检查会话限制
+	if cfg.Server.SessionLimit < 0 {
+		return fmt.Errorf("invalid session limit: %d, must be non-negative", cfg.Server.SessionLimit)
+	}
+
+	// 检查日志格式
+	validLogFormats := map[string]bool{"json": true, "text": true, "console": true}
+	if !validLogFormats[cfg.Log.Format] {
+		return fmt.Errorf("invalid log format: %s, must be one of: json, text, console", cfg.Log.Format)
+	}
+
+	// 检查课程目录（仅在非嵌入模式下）
 	if !cfg.Course.UseEmbed {
+		// 检查目录是否存在
 		if _, err := os.Stat(cfg.Course.Dir); os.IsNotExist(err) {
 			return fmt.Errorf("course directory does not exist: %s", cfg.Course.Dir)
+		}
+		// 检查目录是否可读
+		info, err := os.Stat(cfg.Course.Dir)
+		if err != nil {
+			return fmt.Errorf("failed to access course directory: %s", cfg.Course.Dir)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("course path is not a directory: %s", cfg.Course.Dir)
 		}
 	}
 
@@ -133,6 +168,20 @@ func validateConfig(cfg *Config, logger *logger.Logger) error {
 	}
 
 	return nil
+}
+
+// isValidDockerHost 验证Docker主机地址格式
+func isValidDockerHost(host string) bool {
+	// Unix socket
+	if strings.HasPrefix(host, "unix://") {
+		return len(host) > len("unix://")
+	}
+	// TCP address (简单验证：包含冒号)
+	if strings.Contains(host, ":") {
+		return true
+	}
+	// 空字符串视为可选（表示使用默认）
+	return host == ""
 }
 
 // getEnv 获取环境变量，如果不存在则返回默认值
