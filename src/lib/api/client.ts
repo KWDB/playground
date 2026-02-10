@@ -161,11 +161,11 @@ export const api = {
   },
 
   images: {
-    list: (signal?: AbortSignal): Promise<Array<{ id: string; tag: string; size: number }>> =>
-      request<Array<{ id: string; tag: string; size: number }>>('/images', { signal }),
+    sources: (signal?: AbortSignal): Promise<Array<{ id: string; tag: string; size: number }>> =>
+      request<Array<{ id: string; tag: string; size: number }>>('/images/sources', { signal }),
 
-    pull: (image: string, signal?: AbortSignal): Promise<{ success: boolean }> =>
-      request<{ success: boolean }>('/images/pull', {
+    checkAvailability: (image: string, signal?: AbortSignal): Promise<{ available: boolean; message: string }> =>
+      request<{ available: boolean; message: string }>('/images/check-availability', {
         method: 'POST',
         body: JSON.stringify({ image }),
         signal,
