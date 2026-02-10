@@ -27,7 +27,7 @@ export type ContainerStatus =
   | 'completed'
   | 'stopping';
 
-export interface LearnState {
+interface LearnState {
   course: Course | null;
   currentStep: number;
   loading: boolean;
@@ -42,9 +42,10 @@ export interface LearnState {
   selectedImageSourceId: string;
   isConnected: boolean;
   connectionError: string | null;
+  confirmDialogMode: 'back' | 'exit';
 }
 
-export interface LearnActions {
+interface LearnActions {
   setCourse: (course: Course | null) => void;
   setCurrentStep: (step: number) => void;
   setLoading: (loading: boolean) => void;
@@ -59,37 +60,36 @@ export interface LearnActions {
   setSelectedImageSourceId: (sourceId: string) => void;
   setIsConnected: (connected: boolean) => void;
   setConnectionError: (error: string | null) => void;
+  setConfirmDialogMode: (mode: 'back' | 'exit') => void;
   resetState: () => void;
 
-  startCourse: (courseId: string, image?: string) => Promise<void>;
+  startCourse: (courseId: string, image?: string) => Promise<string | null>;
   stopCourse: (courseId: string, containerId?: string | null) => Promise<void>;
   pauseCourse: (courseId: string, containerId?: string | null) => Promise<void>;
   resumeCourse: (courseId: string, containerId?: string | null) => Promise<void>;
   checkContainerStatus: (containerId: string) => Promise<ContainerStatus | null>;
+  startCourseContainer: (courseId: string, image?: string) => Promise<boolean>;
 }
-
-const initialState: LearnState = {
-  course: null,
-  currentStep: -1,
-  loading: true,
-  error: null,
-  showConfirmDialog: false,
-  containerId: null,
-  containerStatus: 'stopped',
-  isStartingContainer: false,
-  showPortConflictHandler: false,
-  showImageSelector: false,
-  selectedImage: '',
-  selectedImageSourceId: '',
-  isConnected: false,
-  connectionError: null,
-};
 
 export const useLearnStore = create<LearnState & LearnActions>()(
   devtools(
     persist(
       (set, get) => ({
-        ...initialState,
+        course: null,
+        currentStep: -1,
+        loading: true,
+        error: null,
+        showConfirmDialog: false,
+        containerId: null,
+        containerStatus: 'stopped',
+        isStartingContainer: false,
+        showPortConflictHandler: false,
+        showImageSelector: false,
+        selectedImage: '',
+        selectedImageSourceId: '',
+        isConnected: false,
+        connectionError: null,
+        confirmDialogMode: 'back',
 
         setCourse: (course) => set({ course, loading: false }),
         setCurrentStep: (currentStep) => set({ currentStep }),
@@ -111,23 +111,36 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         },
         setIsConnected: (isConnected) => set({ isConnected }),
         setConnectionError: (connectionError) => set({ connectionError }),
+        setConfirmDialogMode: (confirmDialogMode) => set({ confirmDialogMode }),
 
         resetState: () => set({
-          ...initialState,
+          course: null,
+          currentStep: -1,
+          loading: true,
+          error: null,
+          showConfirmDialog: false,
+          containerId: null,
+          containerStatus: 'stopped',
+          isStartingContainer: false,
+          showPortConflictHandler: false,
+          showImageSelector: false,
+          isConnected: false,
+          connectionError: null,
           selectedImage: localStorage.getItem('selectedImageFullName')?.trim() || '',
           selectedImageSourceId: localStorage.getItem('imageSourceId')?.trim() || '',
         }),
 
-        startCourse: async (courseId, image) => {
-          if (get().isStartingContainer || get().containerStatus === 'running' || get().containerStatus === 'starting') {
+        startCourseContainer: async (courseId, image) => {
+          const state = get();
+          if (state.isStartingContainer || state.containerStatus === 'running' || state.containerStatus === 'starting') {
             console.log('容器已在启动中或运行中，跳过重复启动请求');
-            return;
+            return false;
           }
 
-          get().setIsStartingContainer(true);
-          get().setContainerStatus('starting');
-          get().setError(null);
-          get().setConnectionError(null);
+          state.setIsStartingContainer(true);
+          state.setContainerStatus('starting');
+          state.setError(null);
+          state.setConnectionError(null);
 
           try {
             const requestBody = image ? { image } : {};
@@ -143,27 +156,33 @@ export const useLearnStore = create<LearnState & LearnActions>()(
             }
 
             const data = await response.json();
-            get().setContainerId(data.containerId);
+            state.setContainerId(data.containerId);
             console.log('容器启动成功:', data.containerId);
+            return true;
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : '容器启动失败';
             console.error('启动容器失败:', error);
-            get().setError(errorMessage);
-            get().setContainerStatus('error');
-            get().setConnectionError('容器启动失败，无法建立连接');
+            state.setError(errorMessage);
+            state.setContainerStatus('error');
+            state.setConnectionError('容器启动失败，无法建立连接');
+            return false;
           } finally {
-            get().setIsStartingContainer(false);
+            state.setIsStartingContainer(false);
           }
         },
 
-        stopCourse: async (courseId, containerId) => {
-          const { setContainerStatus, setContainerId, setError, setConnectionError, setIsConnected } = get();
+        startCourse: async (courseId, image) => {
+          const success = await get().startCourseContainer(courseId, image);
+          return success ? get().containerId : null;
+        },
 
+        stopCourse: async (courseId, containerId) => {
+          const state = get();
           console.log('停止容器请求开始，课程ID:', courseId);
 
-          get().setContainerStatus('stopping');
-          get().setIsConnected(false);
-          get().setConnectionError(null);
+          state.setContainerStatus('stopping');
+          state.setIsConnected(false);
+          state.setConnectionError(null);
 
           try {
             const url = containerId
@@ -172,31 +191,32 @@ export const useLearnStore = create<LearnState & LearnActions>()(
 
             await fetch(url, { method: 'POST' });
 
-            get().setContainerStatus('stopped');
-            get().setContainerId(null);
+            state.setContainerStatus('stopped');
+            state.setContainerId(null);
             console.log('容器停止成功');
           } catch (error) {
             const msg = error instanceof Error ? error.message : '';
             if (!msg.includes('404')) {
               console.error('停止容器异常:', error);
-              get().setError(error instanceof Error ? error.message : '停止容器失败');
-              get().setContainerStatus('error');
+              state.setError(error instanceof Error ? error.message : '停止容器失败');
+              state.setContainerStatus('error');
             } else {
               console.log('容器已不存在，视为成功停止');
-              get().setContainerStatus('stopped');
-              get().setContainerId(null);
+              state.setContainerStatus('stopped');
+              state.setContainerId(null);
             }
           }
         },
 
         pauseCourse: async (courseId, containerId) => {
+          const state = get();
           try {
             const url = containerId
               ? `/api/containers/${containerId}/pause`
               : `/api/courses/${courseId}/pause`;
 
             await fetch(url, { method: 'POST' });
-            get().setContainerStatus('paused');
+            state.setContainerStatus('paused');
             console.log('容器暂停成功');
           } catch (error) {
             console.error('暂停容器失败:', error);
@@ -205,13 +225,14 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         },
 
         resumeCourse: async (courseId, containerId) => {
+          const state = get();
           try {
             const url = containerId
               ? `/api/containers/${containerId}/resume`
               : `/api/courses/${courseId}/resume`;
 
             await fetch(url, { method: 'POST' });
-            get().setContainerStatus('running');
+            state.setContainerStatus('running');
             console.log('容器恢复成功');
           } catch (error) {
             console.error('恢复容器失败:', error);
