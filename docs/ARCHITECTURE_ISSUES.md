@@ -175,7 +175,9 @@ defer h.containerMutex.Unlock()
 
 ---
 
-### 4. WebSocket 连接缺少心跳检测
+### 4. WebSocket 连接缺少心跳检测 ✅ 已修复
+
+**状态**: **已修复** (2026-02-10)
 
 **位置**: 
 - `internal/api/routes.go:1173-1205`
@@ -192,22 +194,61 @@ WebSocket 终端连接没有实现 ping/pong 心跳机制。在网络不稳定�
 - 内存泄漏导致服务崩溃
 - 用户看到"已连接"但实际会话已失效
 
-**建议修复**:
-```go
-// 在 WebSocket 处理器中添加心跳
-ticker := time.NewTicker(30 * time.Second)
-defer ticker.Stop()
+**修复方案**:
 
-for {
-    select {
-    case <-ticker.C:
-        if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second)); err != nil {
-            return // 连接已断开
-        }
-    // ... 其他逻辑
-    }
-}
-```
+1. **终端 WebSocket 心跳** (`internal/websocket/terminal.go`):
+   实际上终端WebSocket已经实现了完整的心跳机制：
+   - `writePump()` 使用 `ticker` 每 54 秒发送 `websocket.PingMessage`
+   - `handleWebSocketInput()` 设置了 `SetPongHandler`，收到 pong 重置读取超时
+   - 常量定义：`writeWait = 10s`, `pongWait = 60s`, `pingPeriod = 54s`
+
+2. **SQL WebSocket 心跳** (`internal/api/routes.go`):
+   为 SQL WebSocket 添加了缺失的心跳机制：
+   ```go
+   // 设置读取超时和pong处理器
+   conn.SetReadDeadline(time.Now().Add(pongWait))
+   conn.SetPongHandler(func(string) error {
+       conn.SetReadDeadline(time.Now().Add(pongWait))
+       return nil
+   })
+   
+   // 启动ping协程发送心跳
+   go func() {
+       ticker := time.NewTicker(pingPeriod)
+       defer ticker.Stop()
+       for {
+           select {
+           case <-ticker.C:
+               conn.WriteMessage(websocket.PingMessage, nil)
+           case <-stopPing:
+               return
+           }
+       }
+   }()
+   ```
+
+3. **应用层心跳**:
+   - 协议支持：客户端发送 `{type:"ping"}`，服务端回复 `{type:"pong"}`
+   - 用于检测应用层活性，与传输层心跳互补
+
+**超时配置**:
+- 读取超时: 60 秒（未收到 pong 则认为连接断开）
+- 写入超时: 10 秒
+- Ping 周期: 54 秒（pongWait 的 90%）
+
+**资源清理**:
+- 连接断开时自动停止 ping 协程（通过 `stopPing` 通道）
+- 关闭 WebSocket 连接
+- 清理会话资源
+
+**相关文件**:
+- `internal/api/routes.go`: 为 SQL WebSocket 添加心跳机制
+- `internal/websocket/terminal.go`: 终端WebSocket已有完整心跳
+
+**验证**:
+- 代码成功编译通过
+- 传输层和应用层心跳双重保障
+- 僵尸连接会自动被检测和清理
 
 ---
 

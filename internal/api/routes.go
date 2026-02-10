@@ -229,7 +229,6 @@ func (h *Handler) getAllContainers(c *gin.Context) {
 func (h *Handler) cleanupAllContainers(c *gin.Context) {
 	ctx := c.Request.Context()
 
-
 	result, err := h.dockerController.CleanupAllContainers(ctx)
 	if err != nil {
 		h.logger.Error("清理所有容器失败: %v", err)
@@ -375,7 +374,6 @@ func (h *Handler) startCourse(c *gin.Context) {
 	}
 	// 尝试解析JSON，如果失败（例如空body）则忽略错误
 	_ = c.ShouldBindJSON(&requestBody)
-
 
 	// 始终为每次调用创建一个新的容器实例，不再复用或跳过
 	ctx := context.Background()
@@ -604,7 +602,6 @@ func (h *Handler) stopCourse(c *gin.Context) {
 		return
 	}
 
-
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -705,7 +702,6 @@ func (h *Handler) pauseCourse(c *gin.Context) {
 		return
 	}
 
-
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -803,7 +799,6 @@ func (h *Handler) resumeCourse(c *gin.Context) {
 		})
 		return
 	}
-
 
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
@@ -1202,7 +1197,6 @@ func (h *Handler) stopContainerByID(c *gin.Context) {
 		return
 	}
 
-
 	if h.dockerController == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Docker服务暂不可用"})
 		return
@@ -1354,15 +1348,51 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
+	// 设置WebSocket心跳超时
+	const (
+		writeWait  = 10 * time.Second    // 写入超时
+		pongWait   = 60 * time.Second    // 等待pong消息的时间
+		pingPeriod = (pongWait * 9) / 10 // 发送ping的周期（54秒）
+	)
+
+	// 设置读取超时和pong处理器
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
 	var courseObj *course.Course
 	ctx := context.Background()
+
+	// 启动ping协程发送心跳
+	stopPing := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					h.logger.Debug("SQL WebSocket发送ping失败: %v", err)
+					return
+				}
+			case <-stopPing:
+				return
+			}
+		}
+	}()
 
 	for {
 		var msg map[string]interface{}
 		if err := conn.ReadJSON(&msg); err != nil {
 			h.logger.Debug("SQL WebSocket读取结束或错误: %v", err)
+			close(stopPing)
 			return
 		}
+		// 收到任何消息都重置读取截止时间
+		conn.SetReadDeadline(time.Now().Add(pongWait))
 		t, _ := msg["type"].(string)
 		switch t {
 		case "init":
@@ -1640,7 +1670,6 @@ func (h *Handler) cleanupCourseContainers(c *gin.Context) {
 		})
 		return
 	}
-
 
 	// 调用Docker控制器清理容器
 	ctx := context.Background()
