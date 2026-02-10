@@ -144,3 +144,40 @@ func joinParts(parts []string) string {
 	}
 	return result
 }
+
+func TestJoinParts(t *testing.T) {
+	tests := []struct {
+		name   string
+		parts  []string
+		expect string
+	}{
+		{"empty", []string{}, ""},
+		{"single", []string{"sql"}, "sql"},
+		{"two", []string{"quick", "start"}, "quick-start"},
+		{"three", []string{"a", "b", "c"}, "a-b-c"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := joinParts(tt.parts)
+			if result != tt.expect {
+				t.Errorf("joinParts(%v) = %s, want %s", tt.parts, result, tt.expect)
+			}
+		})
+	}
+}
+
+func TestLabelConstants(t *testing.T) {
+	if LabelAppName != "kwdb-playground.app" {
+		t.Errorf("LabelAppName = %s, want kwdb-playground.app", LabelAppName)
+	}
+	if LabelCourseID != "kwdb-playground.course-id" {
+		t.Errorf("LabelCourseID = %s, want kwdb-playground.course-id", LabelCourseID)
+	}
+	if LabelVersion != "kwdb-playground.version" {
+		t.Errorf("LabelVersion = %s, want kwdb-playground.version", LabelVersion)
+	}
+	if LabelCreatedAt != "kwdb-playground.created-at" {
+		t.Errorf("LabelCreatedAt = %s, want kwdb-playground.created-at", LabelCreatedAt)
+	}
+}

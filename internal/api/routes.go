@@ -578,6 +578,39 @@ func (h *Handler) startCourse(c *gin.Context) {
 	})
 }
 
+// findContainerByCourseID 查找课程的容器
+// 公共方法，避免 stopCourse/pauseCourse/resumeCourse 中的重复代码
+func (h *Handler) findContainerByCourseID(ctx context.Context, courseID string) (*docker.ContainerInfo, error) {
+	if strings.TrimSpace(courseID) == "" {
+		return nil, fmt.Errorf("课程ID不能为空")
+	}
+
+	if h.dockerController == nil {
+		return nil, fmt.Errorf("Docker服务不可用")
+	}
+
+	coursePrefix := fmt.Sprintf("kwdb-playground-%s-", courseID)
+	containers, err := h.dockerController.ListContainers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("获取容器列表失败: %v", err)
+	}
+
+	var target *docker.ContainerInfo
+	for _, container := range containers {
+		if strings.HasPrefix(container.ID, coursePrefix) {
+			if target == nil || container.StartedAt.After(target.StartedAt) {
+				target = container
+			}
+		}
+	}
+
+	if target == nil {
+		return nil, fmt.Errorf("未找到课程 %s 的容器", courseID)
+	}
+
+	return target, nil
+}
+
 // stopCourse 停止课程容器
 // 停止指定课程的Docker容器，清理资源
 // 路径参数:
