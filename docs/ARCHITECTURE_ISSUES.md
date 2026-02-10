@@ -313,7 +313,7 @@ const {
 | pauseCourse -> store | 已完成 | 已在LearnStore中实现 |
 | resumeCourse -> store | 已完成 | 已在LearnStore中实现 |
 | useCourseContainer Hook | 已完成 | 新hook封装所有操作 |
-| 简化冗余 useEffect/ref | 待完成 | 渐进式清理 |
+| 简化冗余 useEffect/ref | 进行中 | 已移除冗余useEffect，保留竞态处理 |
 | 完整功能测试 | 待完成 | 验证迁移正确性 |
 
 #### Hook 使用示例
@@ -369,9 +369,7 @@ function MyComponent() {
 | `2e3ca95` | 扩展 LearnStore 功能 |
 | `edfc370` | 创建 useCourseContainer Hook |
 | `7fdf819` | 扩展 Hook 添加 pause/resume |
-| f9fb289 | 初步迁移 Learn.tsx |
-| 2e3ca95 | 扩展 LearnStore 功能 |
-| edfc370 | 创建 useCourseContainer Hook |
+| `e9fb8a7` | 移除冗余的 useEffect |
 
 ---
 
