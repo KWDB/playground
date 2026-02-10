@@ -308,12 +308,33 @@ const {
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
-| startCourseContainer -> store | 待完成 | 替换 useCallback |
-| checkContainerStatus -> store | 待完成 | 替换 useCallback |
-| pauseCourse -> store | 待完成 | 替换 useCallback |
-| resumeCourse -> store | 待完成 | 替换 useCallback |
-| 简化冗余 useEffect/ref | 待完成 | 移除重复逻辑 |
+| startCourseContainer -> store | 已完成 | 已在LearnStore中实现 |
+| checkContainerStatus -> store | 已完成 | 已在LearnStore中实现 |
+| pauseCourse -> store | 已完成 | 已在LearnStore中实现 |
+| resumeCourse -> store | 已完成 | 已在LearnStore中实现 |
+| useCourseContainer Hook | 已完成 | 新hook封装所有操作 |
+| 简化冗余 useEffect/ref | 待完成 | 渐进式清理 |
 | 完整功能测试 | 待完成 | 验证迁移正确性 |
+
+#### Hook 使用示例
+
+```typescript
+import { useCourseContainer } from '../hooks/useCourseContainer'
+
+function ContainerPanel() {
+  const { containerStatus, start, stop, pause, resume } = useCourseContainer(courseId)
+
+  return (
+    <div>
+      <span>{containerStatus}</span>
+      <button onClick={start}>启动</button>
+      <button onClick={stop}>停止</button>
+      <button onClick={pause}>暂停</button>
+      <button onClick={resume}>恢复</button>
+    </div>
+  )
+}
+```
 
 **使用示例**:
 ```typescript

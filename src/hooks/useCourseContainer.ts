@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useLearnStore } from '../store/learnStore';
 
 interface UseCourseContainerOptions {
@@ -16,6 +16,8 @@ export function useCourseContainer(courseId: string | undefined, options: UseCou
     connectionError,
     startCourseContainer,
     stopCourse,
+    pauseCourse,
+    resumeCourse,
     checkContainerStatus,
   } = useLearnStore()
 
@@ -31,6 +33,14 @@ export function useCourseContainer(courseId: string | undefined, options: UseCou
     await stopCourse(courseId || '', containerId)
   }, [courseId, containerId, stopCourse])
 
+  const handlePause = useCallback(async () => {
+    await pauseCourse(courseId || '', containerId)
+  }, [courseId, containerId, pauseCourse])
+
+  const handleResume = useCallback(async () => {
+    await resumeCourse(courseId || '', containerId)
+  }, [courseId, containerId, resumeCourse])
+
   const handleCheckStatus = useCallback(async () => {
     if (containerId) {
       await checkContainerStatus(containerId)
@@ -45,6 +55,8 @@ export function useCourseContainer(courseId: string | undefined, options: UseCou
     connectionError,
     start: handleStart,
     stop: handleStop,
+    pause: handlePause,
+    resume: handleResume,
     checkStatus: handleCheckStatus,
   }
 }
