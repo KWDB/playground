@@ -154,10 +154,10 @@ export const api = {
 
   sql: {
     info: (courseId: string, signal?: AbortSignal): Promise<SqlInfo> =>
-      request<SqlInfo>(`/sql/${courseId}/info`, { signal }),
+      request<SqlInfo>(`/sql/info?courseId=${encodeURIComponent(courseId)}`, { signal }),
 
     health: (courseId: string, signal?: AbortSignal): Promise<{ status: string; port: number }> =>
-      request<{ status: string; port: number }>(`/sql/${courseId}/health`, { signal }),
+      request<{ status: string; port: number }>(`/sql/health?courseId=${encodeURIComponent(courseId)}`, { signal }),
   },
 
   images: {
