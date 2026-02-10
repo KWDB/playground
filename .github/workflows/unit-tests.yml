@@ -29,8 +29,15 @@ jobs:
           go-version: '1.24'
           cache: true
 
-      - name: Restore dist directory
-        run: git restore dist/ || true
+      - name: Ensure dist directory has embeddable files
+        run: |
+          if [ ! -d "dist" ]; then
+            mkdir -p dist
+            echo "# Placeholder for Go embed directive" > dist/.gitkeep
+          fi
+          if [ ! "$(ls -A dist 2>/dev/null)" ]; then
+            echo "# Placeholder for Go embed directive" > dist/.gitkeep
+          fi
 
       - name: Run Go tests
         run: go test ./... -coverprofile=coverage.out -covermode=atomic

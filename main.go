@@ -11,7 +11,7 @@ import (
 	servercmd "kwdb-playground/cmd/server"
 )
 
-//go:embed dist courses
+//go:embed dist/* courses/*
 var staticFiles embed.FS
 
 // 版本信息通过 -ldflags 注入
