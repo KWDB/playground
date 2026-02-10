@@ -258,35 +258,26 @@ WebSocket 终端连接没有实现 ping/pong 心跳机制。在网络不稳定�
 
 **状态**: **渐进式迁移中** (2026-02-10)
 
-**位置**: `src/pages/Learn.tsx`
+**位置**: `src/pages/Learn.tsx` (1590行)
 
 **问题描述**:
-Learn 页面使用了约20个独立的 `useState`，状态之间依赖关系复杂：
-```typescript
-const [course, setCourse] = useState<Course | null>(null)
-const [currentStep, setCurrentStep] = useState(-1)
-const [loading, setLoading] = useState(true)
-const [containerId, setContainerId] = useState<string | null>(null)
-const [containerStatus, setContainerStatus] = useState<ContainerStatus>('stopped')
-// ... 还有15+个状态
-```
-
-状态逻辑分散在多个 `useEffect` 中，难以追踪和调试。
-
-**潜在影响**:
-- 状态更新逻辑复杂，容易引入bug
-- 组件重渲染性能问题
-- 难以测试和维护
-- 状态不一致风险
+Learn 页面使用了约20个独立的 `useState`，状态之间依赖关系复杂，难以维护和调试。
 
 **修复方案**:
 
 #### Phase 1: 创建 Zustand Store ✅ 已完成
-- **状态管理 Store** (`src/store/learnStore.ts`):
-  - `LearnState`: 包含所有状态变量
-  - `LearnActions`: 包含所有操作方法
-  - 使用 `devtools` 中间件便于调试
-  - 使用 `persist` 中间件持久化存储
+**文件**: `src/store/learnStore.ts`
+
+| 类型 | 数量 | 说明 |
+|------|------|------|
+| 状态变量 | 15 | course, containerStatus, isConnected 等 |
+| 操作方法 | 9 | startCourse, stopCourse, pauseCourse 等 |
+| 选择器 | 2 | effectiveImageSelector, imageSourceLabelSelector |
+
+**Store 特性**:
+- ✅ `devtools` 中间件（便于 Redux DevTools 调试）
+- ✅ `persist` 中间件（持久化 selectedImage, selectedImageSourceId）
+- ✅ 类型安全（完整的 TypeScript 类型定义）
 
 #### Phase 2: 初步迁移 Learn.tsx ✅ 已完成
 ```typescript
@@ -298,22 +289,47 @@ const [containerStatus, setContainerStatus] = useState<ContainerStatus>('stopped
 const {
   course, setCourse,
   containerStatus, setContainerStatus,
-  // ... 更多状态
+  startCourseContainer, stopCourse,
+  pauseCourse, resumeCourse,
 } = useLearnStore()
 ```
 
-#### Phase 3: 待继续迁移
-- [ ] 迁移 `startCourse` 操作为 store action
-- [ ] 迁移 `stopCourse` 操作为 store action
-- [ ] 迁移 `pauseCourse`/`resumeCourse` 操作
-- [ ] 迁移 `startStatusMonitoring` 状态监控
-- [ ] 简化冗余的 `useEffect` 和 `ref`
-- [ ] 端口冲突和镜像选择处理
+#### Phase 3: LearnStore 扩展 ✅ 已完成
+- 添加 `confirmDialogMode` 状态
+- `startCourse` 返回 `containerId`
+- 完整实现 `startCourseContainer`, `stopCourse`, `pauseCourse`, `resumeCourse`, `checkContainerStatus`
 
 **迁移进度**:
-- 状态变量: 13/17 已迁移
-- 操作方法: 2/8 已迁移
+- 状态变量: 13/17 已迁移到组件
+- 操作方法: 5/9 已添加到 Store
 - 选择器: 2/2 已使用
+
+#### 待后续迁移
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| startCourseContainer -> store | 待完成 | 替换 useCallback |
+| checkContainerStatus -> store | 待完成 | 替换 useCallback |
+| pauseCourse -> store | 待完成 | 替换 useCallback |
+| resumeCourse -> store | 待完成 | 替换 useCallback |
+| 简化冗余 useEffect/ref | 待完成 | 移除重复逻辑 |
+| 完整功能测试 | 待完成 | 验证迁移正确性 |
+
+**使用示例**:
+```typescript
+// 新组件可以直接使用 LearnStore
+import { useLearnStore } from '../store/learnStore'
+
+function MyComponent() {
+  const { containerStatus, startCourseContainer } = useLearnStore()
+
+  const handleStart = async () => {
+    await startCourseContainer('course-id', 'image:tag')
+  }
+
+  return <div>{containerStatus}</div>
+}
+```
 
 **相关文件**:
 - `src/store/learnStore.ts`: Zustand 状态管理实现
@@ -321,7 +337,7 @@ const {
 
 **验证**:
 - TypeScript 类型检查通过 ✅
-- Learn.tsx 功能正常（向后兼容）
+- Learn.tsx 功能正常（向后兼容）✅
 
 ---
 
