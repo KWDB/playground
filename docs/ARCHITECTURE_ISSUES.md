@@ -339,6 +339,24 @@ function MyComponent() {
 - TypeScript 类型检查通过 ✅
 - Learn.tsx 功能正常（向后兼容）✅
 
+**新 Hook: useCourseContainer** (`src/hooks/useCourseContainer.ts`)
+```typescript
+import { useCourseContainer } from '../hooks/useCourseContainer'
+
+function NewComponent() {
+  const { containerStatus, start, stop } = useCourseContainer(courseId)
+  return <button onClick={start}>启动</button>
+}
+```
+
+#### 已提交的文件
+| 提交 | 说明 |
+|-----|-----|
+| e62e676 | 创建 LearnStore |
+| f9fb289 | 初步迁移 Learn.tsx |
+| 2e3ca95 | 扩展 LearnStore 功能 |
+| edfc370 | 创建 useCourseContainer Hook |
+
 ---
 
 ### 6. 缺少前端API客户端封装
