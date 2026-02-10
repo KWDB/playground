@@ -7,7 +7,9 @@
 
 ## 🔴 严重问题 (Critical)
 
-### 1. 容器ID解析逻辑缺陷
+### 1. 容器ID解析逻辑缺陷 ✅ 已修复
+
+**状态**: **已修复** (2026-02-10)
 
 **位置**: `internal/docker/controller.go:189`
 
@@ -23,16 +25,37 @@ courseID := strings.Join(parts[2:len(parts)-1], "-")
 - 课程切换时无法正确停止/启动容器
 - 并发操作可能误操作其他课程的容器
 
-**建议修复**:
-使用 Docker Labels 存储元数据，而不是依赖名称解析：
+**修复方案**:
+1. **创建容器时添加 Labels 存储元数据** (`internal/docker/controller.go:913-919`):
 ```go
 containerConfig := &container.Config{
     Labels: map[string]string{
-        "kwdb-playground.course-id": courseID,
-        "kwdb-playground.version":   "1.0",
+        LabelAppName:   "kwdb-playground",
+        LabelCourseID:  courseID,
+        LabelVersion:   "1.0",
+        LabelCreatedAt: time.Now().Format(time.RFC3339),
     },
 }
 ```
+
+2. **优先从 Labels 读取课程ID** (`internal/docker/controller.go:195-221`):
+   - 首先尝试从 Docker Labels 读取 `kwdb-playground.course-id`
+   - 如果 Labels 不存在，回退到名称解析（向后兼容旧容器）
+   - 改进了名称解析逻辑，正确识别时间戳后缀
+
+3. **更新清理逻辑** (`CleanupCourseContainers` 和 `CleanupAllContainers`):
+   - 使用 Labels 匹配课程容器
+   - 支持通过 Label `kwdb-playground.app` 识别 Playground 容器
+
+**测试覆盖**:
+- 添加了单元测试 `TestParseCourseIDFromContainerName`
+- 测试覆盖标准课程ID、含连字符的课程ID、多个连字符的情况
+- 验证向后兼容性
+
+**相关文件**:
+- `internal/docker/types.go`: 添加标签常量定义
+- `internal/docker/controller.go`: 修改容器创建、加载、清理逻辑
+- `internal/docker/controller_test.go`: 添加单元测试
 
 ---
 

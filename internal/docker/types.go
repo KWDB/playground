@@ -2,6 +2,18 @@ package docker
 
 import "time"
 
+// 容器标签常量定义
+const (
+	// LabelCourseID 课程ID标签键
+	LabelCourseID = "kwdb-playground.course-id"
+	// LabelAppName 应用名称标签键
+	LabelAppName = "kwdb-playground.app"
+	// LabelVersion 版本标签键
+	LabelVersion = "kwdb-playground.version"
+	// LabelCreatedAt 创建时间标签键
+	LabelCreatedAt = "kwdb-playground.created-at"
+)
+
 // ContainerState 定义容器状态枚举
 type ContainerState string
 
