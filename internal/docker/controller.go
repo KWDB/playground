@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/netip"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -179,23 +180,47 @@ func (d *dockerController) loadExistingContainers(ctx context.Context) error {
 			continue
 		}
 
-		// 解析容器名称获取课程ID
-		parts := strings.Split(containerName, "-")
-		if len(parts) < 3 {
-			continue
-		}
-
-		// 提取课程ID（去掉前缀kwdb-playground-）
-		courseID := strings.Join(parts[2:len(parts)-1], "-")
-		if courseID == "" {
-			continue
-		}
-
-		// 获取容器详细信息
+		// 获取容器详细信息（优先从详细信息中读取Labels）
 		inspect, err := d.client.ContainerInspect(ctx, container.ID)
 		if err != nil {
 			d.logger.Warn("警告：无法检查容器 %s: %v", containerName, err)
 			continue
+		}
+
+		// 提取课程ID：优先从Labels读取，回退到名称解析（向后兼容）
+		var courseID string
+		if inspect.Config != nil && inspect.Config.Labels != nil {
+			if id, ok := inspect.Config.Labels[LabelCourseID]; ok && id != "" {
+				courseID = id
+				d.logger.Debug("从Labels读取课程ID: %s (容器: %s)", courseID, containerName)
+			}
+		}
+
+		// 如果Labels中没有，使用名称解析作为后备（旧容器兼容）
+		if courseID == "" {
+			parts := strings.Split(containerName, "-")
+			if len(parts) < 4 {
+				d.logger.Warn("容器 %s 名称格式无效，跳过", containerName)
+				continue
+			}
+
+			// 解析容器名称获取课程ID
+			// 格式: kwdb-playground-{courseID}-{timestamp}
+			// courseID 可能包含连字符，timestamp 通常是数字
+			lastPart := parts[len(parts)-1]
+			if _, err := strconv.ParseInt(lastPart, 10, 64); err == nil {
+				// 最后一部分是时间戳，中间的都是课程ID
+				courseID = strings.Join(parts[2:len(parts)-1], "-")
+			} else {
+				// 无法识别时间戳，使用旧逻辑（可能不正确，但保持兼容）
+				courseID = strings.Join(parts[2:len(parts)-1], "-")
+				d.logger.Warn("容器 %s 使用时间戳回退解析，课程ID可能不准确: %s", containerName, courseID)
+			}
+
+			if courseID == "" {
+				d.logger.Warn("无法从容器 %s 解析课程ID，跳过", containerName)
+				continue
+			}
 		}
 
 		// 确定容器状态
@@ -568,70 +593,112 @@ func (d *dockerController) CheckPortConflict(ctx context.Context, courseID strin
 func (d *dockerController) CleanupCourseContainers(ctx context.Context, courseID string) (*CleanupResult, error) {
 	d.logger.Info("开始清理课程 %s 的所有容器", courseID)
 
-	// 获取所有容器列表
-	containers, err := d.client.ContainerList(ctx, client.ContainerListOptions{All: true})
+	// 获取所有容器列表（包括Labels以便识别课程）
+	containers, err := d.client.ContainerList(ctx, client.ContainerListOptions{
+		All: true,
+	})
 	if err != nil {
 		d.logger.Error("获取容器列表失败: %v", err)
 		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
 
-	// 查找匹配课程前缀的容器
-	coursePrefix := fmt.Sprintf("kwdb-playground-%s-", courseID)
+	// 获取容器的详细信息以读取Labels
 	cleanedContainers := make([]*ContainerInfo, 0)
 	var cleanupErrors []string
 
 	for _, container := range containers {
-		for _, name := range container.Names {
-			// 容器名称以 / 开头，需要去掉
-			cleanName := strings.TrimPrefix(name, "/")
-			if strings.HasPrefix(cleanName, coursePrefix) {
-				d.logger.Info("发现课程 %s 的容器: %s (状态: %s)", courseID, cleanName, container.State)
+		// 检查容器名称是否以 kwdb-playground- 开头
+		if len(container.Names) == 0 {
+			continue
+		}
 
-				// 如果容器正在运行，先停止它
-				if container.State == "running" {
-					d.logger.Info("停止运行中的容器: %s", container.ID[:12])
-					timeout := ContainerStopTimeout
-					if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
-						errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
-						d.logger.Error(errMsg)
-						cleanupErrors = append(cleanupErrors, errMsg)
-						continue
-					}
-				}
+		cleanName := strings.TrimPrefix(container.Names[0], "/")
+		if !strings.HasPrefix(cleanName, "kwdb-playground-") {
+			continue
+		}
 
-				// 删除容器
-				d.logger.Info("删除容器: %s", container.ID[:12])
-				if err := d.client.ContainerRemove(ctx, container.ID, client.ContainerRemoveOptions{Force: true}); err != nil {
-					errMsg := fmt.Sprintf("删除容器 %s 失败: %v", container.ID[:12], err)
-					d.logger.Error(errMsg)
-					cleanupErrors = append(cleanupErrors, errMsg)
-					continue
-				}
+		// 获取容器详细信息以读取Labels
+		inspect, err := d.client.ContainerInspect(ctx, container.ID)
+		if err != nil {
+			d.logger.Warn("无法检查容器 %s: %v", cleanName, err)
+			continue
+		}
 
-				// 从内存中移除容器信息
-				d.mu.Lock()
-				for id, info := range d.containers {
-					if info.DockerID == container.ID {
-						d.logger.Info("从内存中移除容器信息: %s", id)
-						delete(d.containers, id)
-						break
-					}
-				}
-				d.mu.Unlock()
+		// 从Labels读取课程ID（优先）或从名称解析（向后兼容）
+		containerCourseID := ""
+		if inspect.Config != nil && inspect.Config.Labels != nil {
+			if id, ok := inspect.Config.Labels[LabelCourseID]; ok {
+				containerCourseID = id
+			}
+		}
 
-				// 构建已清理的容器信息
-				containerInfo := &ContainerInfo{
-					ID:       container.ID,
-					CourseID: courseID,
-					DockerID: container.ID,
-					Name:     cleanName,
-					State:    d.mapDockerStateFromString(string(container.State)),
-					Message:  "Container cleaned up",
+		// 如果Labels中没有，使用名称前缀匹配（向后兼容）
+		if containerCourseID == "" {
+			coursePrefix := fmt.Sprintf("kwdb-playground-%s-", courseID)
+			if !strings.HasPrefix(cleanName, coursePrefix) {
+				continue
+			}
+			// 从名称解析课程ID
+			parts := strings.Split(cleanName, "-")
+			if len(parts) >= 4 {
+				lastPart := parts[len(parts)-1]
+				if _, err := strconv.ParseInt(lastPart, 10, 64); err == nil {
+					containerCourseID = strings.Join(parts[2:len(parts)-1], "-")
+				} else {
+					containerCourseID = strings.Join(parts[2:len(parts)-1], "-")
 				}
-				cleanedContainers = append(cleanedContainers, containerInfo)
+			}
+		}
+
+		// 检查是否匹配目标课程
+		if containerCourseID != courseID {
+			continue
+		}
+
+		d.logger.Info("发现课程 %s 的容器: %s (状态: %s)", courseID, cleanName, container.State)
+
+		// 如果容器正在运行，先停止它
+		if container.State == "running" {
+			d.logger.Info("停止运行中的容器: %s", container.ID[:12])
+			timeout := ContainerStopTimeout
+			if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
+				errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
+				d.logger.Error("%s", errMsg)
+				cleanupErrors = append(cleanupErrors, errMsg)
+				continue
+			}
+		}
+
+		// 删除容器
+		d.logger.Info("删除容器: %s", container.ID[:12])
+		if err := d.client.ContainerRemove(ctx, container.ID, client.ContainerRemoveOptions{Force: true}); err != nil {
+			errMsg := fmt.Sprintf("删除容器 %s 失败: %v", container.ID[:12], err)
+			d.logger.Error("%s", errMsg)
+			cleanupErrors = append(cleanupErrors, errMsg)
+			continue
+		}
+
+		// 从内存中移除容器信息
+		d.mu.Lock()
+		for id, info := range d.containers {
+			if info.DockerID == container.ID {
+				d.logger.Info("从内存中移除容器信息: %s", id)
+				delete(d.containers, id)
 				break
 			}
 		}
+		d.mu.Unlock()
+
+		// 构建已清理的容器信息
+		containerInfo := &ContainerInfo{
+			ID:       container.ID,
+			CourseID: courseID,
+			DockerID: container.ID,
+			Name:     cleanName,
+			State:    d.mapDockerStateFromString(string(container.State)),
+			Message:  "Container cleaned up",
+		}
+		cleanedContainers = append(cleanedContainers, containerInfo)
 	}
 
 	// 构建清理结果
@@ -672,68 +739,107 @@ func (d *dockerController) CleanupAllContainers(ctx context.Context) (*CleanupRe
 	var cleanupErrors []string
 
 	for _, container := range containers {
-		for _, name := range container.Names {
-			cleanName := strings.TrimPrefix(name, "/")
-			// 匹配 kwdb-playground- 前缀
-			if strings.HasPrefix(cleanName, "kwdb-playground-") {
-				d.logger.Info("发现 Playground 容器: %s (状态: %s)", cleanName, container.State)
+		// 检查容器名称是否以 kwdb-playground- 开头
+		if len(container.Names) == 0 {
+			continue
+		}
 
-				// 如果容器正在运行，先停止它
-				if container.State == "running" {
-					d.logger.Info("停止运行中的容器: %s", container.ID[:12])
-					timeout := ContainerStopTimeout
-					if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
-						errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
-						d.logger.Error(errMsg)
-						cleanupErrors = append(cleanupErrors, errMsg)
-						continue
-					}
-				}
+		cleanName := strings.TrimPrefix(container.Names[0], "/")
+		if !strings.HasPrefix(cleanName, "kwdb-playground-") {
+			continue
+		}
 
-				// 删除容器
-				d.logger.Info("删除容器: %s", container.ID[:12])
-				if err := d.client.ContainerRemove(ctx, container.ID, client.ContainerRemoveOptions{Force: true}); err != nil {
-					errMsg := fmt.Sprintf("删除容器 %s 失败: %v", container.ID[:12], err)
-					d.logger.Error(errMsg)
-					cleanupErrors = append(cleanupErrors, errMsg)
-					continue
-				}
+		// 获取容器详细信息以读取Labels
+		inspect, err := d.client.ContainerInspect(ctx, container.ID)
+		if err != nil {
+			d.logger.Warn("无法检查容器 %s: %v", cleanName, err)
+			continue
+		}
 
-				// 从内存中移除容器信息
-				d.mu.Lock()
-				// 这里需要遍历 map 找到对应的 key
-				var keysToRemove []string
-				for id, info := range d.containers {
-					if info.DockerID == container.ID {
-						keysToRemove = append(keysToRemove, id)
-					}
-				}
-				for _, key := range keysToRemove {
-					d.logger.Info("从内存中移除容器信息: %s", key)
-					delete(d.containers, key)
-				}
-				d.mu.Unlock()
-
-				// 提取 CourseID
-				parts := strings.Split(cleanName, "-")
-				courseID := "unknown"
-				if len(parts) >= 3 {
-					courseID = strings.Join(parts[2:len(parts)-2], "-")
-				}
-
-				// 构建已清理的容器信息
-				containerInfo := &ContainerInfo{
-					ID:       container.ID,
-					CourseID: courseID,
-					DockerID: container.ID,
-					Name:     cleanName,
-					State:    d.mapDockerStateFromString(string(container.State)),
-					Message:  "Container cleaned up",
-				}
-				cleanedContainers = append(cleanedContainers, containerInfo)
-				break
+		// 验证是否为Playground容器（通过Labels或名称）
+		isPlaygroundContainer := false
+		if inspect.Config != nil && inspect.Config.Labels != nil {
+			if appName, ok := inspect.Config.Labels[LabelAppName]; ok && appName == "kwdb-playground" {
+				isPlaygroundContainer = true
 			}
 		}
+		// 向后兼容：如果没有Labels，检查名称前缀
+		if !isPlaygroundContainer {
+			isPlaygroundContainer = strings.HasPrefix(cleanName, "kwdb-playground-")
+		}
+
+		if !isPlaygroundContainer {
+			continue
+		}
+
+		d.logger.Info("发现 Playground 容器: %s (状态: %s)", cleanName, container.State)
+
+		// 如果容器正在运行，先停止它
+		if container.State == "running" {
+			d.logger.Info("停止运行中的容器: %s", container.ID[:12])
+			timeout := ContainerStopTimeout
+			if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
+				errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
+				d.logger.Error("%s", errMsg)
+				cleanupErrors = append(cleanupErrors, errMsg)
+				continue
+			}
+		}
+
+		// 删除容器
+		d.logger.Info("删除容器: %s", container.ID[:12])
+		if err := d.client.ContainerRemove(ctx, container.ID, client.ContainerRemoveOptions{Force: true}); err != nil {
+			errMsg := fmt.Sprintf("删除容器 %s 失败: %v", container.ID[:12], err)
+			d.logger.Error("%s", errMsg)
+			cleanupErrors = append(cleanupErrors, errMsg)
+			continue
+		}
+
+		// 从内存中移除容器信息
+		d.mu.Lock()
+		// 这里需要遍历 map 找到对应的 key
+		var keysToRemove []string
+		for id, info := range d.containers {
+			if info.DockerID == container.ID {
+				keysToRemove = append(keysToRemove, id)
+			}
+		}
+		for _, key := range keysToRemove {
+			d.logger.Info("从内存中移除容器信息: %s", key)
+			delete(d.containers, key)
+		}
+		d.mu.Unlock()
+
+		// 从Labels读取CourseID，如果不存在则回退到名称解析
+		courseID := "unknown"
+		if inspect.Config != nil && inspect.Config.Labels != nil {
+			if id, ok := inspect.Config.Labels[LabelCourseID]; ok && id != "" {
+				courseID = id
+			}
+		}
+		if courseID == "unknown" {
+			// 向后兼容：从名称解析
+			parts := strings.Split(cleanName, "-")
+			if len(parts) >= 4 {
+				lastPart := parts[len(parts)-1]
+				if _, err := strconv.ParseInt(lastPart, 10, 64); err == nil {
+					courseID = strings.Join(parts[2:len(parts)-1], "-")
+				} else {
+					courseID = strings.Join(parts[2:len(parts)-1], "-")
+				}
+			}
+		}
+
+		// 构建已清理的容器信息
+		containerInfo := &ContainerInfo{
+			ID:       container.ID,
+			CourseID: courseID,
+			DockerID: container.ID,
+			Name:     cleanName,
+			State:    d.mapDockerStateFromString(string(container.State)),
+			Message:  "Container cleaned up",
+		}
+		cleanedContainers = append(cleanedContainers, containerInfo)
 	}
 
 	// 构建清理结果
@@ -916,6 +1022,12 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 		ExposedPorts: exposedPorts,
 		WorkingDir:   config.WorkingDir,
 		Cmd:          config.Cmd,
+		Labels: map[string]string{
+			LabelAppName:   "kwdb-playground",
+			LabelCourseID:  courseID,
+			LabelVersion:   "1.0",
+			LabelCreatedAt: time.Now().Format(time.RFC3339),
+		},
 	}
 
 	// 创建主机配置
@@ -1686,7 +1798,7 @@ func (d *dockerController) ensureImageExistsWithProgress(ctx context.Context, im
 			Status:    "拉取失败",
 			Error:     errorMsg,
 		})
-		return fmt.Errorf(errorMsg)
+		return fmt.Errorf("%s", errorMsg)
 	}
 
 	// 发送拉取成功的进度信息
@@ -1775,7 +1887,7 @@ func (d *dockerController) imageExistsExact(ctx context.Context, imageName strin
 		return false, nil
 	}
 	errorMsg := d.classifyImageCheckError(err, imageName)
-	return false, fmt.Errorf(errorMsg)
+	return false, fmt.Errorf("%s", errorMsg)
 }
 
 func (d *dockerController) resolveLocalImageReference(ctx context.Context, imageName string) (string, bool, error) {
@@ -1850,7 +1962,7 @@ func (d *dockerController) pullImageWithProgress(ctx context.Context, imageName 
 				Error:     errorMsg,
 			})
 		}
-		return fmt.Errorf(errorMsg)
+		return fmt.Errorf("%s", errorMsg)
 	}
 	defer resp.Close()
 

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"kwdb-playground/internal/check"
@@ -38,11 +37,8 @@ type Handler struct {
 	// cfg 全局配置，用于环境检查等场景
 	cfg *config.Config
 
-	// sqlDriver KWDB 连接驱动（SQL 终端使用）
-	sqlDriver *sql.Driver
-
-	// containerMutex 容器操作互斥锁，防止并发创建/删除容器
-	containerMutex sync.Mutex
+	// sqlDriverManager KWDB 连接驱动管理器（按课程隔离）
+	sqlDriverManager *sql.DriverManager
 }
 
 // NewHandler 创建新的API处理器
@@ -67,7 +63,7 @@ func NewHandler(
 		terminalManager:  terminalManager,
 		logger:           logger,
 		cfg:              cfg,
-		sqlDriver:        &sql.Driver{},
+		sqlDriverManager: sql.NewDriverManager(),
 	}
 }
 
@@ -151,8 +147,8 @@ func (h *Handler) sqlInfo(c *gin.Context) {
 	// 确保连接池就绪
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := h.sqlDriver.EnsureReady(ctx, courseObj); err != nil {
-		// 调整为返回200并标记未连接，避免前端出现“加载失败”红色错误
+	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj); err != nil {
+		// 调整为返回200并标记未连接，避免前端出现"加载失败"红色错误
 		c.JSON(http.StatusOK, gin.H{
 			"connected": false,
 			"port":      port,
@@ -164,7 +160,7 @@ func (h *Handler) sqlInfo(c *gin.Context) {
 		return
 	}
 	// 查询版本信息
-	pool := h.sqlDriver.Pool()
+	pool := h.sqlDriverManager.Pool(courseID)
 	var version string
 	var arch string
 	var buildTime string
@@ -203,13 +199,13 @@ func (h *Handler) sqlHealth(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := h.sqlDriver.EnsureReady(ctx, courseObj); err != nil {
+	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "down", "message": err.Error(), "port": port})
 		return
 	}
 	start := time.Now()
 	var one int
-	if err := h.sqlDriver.Pool().QueryRow(ctx, "SELECT 1").Scan(&one); err != nil {
+	if err := h.sqlDriverManager.Pool(courseID).QueryRow(ctx, "SELECT 1").Scan(&one); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
 	}
@@ -232,10 +228,6 @@ func (h *Handler) getAllContainers(c *gin.Context) {
 // cleanupAllContainers 清理所有 Playground 容器
 func (h *Handler) cleanupAllContainers(c *gin.Context) {
 	ctx := c.Request.Context()
-
-	// 使用互斥锁防止并发清理冲突
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
 
 	result, err := h.dockerController.CleanupAllContainers(ctx)
 	if err != nil {
@@ -382,11 +374,6 @@ func (h *Handler) startCourse(c *gin.Context) {
 	}
 	// 尝试解析JSON，如果失败（例如空body）则忽略错误
 	_ = c.ShouldBindJSON(&requestBody)
-
-	// 使用互斥锁防止并发创建容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[startCourse] 获取容器操作锁，课程ID: %s", id)
 
 	// 始终为每次调用创建一个新的容器实例，不再复用或跳过
 	ctx := context.Background()
@@ -615,11 +602,6 @@ func (h *Handler) stopCourse(c *gin.Context) {
 		return
 	}
 
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[stopCourse] 获取容器操作锁，课程ID: %s", id)
-
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -720,11 +702,6 @@ func (h *Handler) pauseCourse(c *gin.Context) {
 		return
 	}
 
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[pauseCourse] 获取容器操作锁，课程ID: %s", id)
-
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -822,11 +799,6 @@ func (h *Handler) resumeCourse(c *gin.Context) {
 		})
 		return
 	}
-
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[resumeCourse] 获取容器操作锁，课程ID: %s", id)
 
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
@@ -1225,10 +1197,6 @@ func (h *Handler) stopContainerByID(c *gin.Context) {
 		return
 	}
 
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-
 	if h.dockerController == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Docker服务暂不可用"})
 		return
@@ -1380,15 +1348,51 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
+	// 设置WebSocket心跳超时
+	const (
+		writeWait  = 10 * time.Second    // 写入超时
+		pongWait   = 60 * time.Second    // 等待pong消息的时间
+		pingPeriod = (pongWait * 9) / 10 // 发送ping的周期（54秒）
+	)
+
+	// 设置读取超时和pong处理器
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
 	var courseObj *course.Course
 	ctx := context.Background()
+
+	// 启动ping协程发送心跳
+	stopPing := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					h.logger.Debug("SQL WebSocket发送ping失败: %v", err)
+					return
+				}
+			case <-stopPing:
+				return
+			}
+		}
+	}()
 
 	for {
 		var msg map[string]interface{}
 		if err := conn.ReadJSON(&msg); err != nil {
 			h.logger.Debug("SQL WebSocket读取结束或错误: %v", err)
+			close(stopPing)
 			return
 		}
+		// 收到任何消息都重置读取截止时间
+		conn.SetReadDeadline(time.Now().Add(pongWait))
 		t, _ := msg["type"].(string)
 		switch t {
 		case "init":
@@ -1404,7 +1408,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 				continue
 			}
 			// 确保连接池就绪
-			if err := h.sqlDriver.EnsureReady(ctx, courseObj); err != nil {
+			if err := h.sqlDriverManager.EnsureReady(ctx, courseObj); err != nil {
 				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": fmt.Sprintf("KWDB未就绪: %v", err)})
 				continue
 			}
@@ -1412,7 +1416,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 			_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
 			_ = conn.WriteJSON(map[string]interface{}{"type": "info", "port": courseObj.Backend.Port, "connected": true})
 		case "query":
-			if courseObj == nil || h.sqlDriver.Pool() == nil {
+			if courseObj == nil || h.sqlDriverManager.Pool(courseObj.ID) == nil {
 				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "连接未初始化"})
 				continue
 			}
@@ -1427,7 +1431,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 			// 支持跳过注释，能处理以注释开头的 SQL 语句
 			if isSelectQuery(sqlText) {
 				// 查询操作：使用 Query() 方法
-				rows, err := h.sqlDriver.Pool().Query(ctx, sqlText)
+				rows, err := h.sqlDriverManager.Pool(courseObj.ID).Query(ctx, sqlText)
 				if err != nil {
 					_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": err.Error()})
 					continue
@@ -1477,7 +1481,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 				})
 			} else {
 				// 数据修改操作：使用 Exec() 方法
-				commandTag, err := h.sqlDriver.Pool().Exec(ctx, sqlText)
+				commandTag, err := h.sqlDriverManager.Pool(courseObj.ID).Exec(ctx, sqlText)
 				if err != nil {
 					_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": err.Error()})
 					continue
@@ -1666,11 +1670,6 @@ func (h *Handler) cleanupCourseContainers(c *gin.Context) {
 		})
 		return
 	}
-
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[cleanupCourseContainers] 获取容器操作锁，课程ID: %s", courseID)
 
 	// 调用Docker控制器清理容器
 	ctx := context.Background()

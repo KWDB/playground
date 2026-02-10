@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Server, ImageIcon } from 'lucide-react'
 import SqlTerminal, { SqlTerminalRef } from '../components/business/SqlTerminal'
@@ -16,6 +16,8 @@ import PortConflictHandler from '../components/business/PortConflictHandler';
 import { ImageSelector } from '../components/business/ImageSelector';
 import '../styles/markdown.css';
 import { ContainerInfo } from '../types/container';
+import { useLearnStore, effectiveImageSelector, imageSourceLabelSelector, ContainerStatus } from '../store/learnStore';
+import { fetchJson } from '../lib/http'
 
 interface Course {
   id: string
@@ -27,76 +29,50 @@ interface Course {
     finish: { content: string }
   }
   sqlTerminal?: boolean
-  backend?: { 
+  backend?: {
     port?: number
     imageid?: string
   }
 }
 
-// 更严格的容器状态类型
-type ContainerStatus = 'stopped' | 'starting' | 'running' | 'paused' | 'exited' | 'error' | 'completed' | 'stopping'
-
-// 接口响应类型
 interface ContainerStatusResponse { status: ContainerStatus; exitCode?: number }
-// interface StartCourseResponse { containerId: string } // 暂未使用，移除以避免未使用警告
 
-import { fetchJson } from '../lib/http'
- 
- export function Learn() {
+export function Learn() {
   const { courseId } = useParams<{ courseId: string }>()
   const navigate = useNavigate()
-  const [course, setCourse] = useState<Course | null>(null)
-  const [currentStep, setCurrentStep] = useState(-1)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false)
-  const [containerId, setContainerId] = useState<string | null>(null)
-  const [containerStatus, setContainerStatus] = useState<ContainerStatus>('stopped')
-  const [isStartingContainer, setIsStartingContainer] = useState<boolean>(false)
-  const terminalRef = useRef<TerminalRef>(null)
+
+  const {
+    course,
+    setCourse,
+    currentStep,
+    setCurrentStep,
+    loading,
+    setLoading,
+    error,
+    setError,
+    showConfirmDialog,
+    setShowConfirmDialog,
+    containerId,
+    setContainerId,
+    containerStatus,
+    setContainerStatus,
+    isStartingContainer,
+    setIsStartingContainer,
+    showPortConflictHandler,
+    setShowPortConflictHandler,
+    showImageSelector,
+    setShowImageSelector,
+    selectedImage,
+    setSelectedImage,
+    selectedImageSourceId,
+    setSelectedImageSourceId,
+  } = useLearnStore()
+
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
+  const terminalRef = useRef<TerminalRef>(null)
 
-  // 端口冲突处理相关状态
-  const [showPortConflictHandler, setShowPortConflictHandler] = useState<boolean>(false)
-
-  // 镜像选择器相关状态
-  const [showImageSelector, setShowImageSelector] = useState<boolean>(false)
-  const [selectedImage, setSelectedImage] = useState<string>('')
-  const [selectedImageSourceId, setSelectedImageSourceId] = useState<string>('')
-
-  useEffect(() => {
-    const savedSourceId = localStorage.getItem('imageSourceId')?.trim()
-    if (savedSourceId) {
-      setSelectedImageSourceId(savedSourceId)
-    }
-
-    const savedImage = localStorage.getItem('selectedImageFullName')?.trim()
-    if (savedImage) {
-      setSelectedImage(savedImage)
-    }
-  }, [])
-
-  const effectiveImage = useMemo(() => {
-    const v = selectedImage.trim()
-    if (v) return v
-    return course?.backend?.imageid || 'kwdb/kwdb:latest'
-  }, [course?.backend?.imageid, selectedImage])
-
-  const imageSourceLabel = useMemo(() => {
-    const id = selectedImageSourceId.trim()
-    if (id === 'ghcr') return 'ghcr.io'
-    if (id === 'aliyun') return 'Aliyun ACR'
-    if (id === 'custom') return 'Custom'
-    if (id === 'docker-hub') return 'Docker Hub'
-
-    const img = effectiveImage.trim()
-    const first = img.split('/')[0] || ''
-    const hasRegistry = first === 'localhost' || first.includes('.') || first.includes(':')
-    if (first === 'ghcr.io') return 'ghcr.io'
-    if (first === 'registry.cn-hangzhou.aliyuncs.com') return 'Aliyun ACR'
-    if (hasRegistry) return 'Custom'
-    return 'Docker Hub'
-  }, [effectiveImage, selectedImageSourceId])
+  const effectiveImage = useMemo(() => effectiveImageSelector(useLearnStore.getState() as any), [course, selectedImage])
+  const imageSourceLabel = useMemo(() => imageSourceLabelSelector(useLearnStore.getState() as any), [selectedImageSourceId, selectedImage, course])
 
   // 确认弹窗模式：区分来源以动态文案
   // const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
