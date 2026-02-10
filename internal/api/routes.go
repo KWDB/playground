@@ -1436,7 +1436,6 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 					_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": err.Error()})
 					continue
 				}
-				defer rows.Close()
 
 				// 获取列信息
 				fieldDescs := rows.FieldDescriptions()
@@ -1467,6 +1466,9 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 
 					outRows = append(outRows, formattedVals)
 				}
+
+				// 显式关闭 rows，避免在循环中使用 defer 导致资源累积
+				rows.Close()
 
 				h.logger.Debug("[handleSqlWebSocket] 查询结果，列: %v, 行: %v", cols, outRows)
 
