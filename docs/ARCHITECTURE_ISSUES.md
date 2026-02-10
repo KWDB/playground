@@ -59,7 +59,9 @@ containerConfig := &container.Config{
 
 ---
 
-### 2. SQL驱动单例并发问题
+### 2. SQL驱动单例并发问题 ✅ 已修复
+
+**状态**: **已修复** (2026-02-10)
 
 **位置**: `internal/api/routes.go:71`
 
@@ -77,18 +79,49 @@ sqlDriver: &sql.Driver{},
 - 并发性能瓶颈
 - 数据库连接错误
 
-**建议修复**:
-为每个课程维护独立的连接池：
+**修复方案**:
+1. **创建 DriverManager 管理器** (`internal/sql/manager.go`):
 ```go
-type SQLDriverManager struct {
-    drivers map[string]*sql.Driver // key: courseID
+type DriverManager struct {
+    drivers map[string]*Driver // key: courseID
     mu      sync.RWMutex
 }
 
-func (m *SQLDriverManager) GetDriver(courseID string) *sql.Driver {
+func (m *DriverManager) GetDriver(courseID string) *Driver {
     // 按需创建和管理独立驱动实例
+    // 使用读写锁保证并发安全
 }
 ```
+
+2. **按课程隔离连接池**:
+   - 每个课程拥有独立的 `*sql.Driver` 实例
+   - 每个驱动维护自己的 `*pgxpool.Pool` 连接池
+   - 使用课程ID作为键管理多个驱动实例
+
+3. **更新 Handler 使用管理器** (`internal/api/routes.go`):
+   - 将 `sqlDriver *sql.Driver` 替换为 `sqlDriverManager *sql.DriverManager`
+   - 所有 SQL 操作通过 `sqlDriverManager.Pool(courseID)` 获取对应课程的连接池
+   - WebSocket SQL 终端根据当前课程获取正确的连接
+
+4. **并发安全保障**:
+   - 使用 `sync.RWMutex` 保护驱动映射表
+   - 双重检查锁定模式防止重复创建
+   - 提供 `RemoveDriver` 方法在课程停止时清理资源
+
+**测试覆盖**:
+- `TestDriverManagerConcurrentAccess`: 验证并发访问安全性
+- `TestDriverManagerRemoveDriver`: 验证驱动移除功能
+- `TestDriverManagerClose`: 验证资源清理
+- `BenchmarkDriverManagerGetDriver`: 性能基准测试
+
+**相关文件**:
+- `internal/sql/manager.go`: 新增驱动管理器实现
+- `internal/sql/manager_test.go`: 新增单元测试
+- `internal/api/routes.go`: 更新 Handler 使用新的管理器
+
+**API变更**:
+- REST API: `sqlInfo` 和 `sqlHealth` 现在使用课程特定的连接池
+- WebSocket SQL: `handleSqlWebSocket` 根据 `courseObj.ID` 路由到正确的连接池
 
 ---
 

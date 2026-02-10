@@ -38,8 +38,8 @@ type Handler struct {
 	// cfg 全局配置，用于环境检查等场景
 	cfg *config.Config
 
-	// sqlDriver KWDB 连接驱动（SQL 终端使用）
-	sqlDriver *sql.Driver
+	// sqlDriverManager KWDB 连接驱动管理器（按课程隔离）
+	sqlDriverManager *sql.DriverManager
 
 	// containerMutex 容器操作互斥锁，防止并发创建/删除容器
 	containerMutex sync.Mutex
@@ -67,7 +67,7 @@ func NewHandler(
 		terminalManager:  terminalManager,
 		logger:           logger,
 		cfg:              cfg,
-		sqlDriver:        &sql.Driver{},
+		sqlDriverManager: sql.NewDriverManager(),
 	}
 }
 
@@ -151,8 +151,8 @@ func (h *Handler) sqlInfo(c *gin.Context) {
 	// 确保连接池就绪
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := h.sqlDriver.EnsureReady(ctx, courseObj); err != nil {
-		// 调整为返回200并标记未连接，避免前端出现“加载失败”红色错误
+	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj); err != nil {
+		// 调整为返回200并标记未连接，避免前端出现"加载失败"红色错误
 		c.JSON(http.StatusOK, gin.H{
 			"connected": false,
 			"port":      port,
@@ -164,7 +164,7 @@ func (h *Handler) sqlInfo(c *gin.Context) {
 		return
 	}
 	// 查询版本信息
-	pool := h.sqlDriver.Pool()
+	pool := h.sqlDriverManager.Pool(courseID)
 	var version string
 	var arch string
 	var buildTime string
@@ -203,13 +203,13 @@ func (h *Handler) sqlHealth(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := h.sqlDriver.EnsureReady(ctx, courseObj); err != nil {
+	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "down", "message": err.Error(), "port": port})
 		return
 	}
 	start := time.Now()
 	var one int
-	if err := h.sqlDriver.Pool().QueryRow(ctx, "SELECT 1").Scan(&one); err != nil {
+	if err := h.sqlDriverManager.Pool(courseID).QueryRow(ctx, "SELECT 1").Scan(&one); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
 	}
@@ -1404,7 +1404,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 				continue
 			}
 			// 确保连接池就绪
-			if err := h.sqlDriver.EnsureReady(ctx, courseObj); err != nil {
+			if err := h.sqlDriverManager.EnsureReady(ctx, courseObj); err != nil {
 				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": fmt.Sprintf("KWDB未就绪: %v", err)})
 				continue
 			}
@@ -1412,7 +1412,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 			_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
 			_ = conn.WriteJSON(map[string]interface{}{"type": "info", "port": courseObj.Backend.Port, "connected": true})
 		case "query":
-			if courseObj == nil || h.sqlDriver.Pool() == nil {
+			if courseObj == nil || h.sqlDriverManager.Pool(courseObj.ID) == nil {
 				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "连接未初始化"})
 				continue
 			}
@@ -1427,7 +1427,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 			// 支持跳过注释，能处理以注释开头的 SQL 语句
 			if isSelectQuery(sqlText) {
 				// 查询操作：使用 Query() 方法
-				rows, err := h.sqlDriver.Pool().Query(ctx, sqlText)
+				rows, err := h.sqlDriverManager.Pool(courseObj.ID).Query(ctx, sqlText)
 				if err != nil {
 					_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": err.Error()})
 					continue
@@ -1477,7 +1477,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 				})
 			} else {
 				// 数据修改操作：使用 Exec() 方法
-				commandTag, err := h.sqlDriver.Pool().Exec(ctx, sqlText)
+				commandTag, err := h.sqlDriverManager.Pool(courseObj.ID).Exec(ctx, sqlText)
 				if err != nil {
 					_ = conn.WriteJSON(map[string]interface{}{"type": "error", "queryId": qid, "message": err.Error()})
 					continue
