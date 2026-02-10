@@ -163,7 +163,8 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
   }, [resizeTerminal]);
 
   const sendCommand = useCallback((command: string) => {
-    sendInput(command + '\r', true);
+    const normalized = command.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    sendInput(normalized + '\r', true);
   }, [sendInput]);
 
   // 解析镜像拉取进度百分比的辅助函数
