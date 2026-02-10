@@ -15,27 +15,9 @@ import CourseContentPanel from '../components/business/CourseContentPanel';
 import PortConflictHandler from '../components/business/PortConflictHandler';
 import { ImageSelector } from '../components/business/ImageSelector';
 import '../styles/markdown.css';
-import { ContainerInfo } from '../types/container';
 import { useLearnStore, effectiveImageSelector, imageSourceLabelSelector, ContainerStatus } from '../store/learnStore';
-import { fetchJson } from '../lib/http'
-
-interface Course {
-  id: string
-  title: string
-  description: string
-  details: {
-    intro: { content: string }
-    steps: Array<{ title: string; content: string }>
-    finish: { content: string }
-  }
-  sqlTerminal?: boolean
-  backend?: {
-    port?: number
-    imageid?: string
-  }
-}
-
-interface ContainerStatusResponse { status: ContainerStatus; exitCode?: number }
+import { api } from '../lib/api/client'
+import type { ContainerStatusResponse, Course } from '../lib/api/types'
 
 export function Learn() {
   const { courseId } = useParams<{ courseId: string }>()
@@ -98,7 +80,7 @@ export function Learn() {
   const checkContainerStatus = useCallback(async (id: string, shouldUpdateState = true, signal?: AbortSignal) => {
     try {
       console.log(`开始检查容器状态，容器ID: ${id}`)
-      const data = await fetchJson<ContainerStatusResponse>(`/api/containers/${id}/status`, { signal })
+      const data = await api.containers.getStatus(id, signal)
       console.log('容器状态检查结果:', data)
 
       if (shouldUpdateState) {
@@ -210,17 +192,11 @@ export function Learn() {
       
       // 准备请求体，包含可选的镜像参数
       const requestBody = selectedImage ? { image: selectedImage } : {}
-      
-      const data = await fetchJson<{ containerId: string }>(
-        `/api/courses/${courseId}/start`, 
-        { 
-          method: 'POST', 
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: Object.keys(requestBody).length > 0 ? JSON.stringify(requestBody) : undefined,
-        }
+
+      const data = await api.courses.start(
+        courseId,
+        Object.keys(requestBody).length > 0 ? requestBody : undefined,
+        controller.signal
       )
       console.log('容器启动成功，响应数据:', data)
 
@@ -402,7 +378,7 @@ export function Learn() {
         const url = `/api/containers/${containerId}/stop`
         console.log('按容器ID停止，URL:', url)
         try {
-          await fetchJson<void>(url, { method: 'POST' })
+          await api.containers.stop(containerId)
         } catch (err) {
           const msg = err instanceof Error ? err.message : ''
           if (msg.includes('404')) {
@@ -412,11 +388,9 @@ export function Learn() {
           }
         }
       } else {
-        // 回退：没有 containerId 时按课程ID停止（可能会停止同课程的其他页面容器，尽量避免）
-        const fallbackUrl = `/api/courses/${courseId}/stop`
-        console.log('缺少容器ID，回退按课程ID停止，URL:', fallbackUrl)
+        console.log('缺少容器ID，回退按课程ID停止')
         try {
-          await fetchJson<void>(fallbackUrl, { method: 'POST' })
+          await api.courses.stop(courseId)
         } catch (err) {
           const msg = err instanceof Error ? err.message : ''
           if (!msg.includes('404')) {
@@ -464,14 +438,11 @@ export function Learn() {
     try {
       // 优先按容器ID暂停
       if (containerId) {
-        const url = `/api/containers/${containerId}/pause`
-        console.log('按容器ID暂停，URL:', url)
-        await fetchJson<void>(url, { method: 'POST' })
+        console.log('按容器ID暂停，URL:', containerId)
+        await api.containers.pause(containerId)
       } else {
-        // 回退：按课程ID暂停
-        const fallbackUrl = `/api/courses/${courseId}/pause`
-        console.log('缺少容器ID，回退按课程ID暂停，URL:', fallbackUrl)
-        await fetchJson<void>(fallbackUrl, { method: 'POST' })
+        console.log('缺少容器ID，回退按课程ID暂停')
+        await api.courses.pause(courseId)
       }
 
       // 只有暂停成功后才更新状态
@@ -499,14 +470,11 @@ export function Learn() {
     try {
       // 优先按容器ID恢复
       if (containerId) {
-        const url = `/api/containers/${containerId}/unpause`
-        console.log('按容器ID恢复，URL:', url)
-        await fetchJson<void>(url, { method: 'POST' })
+        console.log('按容器ID恢复，URL:', containerId)
+        await api.containers.resume(containerId)
       } else {
-        // 回退：按课程ID恢复
-        const fallbackUrl = `/api/courses/${courseId}/resume`
-        console.log('缺少容器ID，回退按课程ID恢复，URL:', fallbackUrl)
-        await fetchJson<void>(fallbackUrl, { method: 'POST' })
+        console.log('缺少容器ID，回退按课程ID恢复')
+        await api.courses.resume(courseId)
       }
 
       // 只有恢复成功后才更新状态
@@ -532,7 +500,7 @@ export function Learn() {
 
   const fetchCourse = useCallback(async (id: string, signal?: AbortSignal) => {
     try {
-      const data = await fetchJson<{ course: Course }>(`/api/courses/${id}`, { signal })
+      const data = await api.courses.get(id, signal)
       setCourse(data.course)
     } catch (err) {
       const maybeAbortError = err as { name?: string }
@@ -548,8 +516,8 @@ export function Learn() {
   // 检查当前课程是否有运行中的容器
   const checkExistingContainer = useCallback(async (currentCourseId: string, signal?: AbortSignal) => {
     try {
-      const containers = await fetchJson<ContainerInfo[]>('/api/containers', { signal })
-      
+      const containers = await api.containers.list(signal)
+
       // 优先查找运行中的容器
       let existingContainer = containers.find(c => c.courseId === currentCourseId && c.state === 'running')
       
