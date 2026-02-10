@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import EnhancedSqlEditor from './EnhancedSqlEditor'
-import { fetchJson } from '@/lib/http'
+import { api } from '@/lib/api/client'
 
 type Props = {
   courseId: string
@@ -174,7 +174,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchJson<SqlInfo>(infoUrl, { signal })
+      const data = await api.sql.info(courseId, signal)
       setInfo(data)
     } catch (e) {
       const maybeAbort = e as { name?: string }
