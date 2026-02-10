@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Server, ImageIcon } from 'lucide-react'
 import SqlTerminal, { SqlTerminalRef } from '../components/business/SqlTerminal'
@@ -66,17 +66,13 @@ export function Learn() {
     setSelectedImage,
     selectedImageSourceId,
     setSelectedImageSourceId,
-    isConnected,
-    setIsConnected,
-    connectionError,
-    setConnectionError,
   } = useLearnStore()
 
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
   const terminalRef = useRef<TerminalRef>(null)
 
-  const effectiveImage = useMemo(() => effectiveImageSelector({ course, selectedImage } as any), [course, selectedImage])
-  const imageSourceLabel = useMemo(() => imageSourceLabelSelector({ selectedImageSourceId, selectedImage, course } as any), [selectedImageSourceId, selectedImage, course])
+  const effectiveImage = useMemo(() => effectiveImageSelector(useLearnStore.getState() as any), [course, selectedImage])
+  const imageSourceLabel = useMemo(() => imageSourceLabelSelector(useLearnStore.getState() as any), [selectedImageSourceId, selectedImage, course])
 
   // 确认弹窗模式：区分来源以动态文案
   // const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')

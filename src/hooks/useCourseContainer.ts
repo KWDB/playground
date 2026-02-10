@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { useLearnStore } from '../store/learnStore';
 
 interface UseCourseContainerOptions {
