@@ -81,6 +81,14 @@
   background-color: transparent !important;
 }
 
+.xterm,
+.xterm .xterm-rows,
+.xterm .xterm-rows > div {
+  font-variant-ligatures: none !important;
+  font-feature-settings: "liga" 0, "calt" 0 !important;
+  font-kerning: none !important;
+}
+
 /* 优化终端文本渲染 */
 .xterm-helper-textarea {
   position: absolute !important;
