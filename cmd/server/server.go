@@ -61,11 +61,11 @@ func Run(staticFiles embed.FS, args []string) error {
 	}
 
 	// 4) 业务主流程：加载配置、构建依赖、启动 HTTP 服务
-	cfg := config.Load()
-	if cfg == nil {
+	cfg, err := config.Load()
+	if err != nil {
 		// 创建临时logger用于配置加载失败的错误输出
 		tempLogger := logger.NewLogger(logger.ERROR)
-		tempLogger.Error("Failed to load configuration")
+		tempLogger.Error("Failed to load configuration: %v", err)
 		os.Exit(1)
 	}
 
