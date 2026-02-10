@@ -256,7 +256,7 @@ WebSocket 终端连接没有实现 ping/pong 心跳机制。在网络不稳定�
 
 ### 5. 前端状态管理混乱
 
-**状态**: **部分修复** (2026-02-10)
+**状态**: **渐进式迁移中** (2026-02-10)
 
 **位置**: `src/pages/Learn.tsx`
 
@@ -281,55 +281,47 @@ const [containerStatus, setContainerStatus] = useState<ContainerStatus>('stopped
 
 **修复方案**:
 
-1. **创建 Zustand 状态管理 Store** (`src/store/learnStore.ts`):
-```typescript
-interface LearnState {
-  course: Course | null
-  currentStep: number
-  loading: boolean
-  error: string | null
-  showConfirmDialog: boolean
-  containerId: string | null
-  containerStatus: ContainerStatus
-  isStartingContainer: boolean
-  showPortConflictHandler: boolean
-  showImageSelector: boolean
-  selectedImage: string
-  selectedImageSourceId: string
-  isConnected: boolean
-  connectionError: string | null
-}
+#### Phase 1: 创建 Zustand Store ✅ 已完成
+- **状态管理 Store** (`src/store/learnStore.ts`):
+  - `LearnState`: 包含所有状态变量
+  - `LearnActions`: 包含所有操作方法
+  - 使用 `devtools` 中间件便于调试
+  - 使用 `persist` 中间件持久化存储
 
-interface LearnActions {
-  setCourse: (course: Course | null) => void
-  setContainerStatus: (status: ContainerStatus) => void
-  startCourse: (courseId: string, image?: string) => Promise<void>
-  stopCourse: (courseId: string, containerId?: string | null) => Promise<void>
-  pauseCourse: (courseId: string, containerId?: string | null) => Promise<void>
-  resumeCourse: (courseId: string, containerId?: string | null) => Promise<void>
-  checkContainerStatus: (containerId: string) => Promise<ContainerStatus | null>
-  resetState: () => void
-}
+#### Phase 2: 初步迁移 Learn.tsx ✅ 已完成
+```typescript
+// 替换前
+const [course, setCourse] = useState<Course | null>(null)
+const [containerStatus, setContainerStatus] = useState<ContainerStatus>('stopped')
+
+// 替换后
+const {
+  course, setCourse,
+  containerStatus, setContainerStatus,
+  // ... 更多状态
+} = useLearnStore()
 ```
 
-2. **Store 特性**:
-   - 使用 `zustand/middleware` 的 `devtools` 和 `persist`
-   - 持久化存储：selectedImage、selectedImageSourceId
-   - 选择器：`effectiveImageSelector`、`imageSourceLabelSelector`
-   - 所有状态更新集中在 Store 内部
+#### Phase 3: 待继续迁移
+- [ ] 迁移 `startCourse` 操作为 store action
+- [ ] 迁移 `stopCourse` 操作为 store action
+- [ ] 迁移 `pauseCourse`/`resumeCourse` 操作
+- [ ] 迁移 `startStatusMonitoring` 状态监控
+- [ ] 简化冗余的 `useEffect` 和 `ref`
+- [ ] 端口冲突和镜像选择处理
 
-3. **待完成**:
-   - Learn.tsx 的完整迁移需要较大改动（1590行）
-   - 建议分阶段进行：
-     阶段1：新页面/组件可直接使用 LearnStore
-     阶段2：渐进式迁移 Learn.tsx（建议后续迭代）
+**迁移进度**:
+- 状态变量: 13/17 已迁移
+- 操作方法: 2/8 已迁移
+- 选择器: 2/2 已使用
 
 **相关文件**:
 - `src/store/learnStore.ts`: Zustand 状态管理实现
+- `src/pages/Learn.tsx`: 渐进式迁移中
 
 **验证**:
-- TypeScript 类型检查通过
-- Store API 设计完成
+- TypeScript 类型检查通过 ✅
+- Learn.tsx 功能正常（向后兼容）
 
 ---
 
