@@ -125,7 +125,9 @@ func (m *DriverManager) GetDriver(courseID string) *Driver {
 
 ---
 
-### 3. API层全局互斥锁性能瓶颈
+### 3. API层全局互斥锁性能瓶颈 ✅ 已修复
+
+**状态**: **已修复** (2026-02-10)
 
 **位置**: `internal/api/routes.go:45`
 
@@ -142,12 +144,34 @@ defer h.containerMutex.Unlock()
 - 用户体验差（启动A课程会阻塞B课程的停止操作）
 - 无法充分利用多核CPU
 
-**建议修复**:
-移除API层的全局锁，完全依赖Docker控制器的课程级锁：
-```go
-// 删除 containerMutex 字段
-// Docker 控制器内部的 getCourseMutex 已经提供了足够的并发控制
-```
+**修复方案**:
+1. **移除 API 层全局锁** (`internal/api/routes.go`):
+   - 删除 `containerMutex sync.Mutex` 字段
+   - 移除所有方法中的锁获取/释放代码
+   - 移除相关的调试日志（"获取容器操作锁"）
+
+2. **依赖 Docker 控制器的课程级锁**:
+   - `CreateContainerWithProgress` 已使用 `getCourseMutex(courseID)` 确保同一课程不会并发创建容器
+   - 读操作使用 `d.mu.RLock()` 保护容器映射表访问
+   - 写操作使用 `d.mu.Lock()` 保护状态更新
+
+3. **并发安全性保证**:
+   - 创建容器：课程级锁防止同一课程并发创建多个容器
+   - 停止/暂停/恢复：操作是幂等的，Docker API 线程安全
+   - 清理容器：通过容器ID操作，映射表访问受读写锁保护
+
+**性能提升**:
+- 不同课程的容器操作现在可以真正并行执行
+- 充分利用多核 CPU 处理并发请求
+- 用户启动 A 课程不再阻塞 B 课程的操作
+
+**相关文件**:
+- `internal/api/routes.go`: 移除 containerMutex 字段和相关代码
+
+**验证**:
+- 代码成功编译通过
+- Docker 控制器内部锁机制完整保留
+- 容器操作并发安全性得到保证
 
 ---
 

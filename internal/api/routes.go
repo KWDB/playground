@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"kwdb-playground/internal/check"
@@ -40,9 +39,6 @@ type Handler struct {
 
 	// sqlDriverManager KWDB 连接驱动管理器（按课程隔离）
 	sqlDriverManager *sql.DriverManager
-
-	// containerMutex 容器操作互斥锁，防止并发创建/删除容器
-	containerMutex sync.Mutex
 }
 
 // NewHandler 创建新的API处理器
@@ -233,9 +229,6 @@ func (h *Handler) getAllContainers(c *gin.Context) {
 func (h *Handler) cleanupAllContainers(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// 使用互斥锁防止并发清理冲突
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
 
 	result, err := h.dockerController.CleanupAllContainers(ctx)
 	if err != nil {
@@ -383,10 +376,6 @@ func (h *Handler) startCourse(c *gin.Context) {
 	// 尝试解析JSON，如果失败（例如空body）则忽略错误
 	_ = c.ShouldBindJSON(&requestBody)
 
-	// 使用互斥锁防止并发创建容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[startCourse] 获取容器操作锁，课程ID: %s", id)
 
 	// 始终为每次调用创建一个新的容器实例，不再复用或跳过
 	ctx := context.Background()
@@ -615,10 +604,6 @@ func (h *Handler) stopCourse(c *gin.Context) {
 		return
 	}
 
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[stopCourse] 获取容器操作锁，课程ID: %s", id)
 
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
@@ -720,10 +705,6 @@ func (h *Handler) pauseCourse(c *gin.Context) {
 		return
 	}
 
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[pauseCourse] 获取容器操作锁，课程ID: %s", id)
 
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
@@ -823,10 +804,6 @@ func (h *Handler) resumeCourse(c *gin.Context) {
 		return
 	}
 
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[resumeCourse] 获取容器操作锁，课程ID: %s", id)
 
 	// 检查Docker控制器是否可用
 	if h.dockerController == nil {
@@ -1225,9 +1202,6 @@ func (h *Handler) stopContainerByID(c *gin.Context) {
 		return
 	}
 
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
 
 	if h.dockerController == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Docker服务暂不可用"})
@@ -1667,10 +1641,6 @@ func (h *Handler) cleanupCourseContainers(c *gin.Context) {
 		return
 	}
 
-	// 使用互斥锁防止并发操作容器
-	h.containerMutex.Lock()
-	defer h.containerMutex.Unlock()
-	h.logger.Debug("[cleanupCourseContainers] 获取容器操作锁，课程ID: %s", courseID)
 
 	// 调用Docker控制器清理容器
 	ctx := context.Background()
