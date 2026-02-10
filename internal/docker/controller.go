@@ -663,7 +663,7 @@ func (d *dockerController) CleanupCourseContainers(ctx context.Context, courseID
 			timeout := ContainerStopTimeout
 			if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
 				errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
-				d.logger.Error(errMsg)
+				d.logger.Error("%s", errMsg)
 				cleanupErrors = append(cleanupErrors, errMsg)
 				continue
 			}
@@ -673,7 +673,7 @@ func (d *dockerController) CleanupCourseContainers(ctx context.Context, courseID
 		d.logger.Info("删除容器: %s", container.ID[:12])
 		if err := d.client.ContainerRemove(ctx, container.ID, client.ContainerRemoveOptions{Force: true}); err != nil {
 			errMsg := fmt.Sprintf("删除容器 %s 失败: %v", container.ID[:12], err)
-			d.logger.Error(errMsg)
+			d.logger.Error("%s", errMsg)
 			cleanupErrors = append(cleanupErrors, errMsg)
 			continue
 		}
@@ -780,7 +780,7 @@ func (d *dockerController) CleanupAllContainers(ctx context.Context) (*CleanupRe
 			timeout := ContainerStopTimeout
 			if err := d.client.ContainerStop(ctx, container.ID, client.ContainerStopOptions{Timeout: &timeout}); err != nil {
 				errMsg := fmt.Sprintf("停止容器 %s 失败: %v", container.ID[:12], err)
-				d.logger.Error(errMsg)
+				d.logger.Error("%s", errMsg)
 				cleanupErrors = append(cleanupErrors, errMsg)
 				continue
 			}
@@ -790,7 +790,7 @@ func (d *dockerController) CleanupAllContainers(ctx context.Context) (*CleanupRe
 		d.logger.Info("删除容器: %s", container.ID[:12])
 		if err := d.client.ContainerRemove(ctx, container.ID, client.ContainerRemoveOptions{Force: true}); err != nil {
 			errMsg := fmt.Sprintf("删除容器 %s 失败: %v", container.ID[:12], err)
-			d.logger.Error(errMsg)
+			d.logger.Error("%s", errMsg)
 			cleanupErrors = append(cleanupErrors, errMsg)
 			continue
 		}
@@ -1798,7 +1798,7 @@ func (d *dockerController) ensureImageExistsWithProgress(ctx context.Context, im
 			Status:    "拉取失败",
 			Error:     errorMsg,
 		})
-		return fmt.Errorf(errorMsg)
+		return fmt.Errorf("%s", errorMsg)
 	}
 
 	// 发送拉取成功的进度信息
@@ -1887,7 +1887,7 @@ func (d *dockerController) imageExistsExact(ctx context.Context, imageName strin
 		return false, nil
 	}
 	errorMsg := d.classifyImageCheckError(err, imageName)
-	return false, fmt.Errorf(errorMsg)
+	return false, fmt.Errorf("%s", errorMsg)
 }
 
 func (d *dockerController) resolveLocalImageReference(ctx context.Context, imageName string) (string, bool, error) {
@@ -1962,7 +1962,7 @@ func (d *dockerController) pullImageWithProgress(ctx context.Context, imageName 
 				Error:     errorMsg,
 			})
 		}
-		return fmt.Errorf(errorMsg)
+		return fmt.Errorf("%s", errorMsg)
 	}
 	defer resp.Close()
 
