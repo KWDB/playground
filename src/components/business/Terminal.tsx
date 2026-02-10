@@ -74,44 +74,97 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
     };
   }, []);
 
-  // 调整终端大小的函数
+  const measureCellWidth = useCallback(() => {
+    if (!terminalRef.current || !xtermRef.current) return null;
+    const core = (xtermRef.current as unknown as { _core?: { _renderService?: { dimensions?: { actualCellWidth?: number } } } })._core;
+    const actual = core?._renderService?.dimensions?.actualCellWidth;
+    if (actual && actual > 0) return actual;
+    const sample = terminalRef.current.querySelector('.xterm-rows') as HTMLElement | null;
+    const styleSource = sample ?? terminalRef.current;
+    const style = window.getComputedStyle(styleSource);
+    const font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.font = font;
+    const width = ctx.measureText('W').width;
+    return width > 0 ? width : null;
+  }, []);
+
   const resizeTerminal = useCallback(() => {
-    if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
-      try {
-        fitAddonRef.current.fit();
-        
-        // 发送新的终端尺寸到服务器
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          const { cols, rows } = xtermRef.current;
-          wsRef.current.send(JSON.stringify({
-            type: 'resize',
-            data: {
-              cols,
-              rows
-            }
-          }));
+    if (!fitAddonRef.current || !xtermRef.current || !terminalRef.current) return;
+    try {
+      const proposed = fitAddonRef.current.proposeDimensions?.();
+      const width = terminalRef.current.clientWidth;
+      const safety = width >= 1600 ? 2 : 1;
+      const cellWidth = measureCellWidth();
+      const maxCols = cellWidth && width > 0
+        ? Math.max(2, Math.floor(width / cellWidth) - safety)
+        : null;
+
+      if (proposed?.cols && proposed?.rows) {
+        const cols = Math.max(2, proposed.cols - safety);
+        const rows = Math.max(1, proposed.rows);
+        const clampedCols = maxCols ? Math.min(cols, maxCols) : cols;
+        if (clampedCols !== xtermRef.current.cols || rows !== xtermRef.current.rows) {
+          xtermRef.current.resize(clampedCols, rows);
         }
-      } catch (error) {
-        console.warn('调整终端大小失败:', error);
+      } else {
+        fitAddonRef.current.fit();
+        if (maxCols && xtermRef.current.cols > maxCols) {
+          xtermRef.current.resize(maxCols, xtermRef.current.rows);
+        }
       }
-    }
-  }, []);
 
-  // 防抖的调整大小函数
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        const { cols, rows } = xtermRef.current;
+        wsRef.current.send(JSON.stringify({
+          type: 'resize',
+          data: {
+            cols,
+            rows
+          }
+        }));
+      }
+    } catch (error) {
+      console.warn('调整终端大小失败:', error);
+    }
+  }, [measureCellWidth]);
+
   const debouncedResize = useMemo(() => debounce(resizeTerminal, 150), [resizeTerminal, debounce]);
+  const scheduleResize = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resizeTerminal();
+      });
+    });
+  }, [resizeTerminal]);
 
-  // 发送命令到终端
-  const sendCommand = useCallback((command: string) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const message = {
-        type: 'input',
-        data: command + '\r' // 添加回车符
-      };
-      wsRef.current.send(JSON.stringify(message));
-    } else {
+  const sendInput = useCallback((data: string, syncResize: boolean) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       console.warn('WebSocket未连接，无法发送命令');
+      return;
     }
-  }, []);
+    const send = () => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'input', data }));
+      }
+    };
+    if (!syncResize) {
+      send();
+      return;
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resizeTerminal();
+        send();
+      });
+    });
+  }, [resizeTerminal]);
+
+  const sendCommand = useCallback((command: string) => {
+    sendInput(command + '\r', true);
+  }, [sendInput]);
 
   // 解析镜像拉取进度百分比的辅助函数
   const parseProgressPercent = useCallback((progress?: string): number | null => {
@@ -147,75 +200,6 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
     }
 
     return null;
-  }, []);
-
-  // 智能换行处理函数
-  const smartWrapCommand = useCallback((text: string, startX: number, cols: number): string => {
-    // 如果文本包含换行符，说明可能是多行粘贴或脚本，不做处理以防破坏格式
-    if (text.includes('\r') || text.includes('\n')) {
-      return text;
-    }
-
-    // 按空格分割单词，保留空格信息以便重建
-    // 使用正则 split 捕获分隔符
-    const parts = text.split(/(\s+)/);
-    let result = '';
-    let currentX = startX;
-    let inSingleQuote = false; // 追踪单引号状态，防止破坏 Shell 单引号字符串语义
-
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      
-      // 如果是空字符串，跳过
-      if (!part) continue;
-
-      // 简单计算 part 中单引号的数量，用于更新状态
-      // Shell 中单引号内不能转义单引号，所以直接计数即可
-      const quoteCount = (part.match(/'/g) || []).length;
-
-      // 如果是空白符（空格、制表符等），直接追加并更新坐标
-      if (/^\s+$/.test(part)) {
-        result += part;
-        currentX += part.length;
-        continue;
-      }
-
-      // 如果是单词（包括 URL、参数、${VAR} 等）
-      const wordLen = part.length;
-
-      // 检查是否需要换行
-      // 条件：
-      // 1. 当前位置 + 单词长度 超过行宽
-      // 2. 不是行首（避免死循环）
-      // 3. 不在单引号内（单引号内插入续行符 \ 会改变字符串内容）
-      if (!inSingleQuote && currentX + wordLen > cols && currentX > 0) {
-        // 插入续行符和回车
-        // 注意：Shell 中续行通常是 " \" 后跟回车
-        result += ' \\\r'; 
-        currentX = 0; // 换行后光标归零
-        
-        // 在新行追加单词
-        result += part;
-        currentX += wordLen;
-      } else {
-        // 不需要换行或不能换行，直接追加
-        result += part;
-        currentX += wordLen;
-      }
-
-      // 更新单引号状态
-      if (quoteCount % 2 !== 0) {
-        inSingleQuote = !inSingleQuote;
-      }
-
-      // 处理边界情况：如果 currentX 超过 cols（因为单词超长），shell 会自动 wrap
-      // 我们需要更新 currentX 以反映 wrap 后的位置
-      if (currentX >= cols) {
-        currentX = currentX % cols;
-      }
-    }
-
-    return result;
   }, []);
 
   // 统一处理镜像拉取进度（终端输出与覆盖层显示）
@@ -530,42 +514,63 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
 
     // 设置输入处理 - 确保用户输入能正确发送到服务器
     terminal.onData((data) => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        // 智能换行处理：仅针对长文本粘贴（长度>40且无换行），避免破坏常规输入或多行粘贴
-        let inputData = data;
-        if (data.length > 40 && !data.includes('\r') && !data.includes('\n') && xtermRef.current) {
-           const cursorX = xtermRef.current.buffer.active.cursorX;
-           const cols = xtermRef.current.cols;
-           // 应用智能换行算法
-           inputData = smartWrapCommand(data, cursorX, cols);
-        }
-
-        const message = {
-          type: 'input',
-          data: inputData
-        };
-        wsRef.current.send(JSON.stringify(message));
-      }
+      const normalized = data.length > 1 ? data.replace(/\r\n/g, '\n').replace(/\r/g, '\n') : data;
+      const needSync = normalized.length > 1;
+      sendInput(normalized, needSync);
     });
 
-    // 初始调整大小
-    setTimeout(() => {
-      // 使用 resizeTerminal 替代直接调用 fit，确保初始尺寸同步到后端
-      resizeTerminal();
-    }, 100);
+    scheduleResize();
 
     // 设置 ResizeObserver 监听容器大小变化
     if (terminalRef.current) {
-      resizeObserverRef.current = new ResizeObserver(debouncedResize);
+      resizeObserverRef.current = new ResizeObserver(scheduleResize);
       resizeObserverRef.current.observe(terminalRef.current);
     }
 
-    // 监听窗口大小变化
-    window.addEventListener('resize', debouncedResize);
+    const handleResize = () => {
+      scheduleResize();
+    };
+    const handleDprChange = () => {
+      scheduleResize();
+      if (dprMedia) {
+        dprMedia.removeEventListener('change', handleDprChange);
+      }
+      dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      dprMedia.addEventListener('change', handleDprChange);
+    };
+
+    let dprMedia: MediaQueryList | null = null;
+    if (typeof window.matchMedia === 'function') {
+      dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      dprMedia.addEventListener('change', handleDprChange);
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    }
+    window.addEventListener('resize', handleResize);
+
+    const fontReady = (document as Document & { fonts?: FontFaceSet }).fonts;
+    const handleFontReady = () => {
+      scheduleResize();
+    };
+    if (fontReady) {
+      fontReady.ready.then(handleFontReady).catch(() => {});
+      fontReady.addEventListener('loadingdone', handleFontReady);
+    }
 
     return () => {
       // 清理资源
-      window.removeEventListener('resize', debouncedResize);
+      window.removeEventListener('resize', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      }
+      if (dprMedia) {
+        dprMedia.removeEventListener('change', handleDprChange);
+      }
+      if (fontReady) {
+        fontReady.removeEventListener('loadingdone', handleFontReady);
+      }
       
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
@@ -575,7 +580,7 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
         terminal.dispose();
       }
     };
-  }, [debouncedResize, resizeTerminal, smartWrapCommand]);
+  }, [debouncedResize, resizeTerminal, scheduleResize, sendInput]);
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({

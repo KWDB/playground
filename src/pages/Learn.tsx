@@ -751,16 +751,7 @@ import { fetchJson } from '../lib/http'
         } else {
           // Shell 终端类型：发送命令到终端执行
           if (terminalRef.current) {
-            // 针对 kwbase 后台启动命令的特殊处理：
-            // 当使用 --background 启动时，Shell 会立即返回并显示提示符，但后台进程仍在输出日志，
-            // 导致提示符出现在日志中间。追加 sleep 延时可让 Shell 等待日志输出完毕后再显示提示符。
-            let finalCommand = command;
-            // 简单的启发式检测：包含 kwbase 且包含 --background
-            if (command.includes('kwbase') && command.includes('--background')) {
-               // 追加 sleep 2，给后台进程留出日志输出时间
-               finalCommand = `${command}; sleep 2`;
-            }
-            terminalRef.current.sendCommand(finalCommand)
+            terminalRef.current.sendCommand(command)
             terminalRef.current.focus()
           } else {
             console.warn('Terminal组件未准备就绪')
