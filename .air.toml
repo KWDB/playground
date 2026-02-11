@@ -7,62 +7,40 @@ tmp_dir = "tmp"
 
 [build]
   # 监听前端和后端文件变化
-  include_ext = ["go", "tpl", "tmpl", "html", "ts", "tsx", "js", "jsx", "css", "scss", "vue"]
-  # 要排除的文件扩展名
+  include_ext = ["go", "tpl", "tmpl", "html", "ts", "tsx", "js", "jsx", "css", "scss"]
   exclude_ext = ["txt", "md", "yaml", "yml"]
-  # 要监视的目录
   include_dir = []
-  # 要排除的目录
   exclude_dir = ["assets", "tmp", "vendor", "testdata", "node_modules", "dist", "tests", "e2e_test_env", "e2e_testdata", "scripts"]
-  # 要排除的文件
   exclude_file = []
-  # 要排除的正则表达式
   exclude_regex = ["_test.go"]
-  # 排除未更改的文件
   exclude_unchanged = false
-  # 是否跟随符号链接
   follow_symlink = false
-  # 是否启用完整构建
   full_bin = ""
-  # 构建参数（为子命令传参）
   args_bin = ["server"]
-  # 构建的二进制文件名
   bin = "./tmp/main"
-  # 前后端构建
-  cmd = "pnpm run build & go build -o ./tmp/main ."
-  # 延迟时间（毫秒）
+  cmd = "pnpm run build && go build -o ./tmp/main ."
   delay = 1000
-  # 停止运行旧的二进制文件
   stop_on_root = true
-  # 发送中断信号前的延迟时间（毫秒）
   send_interrupt = true
-  # 发送中断信号后的延迟时间（毫秒）
-  kill_delay = "2s"
-  # 重新运行二进制文件
+  kill_delay = "1s"
   rerun = false
-  # 重新运行延迟时间（毫秒）
   rerun_delay = 500
-  # 添加额外的构建标签
   build_tags = ""
-  # 添加额外的构建参数
   build_args = ""
 
 [log]
-  # 显示日志时间
   time = false
-  # 只显示主日志
   main_only = false
 
 [color]
-  # 自定义每个部分显示的颜色
   main = "magenta"
   watcher = "cyan"
   build = "yellow"
   runner = "green"
 
 [misc]
-  # 删除每次启动时的清屏
-  clean_on_exit = false
+  clean_on_exit = true
+  clear_on_rebuild = false
 
 [screen]
   clear_on_rebuild = false

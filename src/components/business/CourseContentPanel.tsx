@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 
 export interface CourseContentPanelProps {
-  renderProgressBar: () => React.ReactNode;
   title: string;
   content: string;
   renderMarkdown: (content: string) => React.ReactNode;
@@ -15,7 +14,6 @@ export interface CourseContentPanelProps {
 }
 
 export default function CourseContentPanel({
-  renderProgressBar,
   title,
   content,
   renderMarkdown,
@@ -29,8 +27,14 @@ export default function CourseContentPanel({
 }: CourseContentPanelProps) {
   const isCompleted = currentStep >= stepsLength;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const steps = [];
+  for (let i = -1; i <= stepsLength; i++) {
+    steps.push({
+      id: i,
+      title: i === -1 ? '介绍' : i === stepsLength ? '完成' : `步骤 ${i + 1}`
+    });
+  }
 
-  // 监听 currentStep 变化，自动滚动到顶部
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -38,22 +42,11 @@ export default function CourseContentPanel({
   }, [currentStep]);
 
   return (
-    <div className="h-full bg-white border-r border-gray-200 flex flex-col overflow-hidden">
-      {/* 课程进度条 - 合并到内容区域 */}
-      {renderProgressBar()}
-
-      {/* 内容标题 */}
-      <div className="flex-shrink-0 p-3 lg:p-4 bg-gray-50 border-b border-gray-200">
-        <h2 className="text-lg lg:text-xl font-semibold text-gray-800">
-          {title}
-        </h2>
+    <div className="h-full bg-[var(--color-bg-primary)] border-r border-[var(--color-border-light)] flex flex-col overflow-hidden">
+      <div className="flex-shrink-0 p-4 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-light)]">
+        <h2 className="text-base font-medium text-[var(--color-text-primary)] text-balance">{title}</h2>
       </div>
-
-      {/* 内容区域 - 可滚动区域 */}
-      <div 
-        ref={scrollContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto markdown-scroll-container"
-      >
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto markdown-scroll-container">
         <div className="markdown-main-content">
           <div className="markdown-content-wrapper">
             <div className="markdown-prose">
@@ -62,51 +55,50 @@ export default function CourseContentPanel({
           </div>
         </div>
       </div>
-
-      {/* 导航按钮 - 固定在底部 */}
-      <div className="flex-shrink-0 p-4 border-t border-gray-200 flex justify-between bg-white">
-        {isCompleted ? (
-          // 课程完成页面显示退出按钮
-          <>
-            <button
-              onClick={onPrev}
-              disabled={!canPrev}
-              className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-none"
-            >
-              上一步
-            </button>
-            <div className="flex items-center text-gray-600 text-sm font-medium">
-              完成
-            </div>
-            <button
-              onClick={onExit}
-              className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-none"
-            >
-              <span>退出课程</span>
-            </button>
-          </>
-        ) : (
-          // 正常导航按钮
-          <>
-            <button
-              onClick={onPrev}
-              disabled={!canPrev}
-              className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-none"
-            >
-              上一步
-            </button>
-            <div className="flex items-center text-gray-600 text-sm font-medium">
-              {currentStep === -1 ? '介绍' : `步骤 ${currentStep + 1}/${stepsLength}`}
-            </div>
-            <button
-              onClick={onNext}
-              disabled={!canNext}
-              className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-none"
-            >
-              下一步
-            </button>
-          </>
-        )}
+      <div className="flex-shrink-0 border-t border-[var(--color-border-light)]">
+        <div className="flex items-center justify-between px-4 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-light)]">
+          <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)]"></div>
+            <span className="font-medium">{currentStep + 2} / {steps.length}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {steps.map((step) => {
+              const isStepCompleted = currentStep > step.id;
+              const isStepCurrent = currentStep === step.id;
+              const isClickable = step.id <= currentStep || step.id === currentStep + 1;
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => isClickable && (step.id === -1 ? onPrev() : step.id === stepsLength ? onExit() : (step.id < currentStep ? onPrev() : onNext()))}
+                  disabled={!isClickable}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    isStepCompleted ? 'bg-[var(--color-accent-primary)]' :
+                    isStepCurrent ? 'bg-[var(--color-accent-primary)] ring-2 ring-[var(--color-accent-subtle)]' :
+                    isClickable ? 'bg-[var(--color-border-default)] hover:bg-[var(--color-border-dark)]' :
+                    'bg-[var(--color-border-light)] cursor-not-allowed'
+                  }`}
+                  title={step.title}
+                />
+              );
+            })}
+          </div>
+          <span className="text-sm text-[var(--color-text-secondary)] truncate max-w-[120px]">{steps.find(s => s.id === currentStep)?.title || '介绍'}</span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 bg-[var(--color-bg-primary)]">
+          {isCompleted ? (
+            <>
+              <button onClick={onPrev} disabled={!canPrev} className="btn btn-secondary text-sm">上一步</button>
+              <span className="text-sm text-[var(--color-text-secondary)]">完成</span>
+              <button onClick={onExit} className="btn btn-ghost text-sm text-[var(--color-error)]">退出课程</button>
+            </>
+          ) : (
+            <>
+              <button onClick={onPrev} disabled={!canPrev} className="btn btn-secondary text-sm">上一步</button>
+              <span className="text-sm text-[var(--color-text-secondary)]">{currentStep === -1 ? '介绍' : `步骤 ${currentStep + 1}/${stepsLength}`}</span>
+              <button onClick={onNext} disabled={!canNext} className="btn btn-primary text-sm">下一步</button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

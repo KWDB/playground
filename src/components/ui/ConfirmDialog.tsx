@@ -1,15 +1,16 @@
-import React from 'react'
-import { AlertTriangle, X } from 'lucide-react'
+import React from 'react';
+import { AlertTriangle, X } from 'lucide-react';
+import { Button } from './Button';
 
 interface ConfirmDialogProps {
-  isOpen: boolean
-  title?: string
-  message: string
-  confirmText?: string
-  cancelText?: string
-  onConfirm: () => void
-  onCancel: () => void
-  variant?: 'warning' | 'danger' | 'info'
+  isOpen: boolean;
+  title?: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  variant?: 'warning' | 'danger' | 'info';
 }
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -22,116 +23,47 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onCancel,
   variant = 'warning'
 }) => {
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
-  // 根据变体类型设置不同的颜色主题
-  const getVariantStyles = () => {
+  const getVariantConfig = () => {
     switch (variant) {
       case 'danger':
-        return {
-          iconColor: 'text-red-500',
-          confirmButton: 'bg-red-500 hover:bg-red-600 focus:ring-red-500',
-          titleColor: 'text-red-600'
-        }
+        return { iconColor: 'text-[var(--color-error)]', confirmVariant: 'danger' as const };
       case 'info':
-        return {
-          iconColor: 'text-blue-500',
-          confirmButton: 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-500',
-          titleColor: 'text-blue-600'
-        }
-      default: // warning
-        return {
-          iconColor: 'text-amber-500',
-          confirmButton: 'bg-amber-500 hover:bg-amber-600 focus:ring-amber-500',
-          titleColor: 'text-amber-600'
-        }
+        return { iconColor: 'text-[var(--color-accent-primary)]', confirmVariant: 'primary' as const };
+      default:
+        return { iconColor: 'text-[var(--color-warning)]', confirmVariant: 'primary' as const };
     }
-  }
+  };
 
-  const styles = getVariantStyles()
+  const config = getVariantConfig();
 
   return (
-    <>
-      {/* CSS动画定义 */}
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-      `}</style>
-      
-      {/* 背景遮罩层 */}
-      <div 
-        className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity duration-200"
-        onClick={onCancel}
-        style={{ animation: 'fadeIn 0.2s ease-out' }}
-      >
-        {/* 对话框容器 */}
-        <div 
-          className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-auto transform transition-all duration-300"
-          onClick={(e) => e.stopPropagation()}
-          style={{ animation: 'slideInUp 0.3s ease-out' }}
-        >
-          {/* 对话框头部 */}
-          <div className="relative p-6 pb-4">
-            {/* 关闭按钮 */}
-            <button
-              onClick={onCancel}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            
-            {/* 图标和标题 */}
-            <div className="flex items-center space-x-3">
-              <div className={`p-3 rounded-full bg-gray-50 ${styles.iconColor}`}>
-                <AlertTriangle className="h-6 w-6" />
-              </div>
-              <h3 className={`text-lg font-semibold ${styles.titleColor}`}>
-                {title}
-              </h3>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative z-10 w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)]">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className={`w-4 h-4 ${config.iconColor}`} />
+            <h3 className="text-sm font-medium text-[var(--color-text-primary)]">{title}</h3>
           </div>
-
-          {/* 对话框内容 */}
-          <div className="px-6 pb-6">
-            <p className="text-gray-600 text-sm">
-              {message}
-            </p>
-          </div>
-
-          {/* 对话框底部按钮 */}
-          <div className="px-6 pb-6 flex space-x-3 justify-end">
-            {/* 取消按钮 */}
-            <button
-              onClick={onCancel}
-              className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
-            >
-              {cancelText}
-            </button>
-            
-            {/* 确认按钮 */}
-            <button
-              onClick={onConfirm}
-              className={`px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${styles.confirmButton}`}
-            >
-              {confirmText}
-            </button>
+          <button
+            onClick={onCancel}
+            className="p-1 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-4">
+          <p className="text-sm text-[var(--color-text-secondary)] mb-4">{message}</p>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={onCancel}>{cancelText}</Button>
+            <Button variant={config.confirmVariant} className="flex-1" onClick={onConfirm}>{confirmText}</Button>
           </div>
         </div>
       </div>
-    </>
-  )
-}
+    </div>
+  );
+};
 
-export default ConfirmDialog
+export default ConfirmDialog;

@@ -6,10 +6,10 @@ interface Props {
 
 const ConnectionIndicator = memo(({ connected }: Props) => {
   return (
-    <div className="absolute top-2 right-2 z-10">
+    <div className="absolute top-3 right-3 z-10">
       <div
-        className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-          connected ? 'bg-green-500' : 'bg-red-500'
+        className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+          connected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-tertiary)]'
         }`}
         title={connected ? '已连接' : '未连接'}
       />

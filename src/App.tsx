@@ -5,27 +5,22 @@ import { Learn } from './pages/Learn';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 
-// 内部组件，用于根据路由决定是否显示导航栏
 function AppContent() {
   const location = useLocation();
-  
-  // 在学习页面不显示导航栏，因为学习页面有自己的布局
-  const showNavbar = !location.pathname.startsWith('/learn/');
-  
+  const isLearnPage = location.pathname.startsWith('/learn/');
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {showNavbar && <Navbar />}
-      <main className={`flex-1 ${showNavbar ? 'min-h-0 overflow-y-auto' : 'overflow-hidden'}`}>
-        <div className="flex flex-col min-h-full">
-          <div className="flex-1 flex flex-col">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/courses" element={<CourseList />} />
-              <Route path="/learn/:courseId" element={<Learn />} />
-            </Routes>
-          </div>
-          {showNavbar && <Footer />}
+    <div className="min-h-screen flex flex-col bg-[var(--color-bg-primary)]">
+      {!isLearnPage && <Navbar />}
+      <main className={`flex-1 flex flex-col ${!isLearnPage ? 'overflow-hidden' : ''}`}>
+        <div className="flex-1 flex flex-col">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/courses" element={<CourseList />} />
+            <Route path="/learn/:courseId" element={<Learn />} />
+          </Routes>
         </div>
+        {!isLearnPage && <Footer />}
       </main>
     </div>
   );
