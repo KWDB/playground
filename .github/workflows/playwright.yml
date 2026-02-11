@@ -53,3 +53,48 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 14
+
+  docker-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright browsers and system deps
+        run: pnpm exec playwright install --with-deps
+
+      - name: Build Docker image
+        run: docker build -f docker/playground/Dockerfile -t kwdb/playground:latest .
+
+      - name: Pre-pull course images
+        run: docker pull kwdb/kwdb:latest
+
+      - name: Start Docker deployment
+        run: docker compose -f docker/playground/docker-compose.yml up -d --wait
+
+      - name: Run Docker E2E tests
+        run: pnpm exec playwright test --config=playwright.docker.config.ts --reporter=html
+
+      - name: Stop Docker deployment
+        if: always()
+        run: docker compose -f docker/playground/docker-compose.yml down
+
+      - name: Upload Docker E2E report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: docker-e2e-report
+          path: playwright-report
+          retention-days: 14

@@ -50,13 +50,14 @@ func (m *DriverManager) GetDriver(courseID string) *Driver {
 }
 
 // EnsureReady 确保指定课程的数据库连接就绪
-func (m *DriverManager) EnsureReady(ctx context.Context, course *course.Course) error {
+// host: 数据库主机地址（native模式为localhost，Docker模式为容器IP）
+func (m *DriverManager) EnsureReady(ctx context.Context, course *course.Course, host string) error {
 	if course == nil {
 		return fmt.Errorf("course is nil")
 	}
 
 	driver := m.GetDriver(course.ID)
-	return driver.EnsureReady(ctx, course)
+	return driver.EnsureReady(ctx, course, host)
 }
 
 // Pool 获取指定课程的连接池

@@ -37,7 +37,7 @@ func TestTerminalManager_CreateSession(t *testing.T) {
 	tm := NewTerminalManager()
 	tm.SetLogger(logger.NewLogger(logger.ERROR))
 
-	session := tm.CreateSession("session-123", "container-abc", nil)
+	session := tm.CreateSession("session-123", "container-abc", nil, nil)
 	if session == nil {
 		t.Fatal("CreateSession should return non-nil session")
 	}
@@ -60,7 +60,7 @@ func TestTerminalManager_RemoveSession(t *testing.T) {
 	tm := NewTerminalManager()
 	tm.SetLogger(logger.NewLogger(logger.ERROR))
 
-	tm.CreateSession("session-123", "container-abc", nil)
+	tm.CreateSession("session-123", "container-abc", nil, nil)
 
 	tm.RemoveSession("session-123")
 
@@ -81,8 +81,8 @@ func TestTerminalManager_CreateSession_ReplacesExisting(t *testing.T) {
 	tm := NewTerminalManager()
 	tm.SetLogger(logger.NewLogger(logger.ERROR))
 
-	tm.CreateSession("session-123", "container-1", nil)
-	tm.CreateSession("session-123", "container-2", nil)
+	tm.CreateSession("session-123", "container-1", nil, nil)
+	tm.CreateSession("session-123", "container-2", nil, nil)
 
 	count := tm.GetActiveSessionCount()
 	if count != 1 {
@@ -107,13 +107,13 @@ func TestTerminalManager_GetActiveSessionCount(t *testing.T) {
 		t.Errorf("Expected 0, got: %d", count)
 	}
 
-	tm.CreateSession("session-1", "container-1", nil)
+	tm.CreateSession("session-1", "container-1", nil, nil)
 	count = tm.GetActiveSessionCount()
 	if count != 1 {
 		t.Errorf("Expected 1, got: %d", count)
 	}
 
-	tm.CreateSession("session-2", "container-2", nil)
+	tm.CreateSession("session-2", "container-2", nil, nil)
 	count = tm.GetActiveSessionCount()
 	if count != 2 {
 		t.Errorf("Expected 2, got: %d", count)
@@ -134,7 +134,7 @@ func TestTerminalManager_ConcurrentAccess(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		go func(idx int) {
-			tm.CreateSession("session-"+string(rune('0'+idx)), "container-1", nil)
+			tm.CreateSession("session-"+string(rune('0'+idx)), "container-1", nil, nil)
 			_ = tm.GetActiveSessionCount()
 			done <- true
 		}(i)
@@ -186,7 +186,7 @@ func TestTerminalSession_Fields(t *testing.T) {
 	tm := NewTerminalManager()
 	tm.SetLogger(logger.NewLogger(logger.ERROR))
 
-	session := tm.CreateSession("sess-001", "cont-xyz", nil)
+	session := tm.CreateSession("sess-001", "cont-xyz", nil, nil)
 
 	if session.sessionID != "sess-001" {
 		t.Errorf("Expected sessionID 'sess-001', got: %s", session.sessionID)

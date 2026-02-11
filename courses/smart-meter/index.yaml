@@ -11,7 +11,7 @@ details:
   finish:
     text: finish.md
 backend:
-  imageid: kwdb/kwdb
+  imageid: kwdb/kwdb:3.0.0
   workspace: /kaiwudb/bin
   # （可选）挂载 meta.sql 到容器，只读
   # - ./meta.sql:/kaiwudb/bin/meta.sql:ro

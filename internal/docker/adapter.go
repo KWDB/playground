@@ -103,6 +103,10 @@ func (d *dockerClientAdapter) ContainerLogs(ctx context.Context, containerID str
 	return d.client.ContainerLogs(ctx, containerID, options)
 }
 
+func (d *dockerClientAdapter) CopyToContainer(ctx context.Context, containerID string, options client.CopyToContainerOptions) (client.CopyToContainerResult, error) {
+	return d.client.CopyToContainer(ctx, containerID, options)
+}
+
 // ImagePull 拉取镜像
 func (d *dockerClientAdapter) ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (io.ReadCloser, error) {
 	// 在新版本API中，ImagePull返回一个ImagePullResponse接口，它实现了io.ReadCloser

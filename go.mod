@@ -6,7 +6,6 @@ toolchain go1.24.2
 
 require (
 	github.com/containerd/errdefs v1.0.0
-	github.com/creack/pty v1.1.24
 	github.com/distribution/reference v0.6.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/gorilla/websocket v1.5.3

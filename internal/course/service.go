@@ -527,3 +527,12 @@ func extractCommandsFromText(text string) []string {
 
 	return commands
 }
+
+func (s *Service) ReadCourseFile(courseID, relativePath string) ([]byte, error) {
+	if s.coursesFS != nil {
+		fsPath := path.Join(s.coursesBasePath, courseID, relativePath)
+		return fs.ReadFile(s.coursesFS, fsPath)
+	}
+	diskPath := filepath.Join(s.coursesDir, courseID, relativePath)
+	return os.ReadFile(diskPath)
+}

@@ -8,7 +8,7 @@
 
 本文将提供切实可行的方案，在不挂载主机 cgroup 文件系统的前提下，让你在 Ubuntu Docker 容器中体验完整的 `systemctl` 功能。
 
-## 方案一：构建自定义的 systemd-enabled Docker 镜像
+## 方案：构建自定义的 systemd-enabled Docker 镜像
 
 此方案通过编写一个 Dockerfile 来创建一个内置 `systemd` 并将其作为启动进程的 Ubuntu 镜像。这种方法提供了最大的灵活性和控制力。
 
@@ -89,38 +89,6 @@ root@<container_id>:/# systemctl stop ssh
 root@<container_id>:/# systemctl start ssh
 root@<container_id>:/# systemctl status ssh
 ```
-
-## 方案二：使用社区预构建的镜像
-
-如果你不想自己维护 Dockerfile，可以使用社区中已经打包好的、支持 `systemd` 的镜像。`solita/ubuntu-systemd` 是一个维护良好且更新及时的选择。
-
-### 1. 拉取并运行镜像
-
-这个过程非常简单，只需一条命令：
-
-```bash
-docker run -d --name systemd-ubuntu-test --privileged solita/ubuntu-systemd:latest
-```
-
-### 2. 测试 `systemctl`
-
-同样地，进入容器并测试 `systemctl`：
-
-```bash
-docker exec -it systemd-ubuntu-test /bin/bash
-
-# 在容器内，检查 systemd 状态
-root@<container_id>:/# systemctl status
-```
-
-## 方案对比
-
-| 特性 | 自定义 Dockerfile (方案一) | 预构建镜像 (方案二) |
-| :--- | :--- | :--- |
-| **控制力** | **高**。你可以完全控制基础镜像版本、安装的软件包和配置。 | **低**。你依赖于镜像维护者的更新和配置。 |
-| **透明度** | **高**。Dockerfile 清晰地记录了镜像的构建过程。 | **中**。需要查看镜像的文档或 Dockerfile 才能了解其细节。 |
-| **便捷性** | **中**。需要编写和构建 Dockerfile。 | **高**。开箱即用，一条命令即可启动。 |
-| **适用场景** | 需要特定配置、定制化环境或希望深入理解 `systemd` 在容器中工作原理的场景。 | 快速搭建一个支持 `systemd` 的测试环境。 |
 
 ## 总结
 

@@ -4,15 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
 	"sync"
 	"time"
 
 	"kwdb-playground/internal/docker"
 	"kwdb-playground/internal/logger"
 
-	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
 )
 
@@ -45,8 +42,8 @@ type TerminalSession struct {
 	sessionID   string
 	containerID string
 	conn        *websocket.Conn
-	cmd         *exec.Cmd
-	pty         *os.File
+	dockerCtrl  docker.Controller
+	execResult  *docker.ExecAttachResult
 	ctx         context.Context
 	cancel      context.CancelFunc
 	logger      *logger.Logger // 日志记录器实例
@@ -75,7 +72,7 @@ func (tm *TerminalManager) SetLogger(loggerInstance *logger.Logger) {
 }
 
 // CreateSession 创建新的终端会话
-func (tm *TerminalManager) CreateSession(sessionID, containerID string, conn *websocket.Conn) *TerminalSession {
+func (tm *TerminalManager) CreateSession(sessionID, containerID string, conn *websocket.Conn, dockerCtrl docker.Controller) *TerminalSession {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
@@ -90,6 +87,7 @@ func (tm *TerminalManager) CreateSession(sessionID, containerID string, conn *we
 		sessionID:   sessionID,
 		containerID: containerID,
 		conn:        conn,
+		dockerCtrl:  dockerCtrl,
 		ctx:         ctx,
 		cancel:      cancel,
 		logger:      tm.logger, // 传递logger实例
@@ -100,31 +98,29 @@ func (tm *TerminalManager) CreateSession(sessionID, containerID string, conn *we
 	return session
 }
 
-// StartInteractiveSession 启动交互式终端会话 - 核心功能：docker exec -it /bin/bash
+// StartInteractiveSession 启动交互式终端会话 - 核心功能：通过Docker API创建exec会话
 func (ts *TerminalSession) StartInteractiveSession() error {
 	// 优先尝试使用 /bin/bash，不存在时回退到 /bin/sh，提升不同基础镜像的兼容性
-	tryStart := func(shell string) (*exec.Cmd, *os.File, error) {
-		cmd := exec.CommandContext(ts.ctx, "docker", "exec", "-it", ts.containerID, shell)
-		ptyFile, err := pty.Start(cmd)
+	tryStart := func(shell string) (*docker.ExecAttachResult, error) {
+		result, err := ts.dockerCtrl.CreateInteractiveExec(ts.ctx, ts.containerID, []string{shell})
 		if err != nil {
-			return nil, nil, fmt.Errorf("启动伪终端失败(%s): %v", shell, err)
+			return nil, fmt.Errorf("启动交互式exec失败(%s): %v", shell, err)
 		}
-		return cmd, ptyFile, nil
+		return result, nil
 	}
 
-	cmd, ptyFile, err := tryStart("/bin/bash")
+	result, err := tryStart("/bin/bash")
 	if err != nil {
 		// 记录日志并尝试回退到 /bin/sh
 		ts.logger.Warn("/bin/bash 不可用，尝试使用 /bin/sh，容器: %s，错误: %v", ts.containerID, err)
-		cmd, ptyFile, err = tryStart("/bin/sh")
+		result, err = tryStart("/bin/sh")
 		if err != nil {
 			// 两种Shell均失败，返回错误，让上层进行错误处理与反馈
 			return fmt.Errorf("启动交互式终端失败(无可用Shell): %v", err)
 		}
 	}
 
-	ts.cmd = cmd
-	ts.pty = ptyFile
+	ts.execResult = result
 
 	// 启动写入泵（Write Pump）处理所有出站消息
 	go ts.writePump()
@@ -238,15 +234,12 @@ func (ts *TerminalSession) handleWebSocketInput() {
 			}
 
 			// 处理终端大小调整
-			if msg.Type == "resize" && ts.pty != nil {
+			if msg.Type == "resize" && ts.execResult != nil {
 				if dataMap, ok := msg.Data.(map[string]interface{}); ok {
 					cols, ok1 := dataMap["cols"].(float64)
 					rows, ok2 := dataMap["rows"].(float64)
 					if ok1 && ok2 {
-						if err := pty.Setsize(ts.pty, &pty.Winsize{
-							Rows: uint16(rows),
-							Cols: uint16(cols),
-						}); err != nil {
+						if err := ts.dockerCtrl.ResizeTerminal(ts.ctx, ts.execResult.ExecID, uint(rows), uint(cols)); err != nil {
 							ts.logger.Warn("调整终端大小失败: %v", err)
 						}
 					}
@@ -255,10 +248,10 @@ func (ts *TerminalSession) handleWebSocketInput() {
 			}
 
 			// 只处理输入类型的消息
-			if msg.Type == "input" && ts.pty != nil {
+			if msg.Type == "input" && ts.execResult != nil {
 				// 使用类型断言将interface{}转换为string，然后转换为[]byte
 				if dataStr, ok := msg.Data.(string); ok {
-					_, err := ts.pty.Write([]byte(dataStr))
+					_, err := ts.execResult.Conn.Write([]byte(dataStr))
 					if err != nil {
 						ts.logger.Warn("写入终端失败: %v", err)
 						return
@@ -279,11 +272,9 @@ func (ts *TerminalSession) handleTerminalOutput() {
 		case <-ts.ctx.Done():
 			return
 		default:
-			n, err := ts.pty.Read(buf)
+			n, err := ts.execResult.Reader.Read(buf)
 			if err != nil {
 				if err != io.EOF {
-					// 只有非EOF错误才记录为Error，EOF通常意味着shell退出了
-					// 某些情况下 pty 关闭也会导致 read error
 					ts.logger.Debug("读取终端输出结束: %v", err)
 				}
 				return
@@ -299,18 +290,10 @@ func (ts *TerminalSession) handleTerminalOutput() {
 	}
 }
 
-// waitForTerminalExit 等待终端命令退出
+// waitForTerminalExit 等待终端退出
 func (ts *TerminalSession) waitForTerminalExit() {
-	if ts.cmd != nil {
-		err := ts.cmd.Wait()
-		if err != nil {
-			ts.logger.Debug("终端命令退出: %v", err)
-			ts.Send(Message{
-				Type: "error",
-				Data: fmt.Sprintf("终端会话结束: %v", err),
-			})
-		}
-	}
+	// 等待context取消（由handleTerminalOutput在Reader EOF时触发Close，或客户端断开）
+	<-ts.ctx.Done()
 	ts.Close()
 }
 
@@ -323,8 +306,8 @@ func (ts *TerminalSession) Close() {
 
 	ts.cancel() // 取消上下文，这将停止所有goroutine
 
-	if ts.pty != nil {
-		ts.pty.Close()
+	if ts.execResult != nil {
+		ts.execResult.Conn.Close()
 	}
 
 	// 注意：不要在这里关闭 conn，writePump 会在 ctx.Done() 时关闭它

@@ -1,8 +1,10 @@
 package docker
 
 import (
+	"bufio"
 	"context"
 	"io"
+	"net"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/image"
@@ -23,6 +25,7 @@ type DockerClientInterface interface {
 	ContainerInspect(ctx context.Context, containerID string) (container.InspectResponse, error)
 	ContainerList(ctx context.Context, options client.ContainerListOptions) ([]container.Summary, error)
 	ContainerLogs(ctx context.Context, containerID string, options client.ContainerLogsOptions) (io.ReadCloser, error)
+	CopyToContainer(ctx context.Context, containerID string, options client.CopyToContainerOptions) (client.CopyToContainerResult, error)
 	ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (io.ReadCloser, error)
 	ImageInspectWithRaw(ctx context.Context, imageID string) (image.InspectResponse, []byte, error)
 	ContainerExecCreate(ctx context.Context, containerID string, config client.ExecCreateOptions) (client.ExecCreateResult, error)
@@ -49,6 +52,14 @@ type ImagePullProgress struct {
 type TerminalManagerInterface interface {
 	BroadcastImagePullProgress(progress ImagePullProgress)
 	GetActiveSessionCount() int
+}
+
+// ExecAttachResult 交互式Exec的连接结果
+// 用于WebSocket终端：调用方管理读写生命周期，不阻塞
+type ExecAttachResult struct {
+	ExecID string        // Docker exec实例ID，用于Resize等操作
+	Conn   net.Conn      // 底层连接，用于写入stdin
+	Reader *bufio.Reader // 缓冲读取器，用于读取stdout（TTY模式下stdout/stderr合并）
 }
 
 // Controller Docker控制器接口
@@ -105,9 +116,24 @@ type Controller interface {
 	// 停止并删除所有kwdb-playground相关的容器
 	CleanupAllContainers(ctx context.Context) (*CleanupResult, error)
 
+	// GetContainerIP 获取容器在Docker bridge网络上的IP地址
+	// 用于Docker部署模式下，Playground容器直接通过容器IP访问同级容器
+	GetContainerIP(ctx context.Context, containerID string) (string, error)
+
+	// CopyFilesToContainer 将文件内容注入到已创建的容器中
+	// Docker 部署模式下替代 volume 挂载，在容器 Create 之后、Start 之前调用
+	CopyFilesToContainer(ctx context.Context, containerID string, files map[string][]byte) error
+
+	// CreateInteractiveExec 创建交互式Exec并返回连接（非阻塞）
+	// 返回ExecAttachResult，调用方自行管理读写和生命周期
+	CreateInteractiveExec(ctx context.Context, containerID string, cmd []string) (*ExecAttachResult, error)
+
 	// CheckImageAvailability 检查Docker镜像的可用性
 	// 尝试从指定源拉取镜像以验证其可访问性
 	CheckImageAvailability(ctx context.Context, imageName string) (*ImageAvailability, error)
+
+	// SetNetworkName 设置课程容器使用的 Docker 网络名称
+	SetNetworkName(name string)
 
 	// Close 关闭控制器
 	Close() error

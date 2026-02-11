@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+bin/
+tmp/
+dist/
+
+# Version control
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+
+# Tests
+tests/
+playwright-report/
+test-results/
+
+# Development tools
+.air.toml
+.sisyphus/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (not needed in build)
+docs/images/
+*.gif

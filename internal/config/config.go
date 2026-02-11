@@ -47,6 +47,14 @@ type CourseConfig struct {
 	Dir      string `json:"dir" yaml:"dir"`           // 课程文件目录路径
 	Reload   bool   `json:"reload" yaml:"reload"`     // 是否启用热重载
 	UseEmbed bool   `json:"useEmbed" yaml:"useEmbed"` // 是否使用嵌入式FS作为课程数据来源
+	// DockerDeploy 是否为 Docker 部署模式
+	// 当设为 true 时，Playground 运行在容器中，通过 Docker Socket Mount 管理课程容器。
+	// 此模式下课程文件通过 Docker API (CopyToContainer) 注入课程容器，而非 volume 挂载。
+	DockerDeploy bool `json:"dockerDeploy" yaml:"dockerDeploy"` // Docker 部署模式开关
+	// DockerNetwork Docker 网络名称
+	// Docker 部署模式下，Playground 容器和课程容器必须在同一网络中才能互相通信。
+	// 设置此值后，创建课程容器时会将其加入指定网络，并优先从该网络获取容器 IP。
+	DockerNetwork string `json:"dockerNetwork" yaml:"dockerNetwork"` // Docker 网络名称
 }
 
 // LogConfig 日志系统相关配置
@@ -63,6 +71,7 @@ type LogConfig struct {
 //   - COURSE_DIR: 课程文件目录 (默认: ./courses)
 //   - COURSES_RELOAD: 是否启用课程热重载 (默认: true)
 //   - COURSES_USE_EMBED: 是否使用嵌入式FS作为课程数据来源 (默认: false 或由 BuildDefaultUseEmbed 指定)
+//   - DOCKER_DEPLOY: 是否为 Docker 部署模式 (默认: false)
 //
 // 返回完整的配置对象，如果配置验证失败会返回错误
 func Load() (*Config, error) {
@@ -84,9 +93,11 @@ func Load() (*Config, error) {
 			Timeout: getEnvInt("DOCKER_TIMEOUT", 30),
 		},
 		Course: CourseConfig{
-			Dir:      getEnv("COURSE_DIR", "./courses"),
-			Reload:   getEnvBool("COURSES_RELOAD", true),
-			UseEmbed: getEnvBool("COURSES_USE_EMBED", defaultUseEmbed),
+			Dir:           getEnv("COURSE_DIR", "./courses"),
+			Reload:        getEnvBool("COURSES_RELOAD", true),
+			UseEmbed:      getEnvBool("COURSES_USE_EMBED", defaultUseEmbed),
+			DockerDeploy:  getEnvBool("DOCKER_DEPLOY", false),
+			DockerNetwork: getEnv("DOCKER_NETWORK", ""),
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
