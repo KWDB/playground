@@ -45,24 +45,32 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
       {mode === 'grid' ? (
         <button
           onClick={() => setIsModalOpen(true)}
-          className={`group block p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] hover:border-[var(--color-border-default)] transition-colors ${className}`}
+          className={`
+            group block p-5 rounded-xl 
+            border border-dashed border-[var(--color-border-default)]
+            bg-[var(--color-bg-secondary)]
+            transition-all duration-200 ease-out
+            hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]
+            hover:-translate-y-0.5 active:translate-y-0
+            ${className}
+          `}
         >
-          <div className="flex items-start gap-3 mb-3">
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-[var(--color-bg-secondary)] flex items-center justify-center group-hover:bg-[var(--color-accent-subtle)] transition-colors">
-              <Plus className="w-5 h-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)] transition-colors" />
+          <div className="flex items-start gap-3 mb-4">
+            <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[var(--color-bg-tertiary)] flex items-center justify-center group-hover:bg-[var(--color-accent-subtle)] transition-colors duration-200">
+              <Plus className="w-5 h-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors text-left">
+              <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200 text-left">
                 提议新课程
               </h3>
-              <p className="text-xs text-[var(--color-text-tertiary)] mt-1 text-left">
+              <p className="text-xs text-[var(--color-text-tertiary)] mt-1.5 text-left leading-relaxed">
                 希望有更多课程？
               </p>
             </div>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pt-3 border-t border-dashed border-[var(--color-border-light)]">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)]">
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] group-hover:bg-[var(--color-accent-subtle)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
                 建议
               </span>
             </div>
@@ -71,13 +79,21 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
       ) : (
         <button
           onClick={() => setIsModalOpen(true)}
-          className={`group flex items-center gap-4 p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] hover:border-[var(--color-border-default)] transition-colors w-full ${className}`}
+          className={`
+            group flex items-center gap-4 p-5 rounded-xl
+            border border-dashed border-[var(--color-border-default)]
+            bg-[var(--color-bg-secondary)]
+            transition-all duration-200 ease-out
+            hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]
+            hover:-translate-y-0.5 active:translate-y-0
+            w-full ${className}
+          `}
         >
-          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-[var(--color-bg-secondary)] flex items-center justify-center group-hover:bg-[var(--color-accent-subtle)] transition-colors">
-            <Plus className="w-5 h-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)] transition-colors" />
+          <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[var(--color-bg-tertiary)] flex items-center justify-center group-hover:bg-[var(--color-accent-subtle)] transition-colors duration-200">
+            <Plus className="w-5 h-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200" />
           </div>
           <div className="flex-1 min-w-0 flex flex-col">
-            <h3 className="text-sm font-medium text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors text-left">
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200 text-left">
               提议新课程
             </h3>
             <p className="text-xs text-[var(--color-text-tertiary)] truncate text-left">
@@ -85,7 +101,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
             </p>
           </div>
           <div className="flex-shrink-0">
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)]">
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] group-hover:bg-[var(--color-accent-subtle)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
               建议
             </span>
           </div>

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Database, Home, BookOpen, Menu, X } from 'lucide-react';
+import { Home, BookOpen, Menu, X } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
+import LogoUrl from '/assets/logo.svg?url';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
@@ -20,9 +21,11 @@ const Navbar: React.FC = () => {
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center gap-8">
             <Link to="/" className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center w-8 h-8 rounded-md bg-[var(--color-accent-primary)]">
-                <Database className="w-5 h-5 text-white" />
-              </div>
+              <img 
+                src={LogoUrl}
+                alt="KWDB Logo"
+                className="w-8 h-8 object-contain"
+              />
               <span className="text-sm font-medium text-[var(--color-text-primary)]">
                 KWDB Playground
               </span>

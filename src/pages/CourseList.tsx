@@ -376,37 +376,61 @@ export function CourseList() {
                   <Link
                     to={`/learn/${course.id}`}
                     key={course.id}
-                    className="flex items-center gap-4 p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] hover:border-[var(--color-border-default)] transition-colors"
+                    className={`
+                      group flex items-center gap-4 p-5 rounded-xl 
+                      border bg-[var(--color-bg-primary)]
+                      transition-all duration-200 ease-out
+                      hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5
+                      active:translate-y-0 active:shadow-[var(--shadow-sm)]
+                      ${isRunning 
+                        ? 'border-l-[3px] border-l-[var(--color-success)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
+                        : 'border-[var(--color-border-light)] hover:border-[var(--color-border-default)]'
+                      }
+                    `}
                   >
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                      course.sqlTerminal ? 'bg-[var(--color-bg-secondary)]' : 'bg-[var(--color-bg-secondary)]'
-                    }`}>
+                    <div className={`
+                      flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
+                      transition-colors duration-200
+                      ${course.sqlTerminal 
+                        ? 'bg-[var(--color-accent-subtle)] group-hover:bg-[rgba(94,106,210,0.15)]' 
+                        : 'bg-[rgba(59,130,246,0.08)] group-hover:bg-[rgba(59,130,246,0.12)]'
+                      }
+                    `}>
                       {course.sqlTerminal ? (
-                        <Database className="w-5 h-5 text-[var(--color-text-primary)]" />
+                        <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
                       ) : (
-                        <Terminal className="w-5 h-5 text-[var(--color-text-primary)]" />
+                        <Terminal className="w-5 h-5 text-[#3b82f6]" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-[var(--color-text-primary)] truncate">{course.title}</h3>
-                      <p className="text-xs text-[var(--color-text-tertiary)] truncate mt-0.5">{course.description}</p>
+                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
+                        {course.title}
+                      </h3>
+                      <p className="text-xs text-[var(--color-text-tertiary)] truncate mt-1 leading-relaxed">
+                        {course.description}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-4 flex-shrink-0">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
                         course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
                         course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
                         'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
                       }`}>
                         {getDifficultyLabel(course.difficulty)}
                       </span>
-                      <span className="text-xs text-[var(--color-text-tertiary)]">{course.estimatedMinutes} 分钟</span>
+                      <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
+                        <Clock className="w-3.5 h-3.5" />
+                        {course.estimatedMinutes} 分钟
+                      </span>
                       {isRunning && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
                           运行中
                         </span>
                       )}
                       {isPaused && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
                           已暂停
                         </span>
                       )}
@@ -419,28 +443,45 @@ export function CourseList() {
                 <Link
                   to={`/learn/${course.id}`}
                   key={course.id}
-                  className="group block p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] hover:border-[var(--color-border-default)] transition-colors"
+                  className={`
+                    group block p-5 rounded-xl
+                    border bg-[var(--color-bg-primary)]
+                    transition-all duration-200 ease-out
+                    hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5
+                    active:translate-y-0 active:shadow-[var(--shadow-sm)]
+                    ${isRunning 
+                      ? 'border-l-[3px] border-l-[var(--color-success)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
+                      : 'border-[var(--color-border-light)] hover:border-[var(--color-border-default)]'
+                    }
+                  `}
                 >
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                      course.sqlTerminal ? 'bg-[var(--color-bg-secondary)]' : 'bg-[var(--color-bg-secondary)]'
-                    }`}>
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className={`
+                      flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
+                      transition-colors duration-200
+                      ${course.sqlTerminal 
+                        ? 'bg-[var(--color-accent-subtle)] group-hover:bg-[rgba(94,106,210,0.15)]' 
+                        : 'bg-[rgba(59,130,246,0.08)] group-hover:bg-[rgba(59,130,246,0.12)]'
+                      }
+                    `}>
                       {course.sqlTerminal ? (
-                        <Database className="w-5 h-5 text-[var(--color-text-primary)]" />
+                        <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
                       ) : (
-                        <Terminal className="w-5 h-5 text-[var(--color-text-primary)]" />
+                        <Terminal className="w-5 h-5 text-[#3b82f6]" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors">
+                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
                         {course.title}
                       </h3>
-                      <p className="text-xs text-[var(--color-text-tertiary)] mt-1 line-clamp-2">{course.description}</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)] mt-1.5 line-clamp-2 leading-relaxed">
+                        {course.description}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-light)]">
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
                         course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
                         course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
                         'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
@@ -453,12 +494,14 @@ export function CourseList() {
                       </span>
                     </div>
                     {isRunning && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
                         运行中
                       </span>
                     )}
                     {isPaused && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
                         已暂停
                       </span>
                     )}
