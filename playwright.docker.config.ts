@@ -9,7 +9,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: 'tests/playwright',
   testMatch: ['tests/playwright/docker-deploy.spec.ts'],
-  timeout: 180_000,
+  timeout: 300_000,
   fullyParallel: false,
   reporter: [['list']],
   use: {

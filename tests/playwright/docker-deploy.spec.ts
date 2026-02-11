@@ -76,7 +76,7 @@ test.describe('Docker 部署验证', () => {
       const res = await request.get('/api/sql/info?courseId=sql');
       const body = await res.json();
       expect(body.connected).toBe(true);
-    }).toPass({ timeout: 120_000, intervals: [3000] });
+    }).toPass({ timeout: 240_000, intervals: [3000] });
 
     // KWDB 已就绪，刷新页面以获得干净的 UI 状态
     await page.reload();

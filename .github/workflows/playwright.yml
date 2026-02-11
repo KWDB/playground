@@ -78,6 +78,9 @@ jobs:
       - name: Build Docker image
         run: docker build -f docker/playground/Dockerfile -t kwdb/playground:latest .
 
+      - name: Pre-pull course images
+        run: docker pull kwdb/kwdb:latest
+
       - name: Start Docker deployment
         run: docker compose -f docker/playground/docker-compose.yml up -d --wait
 
