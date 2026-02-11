@@ -281,78 +281,112 @@ export function CourseList() {
           </div>
 
           {filterPanelOpen && (
-            <div className="mt-4 pt-4 border-t border-[var(--color-border-light)] space-y-4">
+            <div className="mt-4 pt-4 border-t border-[var(--color-border-light)] space-y-5">
+              {/* 类型筛选 */}
               <div>
-                <label className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider mb-2 block">类型</label>
+                <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3 block">
+                  课程类型
+                </label>
                 <div className="flex gap-2">
                   {[
-                    { value: 'all', label: '全部' },
-                    { value: 'sql', label: 'SQL' },
-                    { value: 'shell', label: 'Shell' },
+                    { value: 'all', label: '全部', icon: null },
+                    { value: 'sql', label: 'SQL', icon: Database, color: '#7c3aed' },
+                    { value: 'shell', label: 'Shell', icon: Terminal, color: '#16a34a' },
                   ].map((type) => (
                     <button
                       key={type.value}
                       onClick={() => setFilters({ ...filters, type: type.value as FilterState['type'] })}
-                      className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 border ${
                         filters.type === type.value
-                          ? 'bg-[var(--color-accent-primary)] text-white'
-                          : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
+                          ? type.value === 'sql'
+                            ? 'bg-[#ede9fe] text-[#7c3aed] border-[#7c3aed] shadow-sm'
+                            : type.value === 'shell'
+                            ? 'bg-[#dcfce7] text-[#16a34a] border-[#16a34a] shadow-sm'
+                            : 'bg-[var(--color-text-primary)] text-white border-[var(--color-text-primary)] shadow-sm'
+                          : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)]'
                       }`}
                     >
+                      {type.icon && <type.icon className="w-4 h-4" />}
                       {type.label}
                     </button>
                   ))}
                 </div>
               </div>
 
+              {/* 难度筛选 */}
               <div>
-                <label className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider mb-2 block">难度</label>
+                <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3 block">
+                  难度等级
+                </label>
                 <div className="flex flex-wrap gap-2">
-                  {availableDifficulties.map((diff) => (
-                    <button
-                      key={diff}
-                      onClick={() => {
-                        const next = filters.difficulty.includes(diff)
-                          ? filters.difficulty.filter(d => d !== diff)
-                          : [...filters.difficulty, diff];
-                        setFilters({ ...filters, difficulty: next });
-                      }}
-                      className={`px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1.5 ${
-                        filters.difficulty.includes(diff)
-                          ? 'bg-[var(--color-accent-primary)] text-white'
-                          : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
-                      }`}
-                    >
-                      {filters.difficulty.includes(diff) && <CheckCircle className="w-3.5 h-3.5" />}
-                      {getDifficultyLabel(diff)}
-                    </button>
-                  ))}
+                  {availableDifficulties.map((diff) => {
+                    const isSelected = filters.difficulty.includes(diff);
+                    const getDifficultyColor = (d: string) => {
+                      switch (d) {
+                        case 'beginner': return { bg: '#dcfce7', text: '#16a34a', border: '#16a34a' };
+                        case 'intermediate': return { bg: '#fef3c7', text: '#d97706', border: '#d97706' };
+                        case 'advanced': return { bg: '#fee2e2', text: '#dc2626', border: '#dc2626' };
+                        default: return { bg: '#f3f4f6', text: '#6b7280', border: '#6b7280' };
+                      }
+                    };
+                    const color = getDifficultyColor(diff);
+                    return (
+                      <button
+                        key={diff}
+                        onClick={() => {
+                          const next = filters.difficulty.includes(diff)
+                            ? filters.difficulty.filter(d => d !== diff)
+                            : [...filters.difficulty, diff];
+                          setFilters({ ...filters, difficulty: next });
+                        }}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 border shadow-sm ${
+                          isSelected
+                            ? 'border-transparent'
+                            : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)]'
+                        }`}
+                        style={isSelected ? {
+                          backgroundColor: color.bg,
+                          color: color.text,
+                          borderColor: color.border
+                        } : undefined}
+                      >
+                        {isSelected && <CheckCircle className="w-3.5 h-3.5" style={{ color: isSelected ? color.text : undefined }} />}
+                        {getDifficultyLabel(diff)}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
+              {/* 标签筛选 */}
               {availableTags.length > 0 && (
                 <div>
-                  <label className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider mb-2 block">标签</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3 block">
+                    标签筛选
+                  </label>
                   <div className="flex flex-wrap gap-2">
-                    {availableTags.map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => {
-                          const next = filters.tags.includes(tag)
-                            ? filters.tags.filter(t => t !== tag)
-                            : [...filters.tags, tag];
-                          setFilters({ ...filters, tags: next });
-                        }}
-                        className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                          filters.tags.includes(tag)
-                            ? 'bg-[var(--color-accent-primary)] text-white'
-                            : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
-                        }`}
-                      >
-                        {filters.tags.includes(tag) && <CheckCircle className="w-3.5 h-3.5" />}
-                        {tag}
-                      </button>
-                    ))}
+                    {availableTags.map((tag) => {
+                      const isSelected = filters.tags.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          onClick={() => {
+                            const next = filters.tags.includes(tag)
+                              ? filters.tags.filter(t => t !== tag)
+                              : [...filters.tags, tag];
+                            setFilters({ ...filters, tags: next });
+                          }}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 border ${
+                            isSelected
+                              ? 'bg-[var(--color-accent-primary)] text-white border-[var(--color-accent-primary)] shadow-sm'
+                              : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]/50 hover:text-[var(--color-accent-primary)]'
+                          }`}
+                        >
+                          {isSelected && <CheckCircle className="w-3.5 h-3.5" />}
+                          {tag}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
