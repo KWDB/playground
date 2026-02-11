@@ -70,7 +70,14 @@ test.describe('Docker 部署验证', () => {
     await expect(page.getByText('终端未连接')).toBeVisible();
 
     await page.getByRole('button', { name: '启动容器' }).click();
-    await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 120_000 });
+
+    await expect(async () => {
+      const errorVisible = await page.getByText('KWDB未就绪').isVisible().catch(() => false);
+      expect(errorVisible).toBe(false);
+      const versionVisible = await page.getByText('KWDB 版本').isVisible().catch(() => false);
+      expect(versionVisible).toBe(true);
+    }).toPass({ timeout: 120_000 });
+
     await expect(page.getByText('WS 已连接')).toBeVisible({ timeout: 30_000 });
 
     await page.locator('.cm-content').click();
