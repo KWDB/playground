@@ -71,13 +71,16 @@ test.describe('Docker 部署验证', () => {
 
     await page.getByRole('button', { name: '启动容器' }).click();
 
+    // 通过 API 轮询等待 KWDB 真正就绪，避免前端状态闪烁导致误判
     await expect(async () => {
-      const errorVisible = await page.getByText('KWDB未就绪').isVisible().catch(() => false);
-      expect(errorVisible).toBe(false);
-      const versionVisible = await page.getByText('KWDB 版本').isVisible().catch(() => false);
-      expect(versionVisible).toBe(true);
-    }).toPass({ timeout: 120_000 });
+      const res = await request.get('/api/sql/info?courseId=sql');
+      const body = await res.json();
+      expect(body.connected).toBe(true);
+    }).toPass({ timeout: 120_000, intervals: [3000] });
 
+    // KWDB 已就绪，刷新页面以获得干净的 UI 状态
+    await page.reload();
+    await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('WS 已连接')).toBeVisible({ timeout: 30_000 });
 
     await page.locator('.cm-content').click();
