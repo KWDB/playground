@@ -71,11 +71,13 @@ test.describe('Docker 部署验证', () => {
 
     await page.getByRole('button', { name: '启动容器' }).click();
     await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByText('WS 已连接')).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('textbox').fill('SELECT 1');
-    await page.getByRole('textbox').press('Enter');
+    await page.locator('.cm-content').click();
+    await page.keyboard.type('SELECT 1');
+    await page.getByRole('button', { name: '执行' }).click();
     await expect(
-      page.getByRole('cell', { name: '1' }),
+      page.getByText(/查询完成/),
     ).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: '停止容器' }).click();
