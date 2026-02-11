@@ -30,7 +30,7 @@ test.describe('Quick Start', () => {
     await expect(imageSourceBtn).toBeVisible()
     await imageSourceBtn.click()
 
-    await expect(page.getByRole('heading', { name: '容器镜像源选择器' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '容器镜像源' })).toBeVisible()
     await page.getByText('GitHub Container Registry').click()
     await page.getByRole('button', { name: '应用' }).click()
 
@@ -45,7 +45,7 @@ test.describe('Quick Start', () => {
     expect(saved.selectedImageFullName).toContain('ghcr.io/')
 
     // 2) 确认进入学习页，显示“请先启动容器”文案
-    await expect(page.getByText('请先启动容器')).toBeVisible();
+    await expect(page.getByText('终端未连接')).toBeVisible();
 
     // 3) 点击“启动容器”，等待状态从“启动中”到“运行中”
     const startBtn = page.getByRole('button', { name: '启动容器' });

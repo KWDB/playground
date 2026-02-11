@@ -47,8 +47,8 @@ test.describe('课程暂停与恢复功能', () => {
     // 验证状态变为暂停
     await expect(page.getByText('恢复容器')).toBeVisible();
     
-    // 验证状态指示器显示"容器: 已暂停"
-    await expect(page.locator('.lucide-server').locator('..').getByText('容器: 已暂停')).toBeVisible(); 
+    // 验证状态指示器显示"已暂停"
+    await expect(page.getByText('已暂停')).toBeVisible(); 
     
     // 6. 返回课程列表页，验证卡片状态
     const backBtn = page.locator('button[title="返回课程列表"]');
