@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, BookOpen, AlertCircle, Trash2, CheckCircle, Terminal, Database, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw } from 'lucide-react';
+import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw } from 'lucide-react';
 import { ContainerInfo } from '@/types';
 import ProposeCourseCard from '../components/business/ProposeCourseCard';
 import { useDebounce } from '../hooks/useDebounce';
@@ -218,14 +218,9 @@ export function CourseList() {
     <div className="w-full min-h-dvh bg-[var(--color-bg-primary)]">
       <div className="max-w-6xl mx-auto px-6 py-8">
         <header className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--color-border-light)]">
-              <BookOpen className="w-5 h-5 text-[var(--color-text-primary)]" />
-            </div>
-            <div>
-              <h1 className="text-xl font-medium text-[var(--color-text-primary)]">课程列表</h1>
-              <p className="text-sm text-[var(--color-text-tertiary)]">{filteredCourses.length} 门课程</p>
-            </div>
+          <div>
+            <h1 className="text-xl font-medium text-[var(--color-text-primary)]">课程列表</h1>
+            <p className="text-sm text-[var(--color-text-tertiary)]">{filteredCourses.length} 门课程</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center border border-[var(--color-border-default)] rounded-lg overflow-hidden">
