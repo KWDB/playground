@@ -15,9 +15,8 @@ import CourseContentPanel from '../components/business/CourseContentPanel';
 import PortConflictHandler from '../components/business/PortConflictHandler';
 import { ImageSelector } from '../components/business/ImageSelector';
 import '../styles/markdown.css';
-import { useLearnStore, effectiveImageSelector, imageSourceLabelSelector, ContainerStatus } from '../store/learnStore';
+import { useLearnStore, effectiveImageSelector, imageSourceLabelSelector } from '../store/learnStore';
 import { api } from '../lib/api/client'
-import type { ContainerStatusResponse, Course } from '../lib/api/types'
 
 export function Learn() {
   const { courseId } = useParams<{ courseId: string }>()
@@ -53,8 +52,10 @@ export function Learn() {
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
   const terminalRef = useRef<TerminalRef>(null)
 
-  const effectiveImage = useMemo(() => effectiveImageSelector(useLearnStore.getState() as any), [course, selectedImage])
-  const imageSourceLabel = useMemo(() => imageSourceLabelSelector(useLearnStore.getState() as any), [selectedImageSourceId, selectedImage, course])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const effectiveImage = useMemo(() => effectiveImageSelector(useLearnStore.getState() as any), [course]) // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const imageSourceLabel = useMemo(() => imageSourceLabelSelector(useLearnStore.getState() as any), [selectedImageSourceId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 确认弹窗模式：区分来源以动态文案
   // const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
@@ -102,7 +103,7 @@ export function Learn() {
       console.error('获取容器状态失败:', err)
       return null
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // WebSocket 连接处理
   const connectToTerminal = useCallback((id: string) => {
@@ -168,7 +169,7 @@ export function Learn() {
         console.error('定期状态检查失败:', error)
       }
     }, STATUS_CHECK_INTERVAL_MS)
-  }, [checkContainerStatus])
+  }, [checkContainerStatus]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const startCourseContainer = useCallback(async (courseId: string) => {
     // 防重复调用：检查当前状态，避免重复启动
@@ -308,12 +309,12 @@ export function Learn() {
     } finally {
       setIsStartingContainer(false)
     }
-  }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal, startStatusMonitoring, selectedImage])
+  }, [containerStatus, isStartingContainer, checkContainerStatus, connectToTerminal, startStatusMonitoring, selectedImage]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 端口冲突处理回调函数
   const handlePortConflictClose = useCallback(() => {
     setShowPortConflictHandler(false)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePortConflictRetry = useCallback(() => {
     if (course?.id) {
@@ -326,7 +327,7 @@ export function Learn() {
     console.log('端口冲突处理成功')
     setError(null)
     connectionErrorRef.current = null
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 使用useRef保存最新的状态值，避免闭包问题
   const courseIdRef = useRef(courseId)
@@ -429,7 +430,7 @@ export function Learn() {
       setContainerStatus('error')
       isStoppingRef.current = false
     }
-  }, [containerId])
+  }, [containerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const pauseContainer = useCallback(async (courseId: string) => {
     console.log('暂停容器请求开始，课程ID:', courseId)
@@ -461,7 +462,7 @@ export function Learn() {
       setError(error instanceof Error ? error.message : '暂停容器失败')
       setContainerStatus('error')
     }
-  }, [containerId])
+  }, [containerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const resumeContainer = useCallback(async (courseId: string) => {
     console.log('恢复容器请求开始，课程ID:', courseId)
@@ -496,7 +497,7 @@ export function Learn() {
       setError(error instanceof Error ? error.message : '恢复容器失败')
       setContainerStatus('error')
     }
-  }, [containerId])
+  }, [containerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCourse = useCallback(async (id: string, signal?: AbortSignal) => {
     try {
@@ -509,7 +510,7 @@ export function Learn() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -556,18 +557,18 @@ export function Learn() {
     } catch (err) {
       console.error('检查已有容器失败:', err)
     }
-  }, [startStatusMonitoring])
+  }, [startStatusMonitoring]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!courseId) return
     const controller = new AbortController()
-    
+
     // 并行获取课程信息和容器状态
     fetchCourse(courseId, controller.signal)
     checkExistingContainer(courseId, controller.signal)
-    
+
     return () => controller.abort()
-  }, [courseId, fetchCourse, checkExistingContainer])
+  }, [courseId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
@@ -593,7 +594,7 @@ export function Learn() {
       // 清空容器ID，避免卸载后残留导致重连
       setContainerId(null)
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helper functions for navigation
   // 使用 useMemo 缓存当前标题与内容，避免无关渲染
@@ -848,99 +849,6 @@ export function Learn() {
     if (canGoNext()) {
       setCurrentStep(currentStep + 1)
     }
-  }
-
-  // 跳转到指定步骤
-  const goToStep = (step: number) => {
-    if (course) {
-      // 限制跳转范围：-1(intro) 到 steps.length(finish)
-      const minStep = -1
-      const maxStep = course.details.steps.length
-      if (step >= minStep && step <= maxStep) {
-        setCurrentStep(step)
-      }
-    }
-  }
-
-  // 获取进度条步骤列表 - 使用配置文件中的标题
-  const getProgressSteps = () => {
-    if (!course) return []
-
-    const steps = [
-      { id: -1, title: '介绍', type: 'intro' },
-      ...course.details.steps.map((step, index) => ({
-        id: index,
-        title: step.title, // 使用配置文件中的实际标题
-        type: 'step'
-      })),
-      { id: course.details.steps.length, title: '完成', type: 'finish' }
-    ]
-
-    return steps
-  }
-
-  // 渲染极简进度条
-  const renderProgressBar = () => {
-    const steps = getProgressSteps()
-    if (steps.length === 0) return null
-
-    return (
-      <div className="bg-white border-b border-gray-100 px-6 py-3">
-        <div className="flex items-center space-x-4 max-w-4xl mx-auto">
-          <div className="flex items-center space-x-2 text-xs text-gray-500">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-            <div className="font-medium">
-              {currentStep + 2} / {steps.length}
-            </div>
-          </div>
-
-          <div className="flex-1 relative">
-            <div className="h-0.5 bg-gray-100 rounded-full"></div>
-            <div
-              className="absolute top-0 left-0 h-0.5 bg-blue-500 rounded-full transition-all duration-500 ease-out"
-              style={{
-                width: `${(Math.max(0, currentStep + 1) / (steps.length - 1)) * 100}%`
-              }}
-            ></div>
-          </div>
-
-          <div className="flex items-center space-x-1">
-            {steps.map((step) => {
-              const isCompleted = currentStep > step.id
-              const isCurrent = currentStep === step.id
-              const isClickable = step.id <= currentStep || step.id === currentStep + 1
-
-              return (
-                <button
-                  key={step.id}
-                  onClick={() => isClickable && goToStep(step.id)}
-                  disabled={!isClickable}
-                  className={`group relative w-2 h-2 rounded-full transition-all duration-200 ${isCompleted
-                    ? 'bg-blue-500 hover:bg-blue-600'
-                    : isCurrent
-                      ? 'bg-blue-500 ring-2 ring-blue-200'
-                      : isClickable
-                        ? 'bg-gray-300 hover:bg-gray-400'
-                        : 'bg-gray-200 cursor-not-allowed'
-                    }`}
-                  title={step.title}
-                >
-                  {/* 悬浮提示 */}
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none z-10">
-                    {step.title}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* 当前步骤标题 */}
-          <div className="text-sm font-medium text-gray-700 min-w-0">
-            {steps.find(step => step.id === currentStep)?.title || '介绍'}
-          </div>
-        </div>
-      </div>
-    )
   }
 
   // 退出课程函数
@@ -1259,18 +1167,18 @@ export function Learn() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* 顶部导航栏 */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
+      <header className="bg-[var(--color-bg-primary)] border-b border-[var(--color-border-light)] px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
               onClick={handleBackClick}
-              className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg shadow-blue-500/25 hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/40 hover:shadow-xl hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white transition-all duration-300 transform active:scale-95 active:translate-y-0 border border-blue-400/20 backdrop-blur-sm"
+              className="btn btn-ghost text-sm"
               title="返回课程列表"
             >
               <ArrowLeft className="h-4 w-4 mr-1.5" />
               <span className="hidden sm:inline">返回</span>
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">{course.title}</h1>
+            <h1 className="text-base font-medium text-[var(--color-text-primary)]">{course.title}</h1>
           </div>
 
           {/* 容器状态栏 */}
@@ -1294,12 +1202,12 @@ export function Learn() {
               {(containerStatus === 'stopped' || containerStatus === 'error' || containerStatus === 'exited' || containerStatus === 'completed') && (
                 <button
                   onClick={() => setShowImageSelector(true)}
-                  className="group relative inline-flex items-center justify-center px-3 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+                  className="btn btn-ghost text-sm"
                   title={`镜像源：${imageSourceLabel}（${effectiveImage}）`}
                 >
                   <ImageIcon className="w-4 h-4" />
                   <span className="hidden sm:inline ml-2">镜像源</span>
-                  <span className="ml-2 inline-block rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 max-w-40 truncate align-middle">
+                  <span className="ml-2 inline-block rounded-full border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--color-text-secondary)] max-w-40 truncate align-middle">
                     {imageSourceLabel}
                   </span>
                 </button>
@@ -1309,39 +1217,23 @@ export function Learn() {
                 <button
                   onClick={() => course?.id && startCourseContainer(course.id)}
                   disabled={isStartingContainer}
-                  className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-300 transform hover:scale-105 active:scale-95"
+                  className="btn btn-primary text-sm"
                 >
-                  <div className={`flex items-center space-x-2 ${isStartingContainer ? 'animate-pulse' : ''
-                    }`}>
-                    <div className={`w-2 h-2 rounded-full bg-white ${isStartingContainer ? 'animate-spin' : ''
-                      }`}></div>
-                    <span>{isStartingContainer ? '启动中...' : '启动容器'}</span>
-                  </div>
-                  {!isStartingContainer && (
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-400 to-blue-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-                  )}
+                  <span>{isStartingContainer ? '启动中...' : '启动容器'}</span>
                 </button>
               ) : containerStatus === 'paused' ? (
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => course?.id && resumeContainer(course.id)}
-                    className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 active:scale-95"
+                    className="btn btn-primary text-sm"
                   >
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 rounded-full bg-white"></div>
-                      <span>恢复容器</span>
-                    </div>
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-green-400 to-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                    <span>恢复容器</span>
                   </button>
                   <button
                     onClick={() => course?.id && stopContainer(course.id)}
-                    className="group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 active:scale-95"
+                    className="btn btn-danger text-sm"
                   >
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 rounded-sm bg-white"></div>
-                      <span>停止容器</span>
-                    </div>
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-400 to-red-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                    <span>停止容器</span>
                   </button>
                 </div>
               ) : containerStatus === 'running' || containerStatus === 'stopping' ? (
@@ -1349,33 +1241,16 @@ export function Learn() {
                   <button
                     onClick={() => course?.id && pauseContainer(course.id)}
                     disabled={containerStatus === 'stopping'}
-                    className={`group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-lg shadow-yellow-500/25 hover:shadow-yellow-500/40 hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition-all duration-300 transform ${containerStatus === 'stopping' ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                    className="btn btn-secondary text-sm"
                   >
-                    <div className="flex items-center space-x-2">
-                      <div className="flex space-x-0.5">
-                        <div className="w-1 h-3 bg-white"></div>
-                        <div className="w-1 h-3 bg-white"></div>
-                      </div>
-                      <span>暂停容器</span>
-                    </div>
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-yellow-400 to-yellow-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                    <span>暂停容器</span>
                   </button>
                   <button
                     onClick={() => course?.id && stopContainer(course.id)}
                     disabled={containerStatus === 'stopping'}
-                    className={`group relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 transform ${containerStatus === 'stopping' ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                    className="btn btn-danger text-sm"
                   >
-                    <div className="flex items-center space-x-2">
-                      {containerStatus === 'stopping' ? (
-                        <div className="w-2 h-2 rounded-full bg-white animate-spin"></div>
-                      ) : (
-                        <div className="w-2 h-2 rounded-sm bg-white"></div>
-                      )}
-                      <span>{containerStatus === 'stopping' ? '停止中...' : '停止容器'}</span>
-                    </div>
-                    {containerStatus !== 'stopping' && (
-                      <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-400 to-red-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-                    )}
+                    <span>{containerStatus === 'stopping' ? '停止中...' : '停止容器'}</span>
                   </button>
                 </div>
               ) : null}
@@ -1390,7 +1265,6 @@ export function Learn() {
           {/* 左侧内容面板 */}
           <Panel defaultSize={50} minSize={30} id="course-content">
             <CourseContentPanel
-              renderProgressBar={renderProgressBar}
               title={currentTitle}
               content={currentContent}
               renderMarkdown={renderMarkdown}
@@ -1404,7 +1278,7 @@ export function Learn() {
             />
           </Panel>
 
-          <Separator className="w-2 bg-gray-300 hover:bg-gray-400 transition-colors cursor-col-resize" />
+          <Separator className="w-1 bg-[var(--color-border-light)] hover:bg-[var(--color-border-default)] transition-colors cursor-col-resize" />
 
           {/* 右侧终端面板 */}
           <Panel defaultSize={50} minSize={30} id="terminal">
@@ -1424,8 +1298,14 @@ export function Learn() {
                             containerStatus={containerStatus}
                           />
                         ) : (
-                          <div className="flex items-center justify-center h-full text-gray-500">
-                            请先启动容器
+                          <div className="flex flex-col items-center justify-center h-full bg-[var(--color-bg-secondary)] p-6">
+                            <div className="w-12 h-12 rounded-full bg-[var(--color-bg-tertiary)] flex items-center justify-center mb-4">
+                              <svg className="w-6 h-6 text-[var(--color-text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M12 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                            <p className="text-[var(--color-text-secondary)] text-sm mb-2">终端未连接</p>
+                            <p className="text-[var(--color-text-tertiary)] text-xs">启动容器后即可使用 Shell 终端</p>
                           </div>
                         )}
                       </div>

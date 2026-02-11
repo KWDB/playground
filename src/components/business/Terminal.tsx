@@ -17,51 +17,40 @@ interface ImagePullProgressMessage {
 }
 
 // 终端组件属性接口
-// 更精确的容器状态类型，便于类型收敛与代码可读性
-/** 容器生命周期状态，驱动终端 WS 连接策略与进度显示 */
 export type ContainerStatus = 'running' | 'starting' | 'stopping' | 'paused' | 'stopped' | 'exited' | 'completed' | 'unknown' | 'error';
 
-/** Terminal 组件入参：通过 containerId 与 containerStatus 控制连接与显示 */
 interface TerminalProps {
-  containerId?: string; // 可选：支持容器启动过程中的显示
-  containerStatus?: ContainerStatus; // 容器状态：控制WS连接策略与进度连接
+  containerId?: string;
+  containerStatus?: ContainerStatus;
 }
 
 // 终端引用接口
-/** Terminal 暴露的外部方法，供父组件向容器终端发送命令 */
 export interface TerminalRef {
   sendCommand: (command: string) => void;
   focus: () => void;
 }
 
-/** XTerm 终端组件：管理容器命令 WebSocket 与镜像进度 WebSocket，提供 sendCommand 能力 */
+/** XTerm 终端组件：管理容器命令 WebSocket 与镜像进度 WebSocket */
 const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containerStatus }, ref) => {
-  // 引用和状态管理
   const xtermRef = useRef<XTerm | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  // 进度专用 WebSocket 引用，在容器ID未就绪时也能接收镜像拉取进度
   const wsProgressRef = useRef<WebSocket | null>(null);
-  // 重连定时器引用：用于在状态切换（例如停止）时取消已排队的重连
   const reconnectTimerRef = useRef<number | null>(null);
-  const pingIntervalRef = useRef<number | null>(null); // 心跳定时器
+  const pingIntervalRef = useRef<number | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  // 记录上一次的进度与状态，减少终端内重复输出，避免闪烁
   const lastProgressRef = useRef<number | null>(null);
   const lastStatusRef = useRef<string>('');
-  const wsContainerIdRef = useRef<string | null>(null); // 记录当前 WebSocket 连接的容器 ID
+  const wsContainerIdRef = useRef<string | null>(null);
   const debounceTimeoutRef = useRef<number | null>(null);
   
-  // 状态管理
   const [isConnected, setIsConnected] = useState(false);
   const [imagePullProgress, setImagePullProgress] = useState<ImagePullProgressMessage | null>(null);
   const [showProgress, setShowProgress] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
-  // 防抖函数用于窗口大小调整（浏览器友好类型）
-  /** 简单防抖：适配浏览器定时器类型，避免频繁 resize 导致布局抖动 */
-const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, wait: number) => {
+  const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, wait: number) => {
     return (...args: Parameters<T>) => {
       const tid = debounceTimeoutRef.current;
       if (tid !== null) {
@@ -69,7 +58,7 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
       }
       debounceTimeoutRef.current = window.setTimeout(() => {
         func(...args);
-        debounceTimeoutRef.current = null; // 执行后清空，确保下一轮正常工作
+        debounceTimeoutRef.current = null;
       }, wait);
     };
   }, []);
@@ -120,10 +109,7 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
         const { cols, rows } = xtermRef.current;
         wsRef.current.send(JSON.stringify({
           type: 'resize',
-          data: {
-            cols,
-            rows
-          }
+          data: { cols, rows }
         }));
       }
     } catch (error) {
@@ -167,9 +153,7 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
     sendInput(normalized + '\r', true);
   }, [sendInput]);
 
-  // 解析镜像拉取进度百分比的辅助函数
   const parseProgressPercent = useCallback((progress?: string): number | null => {
-    // 1) 直接匹配百分比（例如 "56%"）
     if (progress) {
       const pctMatch = progress.match(/(\d{1,3})%/);
       if (pctMatch) {
@@ -178,17 +162,14 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
       }
     }
 
-    // 2) 匹配字节/大小进度（例如 "44.1MB/67.2MB" 或 "1024kB/2048kB"）
-    // 提示：Docker拉取进度常见格式为 "xx.x MB/yy.y MB" 或 "xx.x kB/yy.y kB"
     if (!progress) return null;
     const sizeMatch = progress.match(/([0-9]+(?:\.[0-9]+)?)\s*([kMG]?B)\s*\/\s*([0-9]+(?:\.[0-9]+)?)\s*([kMG]?B)/i);
     if (sizeMatch) {
       const toBytes = (numStr: string, unit: string) => {
         const num = parseFloat(numStr);
         const u = unit.toUpperCase();
-        // 按照常见单位转换：kB=10^3, MB=10^6, GB=10^9（Docker输出通常使用十进制单位）
         const map: Record<string, number> = { KB: 1e3, MB: 1e6, GB: 1e9 };
-        const factor = map[u] ?? 1; // B
+        const factor = map[u] ?? 1;
         return num * factor;
       };
 
@@ -203,9 +184,7 @@ const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, w
     return null;
   }, []);
 
-  // 统一处理镜像拉取进度（终端输出与覆盖层显示）
-  /** 统一处理镜像拉取进度：更新覆盖层并可选输出到终端，成功/失败后自动隐藏 */
-const handleImagePullProgress = useCallback((payload: { imageName?: string; status?: string; progress?: string; error?: string }, echoToTerminal: boolean) => {
+  const handleImagePullProgress = useCallback((payload: { imageName?: string; status?: string; progress?: string; error?: string }, echoToTerminal: boolean) => {
     const imageName: string = payload.imageName || '未知镜像';
     const status: string = payload.status || '正在拉取镜像...';
     const progressText: string | undefined = payload.progress;
@@ -257,23 +236,19 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     }
   }, [parseProgressPercent]);
 
-  // WebSocket连接管理函数
   const connectWebSocket = useCallback(() => {
     if (!containerId || !xtermRef.current) return;
 
-    // 优化：如果连接已建立或正在建立，且容器ID未变，跳过重复连接
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
       if (wsContainerIdRef.current === containerId) {
         return;
       }
     }
 
-    // 关闭现有连接
     if (wsRef.current) {
       wsRef.current.close();
     }
     
-    // 清理旧的心跳定时器
     if (pingIntervalRef.current) {
       window.clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = null;
@@ -284,9 +259,6 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     const baseReconnectDelay = 1000;
 
     const connect = () => {
-      // 额外守卫：避免在容器非运行、页面不可见或ID缺失时发起新的连接
-      // 注意：移除了 document.visibilityState === 'hidden' 的检查，允许后台重连，或者至少保持重连逻辑不被立即打断
-      // 但通常浏览器在后台会限制资源，所以可以保留 visible 检查，但需配合 visibilitychange 事件恢复
       if (!containerId || containerStatus !== 'running') {
         console.log('跳过终端WS连接：containerId或状态不满足');
         return;
@@ -304,15 +276,13 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
           setIsConnected(true);
           reconnectAttempts = 0;
           
-          // 启动心跳检测
           if (pingIntervalRef.current) window.clearInterval(pingIntervalRef.current);
           pingIntervalRef.current = window.setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ type: 'ping' }));
             }
-          }, 30000); // 每30秒发送一次心跳
+          }, 30000);
 
-          // 连接成功后立即调整终端大小
           setTimeout(() => {
             if (fitAddonRef.current) {
               fitAddonRef.current.fit();
@@ -329,21 +299,17 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
             } else if (msg.type === 'error' && xtermRef.current) {
               xtermRef.current.write(`\r\n\x1b[31m错误: ${msg.data}\x1b[0m\r\n`);
             } else if (msg.type === 'image_pull_progress') {
-              // 修复数据解析：后端发送在 data 字段内
               const payload = msg.data || {};
               handleImagePullProgress(payload, true);
             } else if (msg.type === 'pong') {
-              // 收到服务端心跳响应，连接健康
-              // console.debug('Pong received');
+              // 收到服务端心跳响应
             } else if (msg.type === 'connected') {
-              // 连接成功消息
               if (xtermRef.current) {
                 xtermRef.current.write('\r\n\x1b[32m✓ 终端已连接\x1b[0m\r\n');
               }
             }
           } catch (error) {
             console.warn('解析WebSocket消息失败:', error);
-            // 如果不是JSON格式，直接作为输出处理
             if (xtermRef.current) {
               xtermRef.current.write(event.data);
             }
@@ -360,27 +326,21 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
           }
           
           if (xtermRef.current) {
-            // 只有非正常关闭才显示断开提示，避免干扰用户体验
             if (!event.wasClean) {
                 xtermRef.current.write('\r\n\x1b[33m连接已断开\x1b[0m\r\n');
             }
           }
           
-          // 守卫：如果容器ID缺失或容器非运行状态，则不再重连
-          // 移除了 visibilityState 的检查，确保即使用户切走也能尝试重连（虽然可能受限）
-          // 但更重要，当用户切回来时，onVisibilityChange 会触发 connectWebSocket
           const shouldStopReconnect = !containerId || containerStatus !== 'running';
           if (shouldStopReconnect) {
             return;
           }
           
-          // 实现指数退避重连策略
           if (reconnectAttempts < maxReconnectAttempts) {
             if (!event.wasClean) {
                 const delay = baseReconnectDelay * Math.pow(2, reconnectAttempts);
                 console.log(`${delay}ms 后尝试重连 (第 ${reconnectAttempts + 1} 次)`);
                 
-                // 记录重连定时器，以便在状态变化时取消
                 const tid = window.setTimeout(() => {
                   reconnectAttempts++;
                   connect();
@@ -392,7 +352,6 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
 
         ws.onerror = (error) => {
           console.error('终端WebSocket连接错误:', error);
-          // onerror 后通常会触发 onclose，重连逻辑在 onclose 处理
           setIsConnected(false);
         };
 
@@ -417,12 +376,9 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     };
   }, [containerId, containerStatus, handleImagePullProgress]);
 
-  // 进度专用 WebSocket 连接（progress_only=true），用于容器启动阶段接收镜像拉取进度
   const connectProgressOnly = useCallback(() => {
-    // 仅在容器启动阶段建立进度连接
     if (containerStatus !== 'starting') return;
 
-    // 关闭已有进度连接，避免重复
     if (wsProgressRef.current) {
       wsProgressRef.current.close();
     }
@@ -442,7 +398,7 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
           const msg = JSON.parse(event.data);
           if (msg.type === 'image_pull_progress') {
             const payload = msg.data || {};
-            handleImagePullProgress(payload, false); // 仅覆盖层显示，不输出到终端
+            handleImagePullProgress(payload, false);
           }
         } catch (error) {
           console.warn('解析进度专用WebSocket消息失败:', error);
@@ -461,40 +417,36 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     }
   }, [containerStatus, handleImagePullProgress]);
 
-  // 初始化终端
   useEffect(() => {
     if (!terminalRef.current) return;
 
-    // 创建终端实例 - 优化配置以确保输入正常工作
     const terminal = new XTerm({
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 14,
       fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-      // 关键修复：通过 xterm 选项控制行高，避免继承容器样式导致测量偏差
-      // 当父容器设置了行高或字间距，xterm 的单元格尺寸计算会不一致，触发最后一行覆盖/重叠
       lineHeight: 1,
-      // Dracula 主题：更高的前景对比度与友好的 ANSI 颜色
+      // Linear 风格主题：使用浅色/中性色调
       theme: {
-        background: '#282a36',
-        foreground: '#f8f8f2',
-        cursor: '#f8f8f2',
-        black: '#21222C',
-        red: '#FF5555',
-        green: '#50FA7B',
-        yellow: '#F1FA8C',
-        blue: '#BD93F9',
-        magenta: '#FF79C6',
-        cyan: '#8BE9FD',
-        white: '#F8F8F2',
-        brightBlack: '#6272A4',
-        brightRed: '#FF6E6E',
-        brightGreen: '#69FF94',
-        brightYellow: '#FFFFA5',
-        brightBlue: '#D6ACFF',
-        brightMagenta: '#FF92DF',
-        brightCyan: '#A4FFFF',
-        brightWhite: '#FFFFFF'
+        background: '#fafafa',
+        foreground: '#1a1a1a',
+        cursor: '#1a1a1a',
+        black: '#1a1a1a',
+        red: '#dc2626',
+        green: '#16a34a',
+        yellow: '#ca8a04',
+        blue: '#2563eb',
+        magenta: '#9333ea',
+        cyan: '#0891b2',
+        white: '#fafafa',
+        brightBlack: '#525252',
+        brightRed: '#ef4444',
+        brightGreen: '#22c55e',
+        brightYellow: '#eab308',
+        brightBlue: '#3b82f6',
+        brightMagenta: '#a855f7',
+        brightCyan: '#06b6d4',
+        brightWhite: '#ffffff'
       },
       allowTransparency: true,
       convertEol: true,
@@ -502,18 +454,14 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
       tabStopWidth: 4
     });
 
-    // 创建并加载 FitAddon
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
 
-    // 打开终端
     terminal.open(terminalRef.current);
 
-    // 设置引用
     xtermRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
-    // 设置输入处理 - 确保用户输入能正确发送到服务器
     terminal.onData((data) => {
       const normalized = data.length > 1 ? data.replace(/\r\n/g, '\n').replace(/\r/g, '\n') : data;
       const needSync = normalized.length > 1;
@@ -522,7 +470,6 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
 
     scheduleResize();
 
-    // 设置 ResizeObserver 监听容器大小变化
     if (terminalRef.current) {
       resizeObserverRef.current = new ResizeObserver(scheduleResize);
       resizeObserverRef.current.observe(terminalRef.current);
@@ -561,7 +508,6 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     }
 
     return () => {
-      // 清理资源
       window.removeEventListener('resize', handleResize);
       if (window.visualViewport) {
         window.visualViewport.removeEventListener('resize', handleResize);
@@ -583,20 +529,17 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     };
   }, [debouncedResize, resizeTerminal, scheduleResize, sendInput]);
 
-  // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
     sendCommand,
     focus: () => {
       if (xtermRef.current) {
         xtermRef.current.focus();
         setIsFocused(true);
-        // 短暂的视觉反馈，可以根据需要调整
         setTimeout(() => setIsFocused(false), 300);
       }
     }
   }), [sendCommand]);
 
-  // 组件卸载时的清理 - 独立于状态变化的 Effect
   useEffect(() => {
     return () => {
       console.log('Terminal component unmounting, cleaning up resources');
@@ -619,38 +562,29 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     };
   }, []);
 
-  // WebSocket连接管理：根据容器状态 + 页面可见性
   useEffect(() => {
     console.log('Terminal connection effect triggered:', { containerId, containerStatus });
     
-    /** 按容器状态建立/清理 WS 连接；在页面可见性变化时协同处理重连 */
     const connectByStatus = () => {
       const isRunning = containerStatus === 'running';
       const isStarting = containerStatus === 'starting';
 
       if (isRunning && containerId && xtermRef.current) {
-        // 容器运行中：使用终端连接
-        // connectWebSocket 内部已包含防重复连接检查 (检查 wsContainerIdRef)
         connectWebSocket();
         
-        // 关闭进度专用连接，避免双连接
         if (wsProgressRef.current) {
           wsProgressRef.current.close();
           wsProgressRef.current = null;
         }
       } else if (isStarting) {
-        // 容器启动中：建立进度专用连接以接收镜像拉取进度
         connectProgressOnly();
         
-        // 如果有终端连接，可以保持或关闭？通常启动中不应有终端连接
         if (wsRef.current && wsContainerIdRef.current !== containerId) {
-             // 如果ID变了，或者不应该连接，则关闭
              wsRef.current.close();
              wsRef.current = null;
              wsContainerIdRef.current = null;
         }
       } else {
-        // 其他状态（stopped/exited/undefined）：确保关闭所有连接并隐藏进度
         if (wsRef.current) { 
             console.log('Closing WS because status is', containerStatus);
             wsRef.current.close(); 
@@ -672,29 +606,21 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
       }
     };
 
-    // 首次连接
     connectByStatus();
 
-    // 页面可见性变化时守卫
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         console.log('Page visible, checking connection...');
-        // 页面恢复可见时，检查并恢复连接（如果断开了）
         connectByStatus();
       }
-      // 页面隐藏时不再主动断开连接
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      // 注意：不再在此处关闭连接！
-      // 连接关闭由 connectByStatus 在状态变化时处理，或由组件卸载 Effect 处理
-      // 这样可以防止依赖变化导致的 Effect 重运行意外切断连接
     };
   }, [containerId, containerStatus, connectWebSocket, connectProgressOnly]);
 
-  // 组件卸载时清理
   useEffect(() => {
     return () => {
       if (xtermRef.current) {
@@ -703,30 +629,28 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     };
   }, []);
 
-  // 保留原用法：包装为无 props 组件，内部传递状态
   const ImagePullProgress = () => (
     <ImagePullProgressOverlay show={showProgress} imagePullProgress={imagePullProgress} />
   );
 
   return (
-    // 外层容器：采用 Dracula 配色背景、圆角与阴影增强质感；保留现有功能结构不变
+    // Linear 风格终端容器
     <div 
-      className={`relative w-full h-full flex flex-col bg-[#282a36] rounded-xl shadow-2xl terminal-glow p-2 md:p-3 transition-all duration-200 ${
-        isFocused ? 'ring-2 ring-blue-500/30' : ''
+      className={`relative w-full h-full flex flex-col bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] rounded-lg transition-all duration-200 ${
+        isFocused ? 'ring-2 ring-[var(--color-accent-primary)]/30' : ''
       }`} 
       role="region" 
       aria-label="Shell 终端"
     >
-      {/* 终端容器 - 优化布局以防止文本重叠 */}
+      {/* 终端容器 */}
       <div 
         ref={terminalRef} 
-        className="flex-1 w-full h-full overflow-hidden terminal-font"
+        className="flex-1 w-full h-full overflow-hidden p-2"
         style={{
           minHeight: '200px',
-          // 重要：禁用容器级行高与字间距，避免 xterm 行测量偏差导致最后一行重叠
-          // 字体与字号由 xterm 选项控制，容器不再覆盖，确保测量一致
           fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-          fontSize: '14px'
+          fontSize: '14px',
+          backgroundColor: '#fafafa'
         }}
       />
 
@@ -738,5 +662,7 @@ const handleImagePullProgress = useCallback((payload: { imageName?: string; stat
     </div>
   );
 });
+
+Terminal.displayName = 'Terminal';
 
 export default Terminal;

@@ -65,6 +65,7 @@ dev: install-tools
 	@echo "🚀 Starting playground development server..."
 	@echo "Server will be available at http://localhost:$(SERVER_PORT)"
 	@echo "Press Ctrl+C to stop the service"
+	@trap 'echo "Stopping services..."; pkill -f "vite" 2>/dev/null; pkill -f "air" 2>/dev/null; killall -9 node go 2>/dev/null; exit 0' INT TERM
 	SERVER_PORT=$(SERVER_PORT) air -c .air.toml
 
 # Playwright 专用服务器启动
@@ -153,17 +154,14 @@ run: build
 # 停止所有服务
 stop:
 	@echo "🛑 Stopping all services..."
-	@if [ "$(OS)" = "windows" ]; then \
-		taskkill /F /IM node.exe 2>/dev/null || true; \
-		taskkill /F /IM air.exe 2>/dev/null || true; \
-		taskkill /F /IM dlv.exe 2>/dev/null || true; \
-		taskkill /F /IM $(APP_NAME).exe 2>/dev/null || true; \
-	else \
-		pkill -f "vite" 2>/dev/null || true; \
-		pkill -f "air" 2>/dev/null || true; \
-		pkill -f "dlv" 2>/dev/null || true; \
-		pkill -f "$(APP_NAME)" 2>/dev/null || true; \
-	fi
+	@# 停止 Vite 和 Air 进程
+	@pkill -f "vite" 2>/dev/null || true
+	@pkill -f "air" 2>/dev/null || true
+	@# 停止 Go 进程
+	@pkill -f "kwdb-playground" 2>/dev/null || true
+	@killall -9 node go 2>/dev/null || true
+	@# 清理 tmp 目录中的残留进程
+	@rm -f tmp/*.pid 2>/dev/null || true
 	@echo "✅ All services stopped!"
 
 # 查看日志
@@ -183,6 +181,11 @@ status:
 # 清理构建文件
 clean:
 	@echo "🧹 Cleaning build files..."
+	@# 停止所有开发服务
+	@pkill -f "vite" 2>/dev/null || true
+	@pkill -f "air" 2>/dev/null || true
+	@killall node go 2>/dev/null || true
+	@# 清理构建产物
 	rm -rf dist/
 	rm -rf bin/
 	rm -rf node_modules/.vite/
