@@ -215,7 +215,7 @@ export function CourseList() {
   }
 
   return (
-    <div className="w-full min-h-dvh bg-[var(--color-bg-primary)]">
+    <div className="w-full flex-1 bg-[var(--color-bg-primary)]">
       <div className="max-w-6xl mx-auto px-6 py-8">
         <header className="flex items-center justify-between mb-8">
           <div>

@@ -12,16 +12,14 @@ function AppContent() {
   return (
     <div className="min-h-screen flex flex-col bg-[var(--color-bg-primary)]">
       {!isLearnPage && <Navbar />}
-      <main className={`flex-1 flex flex-col ${!isLearnPage ? 'overflow-hidden' : ''}`}>
-        <div className="flex-1 flex flex-col">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/courses" element={<CourseList />} />
-            <Route path="/learn/:courseId" element={<Learn />} />
-          </Routes>
-        </div>
-        {!isLearnPage && <Footer />}
+      <main className="flex-1 flex flex-col min-h-0">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/courses" element={<CourseList />} />
+          <Route path="/learn/:courseId" element={<Learn />} />
+        </Routes>
       </main>
+      {!isLearnPage && <Footer />}
     </div>
   );
 }
