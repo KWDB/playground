@@ -85,7 +85,9 @@ test.describe('Docker 部署验证', () => {
 
     await page.locator('.cm-content').click();
     await page.keyboard.type('SELECT 1');
-    await page.getByRole('button', { name: '执行' }).click();
+    // Enter 触发 onEnterExecute（直接读 CodeMirror 内部状态），比按钮更可靠
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Enter');
     await expect(
       page.getByText(/查询完成/),
     ).toBeVisible({ timeout: 30_000 });
