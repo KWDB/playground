@@ -132,6 +132,9 @@ type Controller interface {
 	// 尝试从指定源拉取镜像以验证其可访问性
 	CheckImageAvailability(ctx context.Context, imageName string) (*ImageAvailability, error)
 
+	// SetNetworkName 设置课程容器使用的 Docker 网络名称
+	SetNetworkName(name string)
+
 	// Close 关闭控制器
 	Close() error
 }

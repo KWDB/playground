@@ -60,6 +60,7 @@ docker compose -f docker/playground/docker-compose.yml up -d
 | `LOG_LEVEL` | `info` | 日志级别 (debug/info/warn/error) |
 | `GIN_MODE` | `release` | Gin 框架运行模式 |
 | `DOCKER_DEPLOY` | `true` | Docker 部署模式（镜像内已默认开启） |
+| `DOCKER_NETWORK` | `kwdb-playground-net` | Docker 网络名称，确保 Playground 与课程容器互通 |
 | `COURSES_USE_EMBED` | `true` | 使用嵌入式课程文件（镜像内已默认开启） |
 
 ### 自定义端口
@@ -88,11 +89,11 @@ SERVER_PORT=8080 docker compose -f docker/playground/docker-compose.yml up -d
 └─────────────────────────────────────────┘
 ```
 
-Playground 容器通过挂载的 Docker socket 调用宿主机 Docker daemon 创建课程容器。课程容器与 Playground 容器是同级关系（sibling containers），而非嵌套关系。
+Playground 容器通过挂载的 Docker socket 调用宿主机 Docker daemon 创建课程容器。课程容器与 Playground 容器是同级关系（sibling containers），而非嵌套关系。两者通过 Docker 命名网络（`kwdb-playground-net`）互相通信。
 
 课程所需的文件（如 `tsdb.tar.gz`、SQL 脚本等）已嵌入 Playground 二进制中。启动课程容器时，Playground 在容器创建后、启动前，通过 Docker API 将文件注入课程容器，无需宿主机路径挂载。
 
-SQL 类型课程（如 `sql`、`data-query`）通过容器 IP 地址连接同级的 KWDB 容器，而非 `localhost`。
+SQL 类型课程（如 `sql`、`data-query`）通过容器 IP 地址连接同级的 KWDB 容器（同一 Docker 网络内），而非 `localhost`。
 
 ## 安全注意事项
 

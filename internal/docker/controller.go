@@ -40,6 +40,7 @@ type dockerController struct {
 	courseMuMu      sync.RWMutex              // 保护courseMu映射的读写锁
 	logger          *logger.Logger            // 日志记录器
 	terminalManager TerminalManagerInterface  // WebSocket终端管理器接口
+	networkName     string                    // Docker 网络名称，用于课程容器网络隔离
 }
 
 // createDockerClient 创建Docker客户端，支持多种socket路径
@@ -1049,8 +1050,18 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 		hostConfig.CPUPeriod = 100000
 	}
 
+	// 构建网络配置：将课程容器加入指定网络，确保与 Playground 容器网络互通
+	var networkingConfig *network.NetworkingConfig
+	if d.networkName != "" {
+		networkingConfig = &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				d.networkName: {},
+			},
+		}
+	}
+
 	// 创建容器
-	resp, err := d.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
+	resp, err := d.client.ContainerCreate(ctx, containerConfig, hostConfig, networkingConfig, nil, containerName)
 	if err != nil {
 		d.logger.Error("创建容器失败: %v", err)
 		return nil, fmt.Errorf("failed to create container: %w", err)
@@ -1709,7 +1720,7 @@ func (d *dockerController) mapDockerState(state *container.State) ContainerState
 	return StateExited
 }
 
-// GetContainerIP 获取容器在Docker bridge网络上的IP地址
+// GetContainerIP 获取容器在Docker网络上的IP地址
 func (d *dockerController) GetContainerIP(ctx context.Context, containerID string) (string, error) {
 	d.mu.RLock()
 	containerInfo, exists := d.containers[containerID]
@@ -1728,7 +1739,14 @@ func (d *dockerController) GetContainerIP(ctx context.Context, containerID strin
 		return "", fmt.Errorf("container %s has no network settings", containerID)
 	}
 
-	// 优先使用bridge网络，其次取第一个可用网络
+	// 优先从指定网络获取 IP（Docker 部署模式下确保与 Playground 同网络）
+	if d.networkName != "" {
+		if net, ok := inspect.NetworkSettings.Networks[d.networkName]; ok && net.IPAddress.IsValid() {
+			return net.IPAddress.String(), nil
+		}
+	}
+
+	// 回退：优先使用bridge网络，其次取第一个可用网络
 	if bridgeNet, ok := inspect.NetworkSettings.Networks["bridge"]; ok && bridgeNet.IPAddress.IsValid() {
 		return bridgeNet.IPAddress.String(), nil
 	}
@@ -1740,6 +1758,11 @@ func (d *dockerController) GetContainerIP(ctx context.Context, containerID strin
 	}
 
 	return "", fmt.Errorf("container %s has no IP address assigned", containerID)
+}
+
+// SetNetworkName 设置课程容器使用的 Docker 网络名称
+func (d *dockerController) SetNetworkName(name string) {
+	d.networkName = name
 }
 
 func (d *dockerController) CopyFilesToContainer(ctx context.Context, containerID string, files map[string][]byte) error {

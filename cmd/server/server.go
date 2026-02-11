@@ -95,6 +95,10 @@ func Run(staticFiles embed.FS, args []string) error {
 		appLogger.Warn("Warning: Docker service not available: %v", err)
 		dockerController = nil
 	}
+	if dockerController != nil && cfg.Course.DockerNetwork != "" {
+		dockerController.SetNetworkName(cfg.Course.DockerNetwork)
+		appLogger.Info("Docker 网络已配置: %s", cfg.Course.DockerNetwork)
+	}
 	appLogger.Info("WebSocket终端管理器初始化完成")
 
 	// GIN_MODE=release 设置 Gin 为发布模式

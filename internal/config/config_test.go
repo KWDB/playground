@@ -305,6 +305,35 @@ func TestLoadConfig_DockerDeploy(t *testing.T) {
 	})
 }
 
+func TestLoadConfig_DockerNetwork(t *testing.T) {
+	os.Setenv("COURSES_USE_EMBED", "true")
+	defer os.Unsetenv("COURSES_USE_EMBED")
+
+	t.Run("default is empty", func(t *testing.T) {
+		os.Unsetenv("DOCKER_NETWORK")
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if cfg.Course.DockerNetwork != "" {
+			t.Errorf("DockerNetwork = %q, want empty", cfg.Course.DockerNetwork)
+		}
+	})
+
+	t.Run("set to kwdb-playground-net", func(t *testing.T) {
+		os.Setenv("DOCKER_NETWORK", "kwdb-playground-net")
+		defer os.Unsetenv("DOCKER_NETWORK")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if cfg.Course.DockerNetwork != "kwdb-playground-net" {
+			t.Errorf("DockerNetwork = %q, want 'kwdb-playground-net'", cfg.Course.DockerNetwork)
+		}
+	})
+}
+
 func TestValidateConfig_DockerDeployField(t *testing.T) {
 	testLogger := logger.NewLogger(logger.ERROR)
 

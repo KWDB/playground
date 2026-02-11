@@ -51,6 +51,10 @@ type CourseConfig struct {
 	// 当设为 true 时，Playground 运行在容器中，通过 Docker Socket Mount 管理课程容器。
 	// 此模式下课程文件通过 Docker API (CopyToContainer) 注入课程容器，而非 volume 挂载。
 	DockerDeploy bool `json:"dockerDeploy" yaml:"dockerDeploy"` // Docker 部署模式开关
+	// DockerNetwork Docker 网络名称
+	// Docker 部署模式下，Playground 容器和课程容器必须在同一网络中才能互相通信。
+	// 设置此值后，创建课程容器时会将其加入指定网络，并优先从该网络获取容器 IP。
+	DockerNetwork string `json:"dockerNetwork" yaml:"dockerNetwork"` // Docker 网络名称
 }
 
 // LogConfig 日志系统相关配置
@@ -89,10 +93,11 @@ func Load() (*Config, error) {
 			Timeout: getEnvInt("DOCKER_TIMEOUT", 30),
 		},
 		Course: CourseConfig{
-			Dir:          getEnv("COURSE_DIR", "./courses"),
-			Reload:       getEnvBool("COURSES_RELOAD", true),
-			UseEmbed:     getEnvBool("COURSES_USE_EMBED", defaultUseEmbed),
-			DockerDeploy: getEnvBool("DOCKER_DEPLOY", false),
+			Dir:           getEnv("COURSE_DIR", "./courses"),
+			Reload:        getEnvBool("COURSES_RELOAD", true),
+			UseEmbed:      getEnvBool("COURSES_USE_EMBED", defaultUseEmbed),
+			DockerDeploy:  getEnvBool("DOCKER_DEPLOY", false),
+			DockerNetwork: getEnv("DOCKER_NETWORK", ""),
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),

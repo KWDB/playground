@@ -415,6 +415,77 @@ func TestGetContainerIP_NonBridgeNetwork(t *testing.T) {
 	}
 }
 
+func TestGetContainerIP_PrefersConfiguredNetwork(t *testing.T) {
+	fake := &fakeDockerClient{
+		inspectFn: func(ctx context.Context, containerID string) (container.InspectResponse, error) {
+			return container.InspectResponse{
+				NetworkSettings: &container.NetworkSettings{
+					Networks: map[string]*network.EndpointSettings{
+						"bridge": {
+							IPAddress: netip.MustParseAddr("172.17.0.2"),
+						},
+						"kwdb-playground-net": {
+							IPAddress: netip.MustParseAddr("192.168.100.5"),
+						},
+					},
+				},
+			}, nil
+		},
+	}
+	ctrl := newTestController(fake)
+	ctrl.networkName = "kwdb-playground-net"
+	addTestContainer(ctrl, "cont-1", "docker-abc", "quick-start")
+
+	ip, err := ctrl.GetContainerIP(context.Background(), "cont-1")
+	if err != nil {
+		t.Fatalf("GetContainerIP failed: %v", err)
+	}
+	if ip != "192.168.100.5" {
+		t.Errorf("Expected IP '192.168.100.5' from configured network, got '%s'", ip)
+	}
+}
+
+func TestGetContainerIP_FallbackWhenConfiguredNetworkMissing(t *testing.T) {
+	fake := &fakeDockerClient{
+		inspectFn: func(ctx context.Context, containerID string) (container.InspectResponse, error) {
+			return container.InspectResponse{
+				NetworkSettings: &container.NetworkSettings{
+					Networks: map[string]*network.EndpointSettings{
+						"bridge": {
+							IPAddress: netip.MustParseAddr("172.17.0.2"),
+						},
+					},
+				},
+			}, nil
+		},
+	}
+	ctrl := newTestController(fake)
+	ctrl.networkName = "nonexistent-net"
+	addTestContainer(ctrl, "cont-1", "docker-abc", "quick-start")
+
+	ip, err := ctrl.GetContainerIP(context.Background(), "cont-1")
+	if err != nil {
+		t.Fatalf("GetContainerIP failed: %v", err)
+	}
+	if ip != "172.17.0.2" {
+		t.Errorf("Expected fallback IP '172.17.0.2', got '%s'", ip)
+	}
+}
+
+func TestSetNetworkName(t *testing.T) {
+	fake := &fakeDockerClient{}
+	ctrl := newTestController(fake)
+
+	if ctrl.networkName != "" {
+		t.Errorf("Expected empty networkName initially, got '%s'", ctrl.networkName)
+	}
+
+	ctrl.SetNetworkName("kwdb-playground-net")
+	if ctrl.networkName != "kwdb-playground-net" {
+		t.Errorf("Expected networkName 'kwdb-playground-net', got '%s'", ctrl.networkName)
+	}
+}
+
 func TestGetContainerIP_ContainerNotFound(t *testing.T) {
 	fake := &fakeDockerClient{}
 	ctrl := newTestController(fake)
