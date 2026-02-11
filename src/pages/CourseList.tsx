@@ -471,7 +471,7 @@ export function CourseList() {
                 </Link>
               );
             })}
-            <ProposeCourseCard />
+            <ProposeCourseCard mode={viewMode} />
           </div>
         )}
       </div>
