@@ -7,8 +7,8 @@ test('SQL 终端测试', async ({ page }) => {
   await page.locator('a[href="/learn/sql"]').click();
   console.log('✅ 首页点击了 SQL 课程链接');
 
-  // 2) 确认进入学习页，显示“请先启动容器”文案
-  await expect(page.getByText('请启动容器以连接终端')).toBeVisible({ timeout: 10000 });
+  // 2) 确认进入学习页，显示“终端未连接”文案
+  await expect(page.getByText('终端未连接')).toBeVisible({ timeout: 10000 });
   
   // 3) 点击“启动容器”
   await page.getByRole('button', { name: '启动容器' }).click();
