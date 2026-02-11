@@ -364,8 +364,14 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
         )}
 
         {containerStatus !== 'running' && (
-          <div className="flex items-center justify-center h-full text-[var(--color-text-tertiary)]">
-            请启动容器以连接终端
+          <div className="flex flex-col items-center justify-center h-full bg-[var(--color-bg-secondary)] p-6">
+            <div className="w-12 h-12 rounded-full bg-[var(--color-bg-tertiary)] flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-[var(--color-text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </div>
+            <p className="text-[var(--color-text-secondary)] text-sm mb-2">终端未连接</p>
+            <p className="text-[var(--color-text-tertiary)] text-xs">启动容器后即可使用 SQL 终端</p>
           </div>
         )}
 
