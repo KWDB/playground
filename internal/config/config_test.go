@@ -249,3 +249,74 @@ func TestGetEnvBool(t *testing.T) {
 		t.Errorf("getEnvBool() = %v, want true", got)
 	}
 }
+
+func TestLoadConfig_DockerDeploy(t *testing.T) {
+	os.Setenv("COURSES_USE_EMBED", "true")
+	defer os.Unsetenv("COURSES_USE_EMBED")
+
+	t.Run("default is false", func(t *testing.T) {
+		os.Unsetenv("DOCKER_DEPLOY")
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if cfg.Course.DockerDeploy != false {
+			t.Errorf("DockerDeploy = %v, want false", cfg.Course.DockerDeploy)
+		}
+	})
+
+	t.Run("set to true", func(t *testing.T) {
+		os.Setenv("DOCKER_DEPLOY", "true")
+		defer os.Unsetenv("DOCKER_DEPLOY")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if cfg.Course.DockerDeploy != true {
+			t.Errorf("DockerDeploy = %v, want true", cfg.Course.DockerDeploy)
+		}
+	})
+
+	t.Run("set to 1", func(t *testing.T) {
+		os.Setenv("DOCKER_DEPLOY", "1")
+		defer os.Unsetenv("DOCKER_DEPLOY")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if cfg.Course.DockerDeploy != true {
+			t.Errorf("DockerDeploy = %v, want true (from '1')", cfg.Course.DockerDeploy)
+		}
+	})
+
+	t.Run("set to false", func(t *testing.T) {
+		os.Setenv("DOCKER_DEPLOY", "false")
+		defer os.Unsetenv("DOCKER_DEPLOY")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if cfg.Course.DockerDeploy != false {
+			t.Errorf("DockerDeploy = %v, want false", cfg.Course.DockerDeploy)
+		}
+	})
+}
+
+func TestValidateConfig_DockerDeployField(t *testing.T) {
+	testLogger := logger.NewLogger(logger.ERROR)
+
+	cfg := &Config{
+		Server: ServerConfig{Host: "0.0.0.0", Port: 3006, SessionLimit: 1},
+		Docker: DockerConfig{Host: "", Timeout: 30},
+		Course: CourseConfig{Dir: "./courses", Reload: true, UseEmbed: true, DockerDeploy: true},
+		Log:    LogConfig{Level: "info", Format: "json"},
+	}
+
+	err := validateConfig(cfg, testLogger)
+	if err != nil {
+		t.Errorf("validateConfig() should accept DockerDeploy=true, got: %v", err)
+	}
+}

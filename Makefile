@@ -29,7 +29,7 @@ LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.Git
 # 环境变量文件
 ENV_FILE ?= .env
 
-.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist playwright e2e-playwright
+.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist playwright e2e-playwright e2e-docker docker-build docker-up docker-down
 
 # 默认目标
 all: build
@@ -223,6 +223,36 @@ e2e-playwright:
 	pnpm run test:pw
 	@echo "✅ Playwright tests completed!"
 
+# Docker 部署
+docker-build:
+	@echo "🐳 Building Docker image..."
+	docker build \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		-f docker/playground/Dockerfile \
+		-t kwdb/playground:latest \
+		-t kwdb/playground:$(VERSION) .
+	@echo "✅ Docker image built: kwdb/playground:$(VERSION)"
+
+docker-up:
+	@echo "🐳 Starting Docker deployment..."
+	docker compose -f docker/playground/docker-compose.yml up -d
+	@echo "✅ Playground running at http://localhost:$${SERVER_PORT:-3006}"
+
+docker-down:
+	@echo "🐳 Stopping Docker deployment..."
+	docker compose -f docker/playground/docker-compose.yml down
+	@echo "✅ Docker deployment stopped"
+
+e2e-docker:
+	@echo "🐳 Starting Docker E2E tests..."
+	docker compose -f docker/playground/docker-compose.yml up -d --wait
+	npx playwright test --config=playwright.docker.config.ts; \
+	EXIT_CODE=$$?; \
+	docker compose -f docker/playground/docker-compose.yml down; \
+	exit $$EXIT_CODE
+
 # 开发环境检查
 check:
 	@echo "🔍 Checking development environment..."
@@ -262,6 +292,12 @@ help:
 	@echo "  release-run   - 以发布模式运行（启用嵌入式FS）"
 	@echo "  release-all   - 生成 Linux/macOS/Windows 的发布二进制"
 	@echo "  package-dist  - 打包跨平台分发包 (zip/tar.gz)"
+	@echo ""
+	@echo "🐳 Docker 部署:"
+	@echo "  docker-build  - 构建 Docker 镜像"
+	@echo "  docker-up     - 启动 Docker 部署 (docker compose up)"
+	@echo "  docker-down   - 停止 Docker 部署 (docker compose down)"
+	@echo "  e2e-docker    - Docker 部署 E2E 测试（自动启停 docker compose）"
 	@echo ""
 	@echo "🛠️ 维护工具:"
 	@echo "  fmt           - 格式化代码 (Go + 前端)"

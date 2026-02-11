@@ -18,7 +18,8 @@ type Driver struct {
 // EnsureReady 确保容器与数据库就绪，并初始化连接池
 // 参数：
 // - course: 课程配置（包含 backend.port 等）
-func (d *Driver) EnsureReady(ctx context.Context, course *course.Course) error {
+// - host: 数据库主机地址（native模式为localhost，Docker模式为容器IP）
+func (d *Driver) EnsureReady(ctx context.Context, course *course.Course, host string) error {
 	if course == nil {
 		return fmt.Errorf("course is nil")
 	}
@@ -34,7 +35,10 @@ func (d *Driver) EnsureReady(ctx context.Context, course *course.Course) error {
 	interval := 300 * time.Millisecond // 每次尝试间隔
 	deadline := time.Now().Add(1 * time.Second)
 
-	dsn := fmt.Sprintf("postgresql://root@localhost:%d/defaultdb?sslmode=disable", port)
+	if host == "" {
+		host = "localhost"
+	}
+	dsn := fmt.Sprintf("postgresql://root@%s:%d/defaultdb?sslmode=disable", host, port)
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return fmt.Errorf("parse dsn failed: %w", err)
@@ -60,7 +64,7 @@ func (d *Driver) EnsureReady(ctx context.Context, course *course.Course) error {
 		time.Sleep(interval)
 	}
 
-	return fmt.Errorf("KWDB not ready on port %d (quick probe failed)", port)
+	return fmt.Errorf("KWDB not ready on %s:%d (quick probe failed)", host, port)
 }
 
 // Pool 返回连接池

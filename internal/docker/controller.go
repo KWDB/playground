@@ -1,6 +1,9 @@
 package docker
 
 import (
+	"archive/tar"
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -1645,6 +1648,49 @@ func (d *dockerController) ContainerExecResize(ctx context.Context, execID strin
 	return d.client.ContainerExecResize(ctx, execID, options)
 }
 
+func (d *dockerController) CreateInteractiveExec(ctx context.Context, containerID string, cmd []string) (*ExecAttachResult, error) {
+	if containerID == "" {
+		return nil, fmt.Errorf("container ID cannot be empty")
+	}
+	if len(cmd) == 0 {
+		return nil, fmt.Errorf("command cannot be empty")
+	}
+
+	containerInfo, inspect, err := d.getContainerInfo(ctx, containerID)
+	if err != nil {
+		return nil, err
+	}
+
+	env, user, workingDir := d.prepareExecEnvironment(inspect, true)
+
+	execResp, err := d.client.ContainerExecCreate(ctx, containerInfo.DockerID, client.ExecCreateOptions{
+		Cmd:          cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+		AttachStdin:  true,
+		TTY:          true,
+		WorkingDir:   workingDir,
+		Env:          env,
+		User:         user,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create exec: %w", err)
+	}
+
+	attachResp, err := d.client.ContainerExecAttach(ctx, execResp.ID, client.ExecAttachOptions{
+		TTY: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach exec: %w", err)
+	}
+
+	return &ExecAttachResult{
+		ExecID: execResp.ID,
+		Conn:   attachResp.Conn,
+		Reader: bufio.NewReader(attachResp.Reader),
+	}, nil
+}
+
 // mapDockerState 将Docker状态映射为内部状态
 func (d *dockerController) mapDockerState(state *container.State) ContainerState {
 	if state.Paused {
@@ -1661,6 +1707,87 @@ func (d *dockerController) mapDockerState(state *container.State) ContainerState
 	}
 	// 容器已退出但退出码为0
 	return StateExited
+}
+
+// GetContainerIP 获取容器在Docker bridge网络上的IP地址
+func (d *dockerController) GetContainerIP(ctx context.Context, containerID string) (string, error) {
+	d.mu.RLock()
+	containerInfo, exists := d.containers[containerID]
+	d.mu.RUnlock()
+
+	if !exists {
+		return "", fmt.Errorf("container %s not found", containerID)
+	}
+
+	inspect, err := d.client.ContainerInspect(ctx, containerInfo.DockerID)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect container: %w", err)
+	}
+
+	if inspect.NetworkSettings == nil || len(inspect.NetworkSettings.Networks) == 0 {
+		return "", fmt.Errorf("container %s has no network settings", containerID)
+	}
+
+	// 优先使用bridge网络，其次取第一个可用网络
+	if bridgeNet, ok := inspect.NetworkSettings.Networks["bridge"]; ok && bridgeNet.IPAddress.IsValid() {
+		return bridgeNet.IPAddress.String(), nil
+	}
+
+	for _, net := range inspect.NetworkSettings.Networks {
+		if net.IPAddress.IsValid() {
+			return net.IPAddress.String(), nil
+		}
+	}
+
+	return "", fmt.Errorf("container %s has no IP address assigned", containerID)
+}
+
+func (d *dockerController) CopyFilesToContainer(ctx context.Context, containerID string, files map[string][]byte) error {
+	d.mu.RLock()
+	containerInfo, exists := d.containers[containerID]
+	d.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("container %s not found", containerID)
+	}
+
+	if len(files) == 0 {
+		return nil
+	}
+
+	for destPath, content := range files {
+		// 使用完整路径作为 tar entry name，DestinationPath 设为 "/"
+		// Docker 解压 tar 时会自动创建中间目录，无需目标目录预先存在
+		tarName := strings.TrimPrefix(destPath, "/")
+
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		hdr := &tar.Header{
+			Name: tarName,
+			Mode: 0644,
+			Size: int64(len(content)),
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return fmt.Errorf("failed to write tar header for %s: %w", destPath, err)
+		}
+		if _, err := tw.Write(content); err != nil {
+			return fmt.Errorf("failed to write tar content for %s: %w", destPath, err)
+		}
+		if err := tw.Close(); err != nil {
+			return fmt.Errorf("failed to close tar for %s: %w", destPath, err)
+		}
+
+		_, err := d.client.CopyToContainer(ctx, containerInfo.DockerID, client.CopyToContainerOptions{
+			DestinationPath: "/",
+			Content:         &buf,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to copy %s to container %s: %w", destPath, containerID, err)
+		}
+		d.logger.Debug("已注入文件到容器: %s -> %s:%s", tarName, containerID, destPath)
+	}
+
+	return nil
 }
 
 // Close 关闭控制器

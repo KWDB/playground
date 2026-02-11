@@ -90,8 +90,25 @@ KWDB Playground 是一个面向学习与演示的交互式课程平台，支持�
 
 > 进阶用法（环境变量配置与 Docker 依赖等）请参阅完整使用指南 [`docs/usage-guide.md`](./docs/usage-guide.md)。
 
+### Docker 部署
+
+使用 Docker 一键部署，无需安装 Go 或 Node.js 环境：
+
+```bash
+git clone https://github.com/kwdb/playground.git
+cd playground
+docker compose -f docker/playground/docker-compose.yml up -d
+```
+
+访问 `http://localhost:3006` 即可使用。
+
+> **Windows 用户**：默认配置挂载 `/var/run/docker.sock`，仅适用于 Linux/macOS。Windows 下请通过 WSL2 运行，或参阅 [`docs/docker-deployment.md`](./docs/docker-deployment.md) 中的 Windows 部署说明。
+
+详细配置请参阅 [`docs/docker-deployment.md`](./docs/docker-deployment.md)。
+
 ## 相关文档
 
 - 开发指南：`docs/usage-guide.md`（系统要求、安装部署、功能使用、配置参数、常见问题）。
+- Docker 部署：`docs/docker-deployment.md`（镜像构建、配置、架构说明、故障排查）。
 - 测试说明：`tests/README.md`（Playwright 与 PyTest E2E 的运行与排障）。
 

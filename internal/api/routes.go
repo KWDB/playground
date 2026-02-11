@@ -147,7 +147,7 @@ func (h *Handler) sqlInfo(c *gin.Context) {
 	// 确保连接池就绪
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj); err != nil {
+	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj, h.resolveDBHost(ctx, courseID)); err != nil {
 		// 调整为返回200并标记未连接，避免前端出现"加载失败"红色错误
 		c.JSON(http.StatusOK, gin.H{
 			"connected": false,
@@ -199,7 +199,7 @@ func (h *Handler) sqlHealth(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj); err != nil {
+	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj, h.resolveDBHost(ctx, courseID)); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "down", "message": err.Error(), "port": port})
 		return
 	}
@@ -441,10 +441,43 @@ func (h *Handler) startCourse(c *gin.Context) {
 		h.logger.Debug("[startCourse] 使用默认Cmd: %v", cmd)
 	}
 
-	// 解析并构建卷绑定（支持 YAML 中的列表形式 "host:container[:opts]"）
+	// 解析卷绑定和文件注入
+	// Docker 部署模式：读取课程文件，创建容器后通过 CopyFilesToContainer 注入
+	// Native 模式：构建 volume 绑定 (host:container[:opts])
 	volumes := make(map[string]string)
-	if len(course.Backend.Volumes) > 0 {
-		// 预先解析课程根目录为绝对路径
+	var filesToInject map[string][]byte
+
+	if len(course.Backend.Volumes) > 0 && h.cfg.Course.DockerDeploy {
+		filesToInject = make(map[string][]byte)
+		for _, bind := range course.Backend.Volumes {
+			b := strings.TrimSpace(bind)
+			if b == "" {
+				continue
+			}
+			parts := strings.SplitN(b, ":", 3)
+			if len(parts) < 2 {
+				h.logger.Warn("[startCourse] 无效的卷绑定: %s，期望格式 source:container[:opts]", b)
+				continue
+			}
+			sourcePath := strings.TrimSpace(parts[0])
+			containerPath := strings.TrimSpace(parts[1])
+
+			if strings.HasPrefix(sourcePath, "./") {
+				sourcePath = sourcePath[2:]
+			}
+
+			content, err := h.courseService.ReadCourseFile(course.ID, sourcePath)
+			if err != nil {
+				h.logger.Error("[startCourse] Docker模式读取课程文件失败: %s/%s: %v", course.ID, sourcePath, err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error": fmt.Sprintf("读取课程文件失败: %s: %v", sourcePath, err),
+				})
+				return
+			}
+			filesToInject[containerPath] = content
+			h.logger.Debug("[startCourse] Docker模式准备注入文件: %s -> %s (%d bytes)", sourcePath, containerPath, len(content))
+		}
+	} else if len(course.Backend.Volumes) > 0 {
 		baseDir := h.cfg.Course.Dir
 		if !filepath.IsAbs(baseDir) {
 			if absBase, err := filepath.Abs(baseDir); err == nil {
@@ -469,11 +502,9 @@ func (h *Handler) startCourse(c *gin.Context) {
 			hostPath := strings.TrimSpace(parts[0])
 			containerPath := strings.TrimSpace(parts[1])
 			if len(parts) == 3 && strings.TrimSpace(parts[2]) != "" {
-				// 将选项拼接到容器路径（例如 :ro）
 				containerPath = containerPath + ":" + strings.TrimSpace(parts[2])
 			}
 
-			// 展开 ~ 为用户主目录
 			if hostPath == "~" || strings.HasPrefix(hostPath, "~/") {
 				if home, herr := os.UserHomeDir(); herr == nil {
 					hostPath = filepath.Join(home, strings.TrimPrefix(hostPath, "~"))
@@ -482,22 +513,18 @@ func (h *Handler) startCourse(c *gin.Context) {
 				}
 			}
 
-			// 将相对路径解析为课程目录下的绝对路径
 			if !filepath.IsAbs(hostPath) {
 				hostPath = filepath.Join(courseBase, hostPath)
 			}
-			// 规范化并最终转为绝对路径
 			hostPath = filepath.Clean(hostPath)
 			if absHost, err := filepath.Abs(hostPath); err == nil {
 				hostPath = absHost
 			}
 
-			// 简单校验文件/目录是否存在（不存在也允许，Docker会创建目录；文件挂载需文件存在）
 			if _, err := os.Stat(hostPath); os.IsNotExist(err) {
 				h.logger.Warn("[startCourse] 主机路径不存在: %s (课程: %s)", hostPath, course.ID)
 			}
 
-			// 容器路径应为绝对路径，若不是则记录警告（仍允许）
 			if !strings.HasPrefix(containerPath, "/") {
 				h.logger.Warn("[startCourse] 容器路径不是绝对路径: %s，建议以/开始", containerPath)
 			}
@@ -554,6 +581,22 @@ func (h *Handler) startCourse(c *gin.Context) {
 
 	h.logger.Info("[startCourse] 容器创建成功，容器ID: %s，DockerID: %s", containerInfo.ID, containerInfo.DockerID)
 
+	// Docker 部署模式：在启动容器前注入课程文件
+	if len(filesToInject) > 0 {
+		h.logger.Debug("[startCourse] Docker模式注入 %d 个文件到容器 %s", len(filesToInject), containerInfo.ID)
+		if err := h.dockerController.CopyFilesToContainer(ctx, containerInfo.ID, filesToInject); err != nil {
+			h.logger.Error("[startCourse] 文件注入失败: %v，开始清理容器", err)
+			if cleanupErr := h.dockerController.RemoveContainer(ctx, containerInfo.ID); cleanupErr != nil {
+				h.logger.Warn("[startCourse] 清理容器失败: %v", cleanupErr)
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": fmt.Sprintf("文件注入失败: %v", err),
+			})
+			return
+		}
+		h.logger.Info("[startCourse] 文件注入完成")
+	}
+
 	// 启动容器
 	h.logger.Debug("[startCourse] 开始启动容器: %s", containerInfo.ID)
 	err = h.dockerController.StartContainer(ctx, containerInfo.ID)
@@ -576,6 +619,25 @@ func (h *Handler) startCourse(c *gin.Context) {
 		"containerId": containerInfo.ID,
 		"image":       imageName,
 	})
+}
+
+// resolveDBHost 解析数据库连接地址
+// native模式返回localhost，Docker部署模式返回课程容器的IP地址
+func (h *Handler) resolveDBHost(ctx context.Context, courseID string) string {
+	if !h.cfg.Course.DockerDeploy {
+		return "localhost"
+	}
+	container, err := h.findContainerByCourseID(ctx, courseID)
+	if err != nil {
+		h.logger.Warn("resolveDBHost: 查找容器失败，回退到localhost: %v", err)
+		return "localhost"
+	}
+	ip, err := h.dockerController.GetContainerIP(ctx, container.ID)
+	if err != nil {
+		h.logger.Warn("resolveDBHost: 获取容器IP失败，回退到localhost: %v", err)
+		return "localhost"
+	}
+	return ip
 }
 
 // findContainerByCourseID 查找课程的容器
@@ -1173,7 +1235,7 @@ func (h *Handler) handleTerminalWebSocket(c *gin.Context) {
 	defer conn.Close()
 
 	// 创建会话
-	session := h.terminalManager.CreateSession(sessionID, containerID, conn)
+	session := h.terminalManager.CreateSession(sessionID, containerID, conn, h.dockerController)
 	defer h.terminalManager.RemoveSession(sessionID)
 
 	if progressOnly {
@@ -1441,7 +1503,7 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 				continue
 			}
 			// 确保连接池就绪
-			if err := h.sqlDriverManager.EnsureReady(ctx, courseObj); err != nil {
+			if err := h.sqlDriverManager.EnsureReady(ctx, courseObj, h.resolveDBHost(ctx, courseID)); err != nil {
 				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": fmt.Sprintf("KWDB未就绪: %v", err)})
 				continue
 			}
