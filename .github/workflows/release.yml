@@ -58,11 +58,15 @@ jobs:
         with:
           files: |
             bin/kwdb-playground-linux-amd64
+            bin/kwdb-playground-linux-arm64
             bin/kwdb-playground-darwin-arm64
+            bin/kwdb-playground-darwin-amd64
             bin/kwdb-playground-windows-amd64.exe
             bin/checksums.txt
             dist/kwdb-playground-linux-amd64.tar.gz
+            dist/kwdb-playground-linux-arm64.tar.gz
             dist/kwdb-playground-darwin-arm64.tar.gz
+            dist/kwdb-playground-darwin-amd64.tar.gz
             dist/kwdb-playground-windows-amd64.zip
             dist/distribution-checksums.txt
           tag_name: ${{ github.ref_name }}
