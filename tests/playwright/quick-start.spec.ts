@@ -10,7 +10,7 @@ test.describe('Quick Start', () => {
       // 忽略任何错误，仅用于确保初始状态
     }
 
-    // 0.5) 清理可能残留的镜像源选择（保证“切换”测试可重复）
+    // 0.5) 清理可能残留的镜像源选择（保证"切换"测试可重复）
     // 这里必须在 page.goto 之前注入，否则 Learn 页初次渲染已读取 localStorage
     await page.addInitScript(() => {
       localStorage.removeItem('imageSourceId')
@@ -44,19 +44,21 @@ test.describe('Quick Start', () => {
     expect(saved.imageSourceId).toBe('ghcr')
     expect(saved.selectedImageFullName).toContain('ghcr.io/')
 
-    // 2) 确认进入学习页，显示“请先启动容器”文案
+    // 2) 确认进入学习页，显示"终端未连接"文案
     await expect(page.getByText('终端未连接')).toBeVisible();
 
-    // 3) 点击“启动容器”，等待状态从“启动中”到“运行中”
+    // 3) 点击"启动容器"，等待状态从"启动中"到"运行中"
     const startBtn = page.getByRole('button', { name: '启动容器' });
     await expect(startBtn).toBeVisible();
     await startBtn.click();
     // await page.getByRole('button', { name: '启动容器' }).click();
     await expect(page.getByText('运行中')).toBeVisible({ timeout: 120000 });
-    // 注释掉具体的终端路径检查，因为终端内容可能变化
-    // await expect(page.getByText(':/kaiwudb/')).toBeVisible({ timeout: 120000 });
+    // 等待终端组件加载完成（通过 aria-label 定位）
+    await expect(page.locator('[aria-label="Shell 终端"]')).toBeVisible({ timeout: 120000 });
+    // 等待终端画布渲染（xterm 使用 canvas 渲染内容）
+    await expect(page.locator('.xterm-screen, [class*="xterm"] canvas').first()).toBeVisible({ timeout: 30000 });
 
-    // 4) 点击“下一步”，确认进入下一步
+    // 4) 点击"下一步"，确认进入下一步
     await page.getByRole('button', { name: '下一步' }).click();
     await page.getByRole('paragraph').filter({ hasText: '切换至程序目录： cd /kaiwudb/binRun' }).getByRole('button').click();
     await expect(page.locator('span').filter({ hasText: 'cd /kaiwudb/bin' })).toBeVisible({ timeout: 120000 });
@@ -67,7 +69,7 @@ test.describe('Quick Start', () => {
     await page.getByRole('paragraph').filter({ hasText: '使用 kwbase sql 连接到数据库：./kwbase' }).getByRole('button').click();
     await expect(page.getByText('root@127.0.0.1:26257/')).toBeVisible({ timeout: 120000 });
 
-    // 6) 点击“停止容器”
+    // 6) 点击"停止容器"
     await page.getByRole('button', { name: '停止容器' }).click();
     const stoppingBtn = page.getByRole('button', { name: '停止中...' });
     await expect(stoppingBtn).toBeVisible();
