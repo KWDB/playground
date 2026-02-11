@@ -383,17 +383,21 @@ export function CourseList() {
                       hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5
                       active:translate-y-0 active:shadow-[var(--shadow-sm)]
                       ${isRunning 
-                        ? 'border-l-[3px] border-l-[var(--color-success)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
-                        : 'border-[var(--color-border-light)] hover:border-[var(--color-border-default)]'
+                        ? course.sqlTerminal 
+                          ? 'border-l-[3px] border-l-[var(--color-accent-primary)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
+                          : 'border-l-[3px] border-l-[#3b82f6] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
+                        : course.sqlTerminal
+                          ? 'border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]'
+                          : 'border-[var(--color-border-light)] hover:border-[#3b82f6]'
                       }
                     `}
                   >
                     <div className={`
                       flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
-                      transition-colors duration-200
+                      transition-colors duration-200 border-2
                       ${course.sqlTerminal 
-                        ? 'bg-[var(--color-accent-subtle)] group-hover:bg-[rgba(94,106,210,0.15)]' 
-                        : 'bg-[rgba(59,130,246,0.08)] group-hover:bg-[rgba(59,130,246,0.12)]'
+                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)]/20 group-hover:border-[var(--color-accent-primary)]/40' 
+                        : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
                       }
                     `}>
                       {course.sqlTerminal ? (
@@ -403,10 +407,19 @@ export function CourseList() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
-                        {course.title}
-                      </h3>
-                      <p className="text-xs text-[var(--color-text-tertiary)] truncate mt-1 leading-relaxed">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
+                          {course.title}
+                        </h3>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                          course.sqlTerminal 
+                            ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
+                            : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
+                        }`}>
+                          {course.sqlTerminal ? 'SQL' : 'SHELL'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-tertiary)] truncate leading-relaxed">
                         {course.description}
                       </p>
                     </div>
@@ -450,18 +463,22 @@ export function CourseList() {
                     hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5
                     active:translate-y-0 active:shadow-[var(--shadow-sm)]
                     ${isRunning 
-                      ? 'border-l-[3px] border-l-[var(--color-success)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
-                      : 'border-[var(--color-border-light)] hover:border-[var(--color-border-default)]'
+                      ? course.sqlTerminal 
+                        ? 'border-l-[3px] border-l-[var(--color-accent-primary)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
+                        : 'border-l-[3px] border-l-[#3b82f6] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
+                      : course.sqlTerminal
+                        ? 'border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]'
+                        : 'border-[var(--color-border-light)] hover:border-[#3b82f6]'
                     }
                   `}
                 >
                   <div className="flex items-start gap-3 mb-4">
                     <div className={`
                       flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
-                      transition-colors duration-200
+                      transition-colors duration-200 border-2
                       ${course.sqlTerminal 
-                        ? 'bg-[var(--color-accent-subtle)] group-hover:bg-[rgba(94,106,210,0.15)]' 
-                        : 'bg-[rgba(59,130,246,0.08)] group-hover:bg-[rgba(59,130,246,0.12)]'
+                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)]/20 group-hover:border-[var(--color-accent-primary)]/40' 
+                        : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
                       }
                     `}>
                       {course.sqlTerminal ? (
@@ -471,10 +488,19 @@ export function CourseList() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
-                        {course.title}
-                      </h3>
-                      <p className="text-xs text-[var(--color-text-tertiary)] mt-1.5 line-clamp-2 leading-relaxed">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
+                          {course.title}
+                        </h3>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                          course.sqlTerminal 
+                            ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
+                            : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
+                        }`}>
+                          {course.sqlTerminal ? 'SQL' : 'SHELL'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-tertiary)] line-clamp-2 leading-relaxed">
                         {course.description}
                       </p>
                     </div>
