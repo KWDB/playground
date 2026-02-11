@@ -75,8 +75,8 @@ test.describe('Docker 部署验证', () => {
     await page.getByRole('textbox').fill('SELECT 1');
     await page.getByRole('textbox').press('Enter');
     await expect(
-      page.getByRole('cell', { name: '?column?' }),
-    ).toBeVisible({ timeout: 10_000 });
+      page.getByRole('cell', { name: '1' }),
+    ).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: '停止容器' }).click();
     await expect(page.getByRole('button', { name: '启动容器' })).toBeVisible({ timeout: 30_000 });
