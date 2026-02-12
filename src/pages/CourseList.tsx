@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw } from 'lucide-react';
 import { ContainerInfo } from '@/types';
+import { api } from '@/lib/api/client';
+import { UserProgress } from '@/lib/api/types';
 import ProposeCourseCard from '../components/business/ProposeCourseCard';
 import { useDebounce } from '../hooks/useDebounce';
 import PinyinMatch from 'pinyin-match';
@@ -27,6 +29,7 @@ interface FilterState {
 
 export function CourseList() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>({});
   const [containers, setContainers] = useState<ContainerInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,6 +189,19 @@ export function CourseList() {
         return a.title.localeCompare(b.title, 'zh-CN', { numeric: true });
       });
       setCourses(sorted);
+
+      const progressPromises = sorted.map(course => 
+        api.courses.getProgress(course.id)
+          .then(res => ({ id: course.id, data: res[0] }))
+          .catch(() => ({ id: course.id, data: undefined }))
+      );
+      
+      const results = await Promise.all(progressPromises);
+      const newProgressMap: Record<string, UserProgress> = {};
+      results.forEach(r => {
+        if (r.data) newProgressMap[r.id] = r.data;
+      });
+      setProgressMap(newProgressMap);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -509,6 +525,17 @@ export function CourseList() {
                         <Clock className="w-3.5 h-3.5" />
                         {course.estimatedMinutes} 分钟
                       </span>
+                      {progressMap[course.id]?.completed ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          已完成
+                        </span>
+                      ) : progressMap[course.id]?.stepIndex > -1 ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                          进行中 (Step {progressMap[course.id].stepIndex + 1})
+                        </span>
+                      ) : null}
                       {isRunning && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
                           <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
@@ -593,18 +620,31 @@ export function CourseList() {
                         {course.estimatedMinutes} 分钟
                       </span>
                     </div>
-                    {isRunning && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
-                        运行中
-                      </span>
-                    )}
-                    {isPaused && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-                        已暂停
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {progressMap[course.id]?.completed ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          已完成
+                        </span>
+                      ) : progressMap[course.id]?.stepIndex > -1 ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                          Step {progressMap[course.id].stepIndex + 1}
+                        </span>
+                      ) : null}
+                      {isRunning && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
+                          运行中
+                        </span>
+                      )}
+                      {isPaused && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
+                          已暂停
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </Link>
               );
