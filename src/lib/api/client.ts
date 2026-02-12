@@ -131,9 +131,9 @@ export const api = {
     checkPortConflict: (id: string, port: number, signal?: AbortSignal): Promise<PortConflictInfo> =>
       request<PortConflictInfo>(`/courses/${id}/port-conflict?port=${port}`, { signal }),
 
-    getProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<UserProgress[]> => {
+    getProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<{ progress: any; exists: boolean }> => {
       const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
-      return request<UserProgress[]>(`/progress/${id}${query}`, { signal })
+      return request<{ progress: any; exists: boolean }>(`/progress/${id}${query}`, { signal })
     },
 
     saveProgress: (

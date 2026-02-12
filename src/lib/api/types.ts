@@ -73,6 +73,18 @@ export interface PortConflictInfo {
   courseId?: string
 }
 
+// Backend raw response from /progress/:courseId
+export interface UserProgressRaw {
+  user_id: string
+  course_id: string
+  current_step: number
+  completed: boolean
+  started_at: string
+  updated_at: string
+  completed_at?: string | null
+}
+
+// Normalized frontend type
 export interface UserProgress {
   userId: string
   courseId: string
@@ -80,4 +92,10 @@ export interface UserProgress {
   completed: boolean
   createdAt: string
   updatedAt: string
+}
+
+// Progress endpoint response
+export interface GetProgressResponse {
+  progress: UserProgressRaw | null
+  exists: boolean
 }
