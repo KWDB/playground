@@ -145,6 +145,12 @@ export const useLearnStore = create<LearnState & LearnActions>()(
                   isCompleted: progress.completed
                 });
               }
+            } else {
+              // No progress found, reset to Intro
+              set({ 
+                currentStep: -1, 
+                isCompleted: false 
+              });
             }
           } catch (error) {
             console.error('Failed to load progress:', error);

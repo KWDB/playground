@@ -49,6 +49,7 @@ export function Learn() {
     setSelectedImageSourceId,
     isLoadingProgress,
     loadProgress,
+    resetState,
   } = useLearnStore()
 
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
@@ -563,6 +564,10 @@ export function Learn() {
 
   useEffect(() => {
     if (!courseId) return
+
+    // 切换课程时重置状态，确保从干净的状态开始
+    resetState()
+
     const controller = new AbortController()
 
     // 并行获取课程信息和容器状态
@@ -571,7 +576,7 @@ export function Learn() {
     loadProgress(courseId)
 
     return () => controller.abort()
-  }, [courseId, fetchCourse, checkExistingContainer, loadProgress])  
+  }, [courseId, fetchCourse, checkExistingContainer, loadProgress, resetState])  
 
   useEffect(() => {
     return () => {
