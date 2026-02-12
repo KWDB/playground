@@ -207,6 +207,9 @@ func (s *Service) loadCourse(courseID, coursePath string) (*Course, error) {
 		return nil, fmt.Errorf("failed to parse course config: %w", err)
 	}
 
+	// 计算总步骤数
+	course.TotalSteps = len(course.Details.Steps)
+
 	// 兼容误拼写键 slqTerminal：若yaml中存在且为true，则置位SqlTerminal
 	var raw map[string]interface{}
 	if err := yaml.Unmarshal(configData, &raw); err == nil {
@@ -254,6 +257,9 @@ func (s *Service) loadCourseFromFS(courseID, coursePath string) (*Course, error)
 	if err := yaml.Unmarshal(configData, &course); err != nil {
 		return nil, fmt.Errorf("failed to parse course config: %w", err)
 	}
+
+	// 计算总步骤数
+	course.TotalSteps = len(course.Details.Steps)
 
 	// 兼容误拼写键 slqTerminal：若yaml中存在且为true，则置位SqlTerminal
 	var raw map[string]interface{}
