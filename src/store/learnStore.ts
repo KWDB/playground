@@ -45,6 +45,7 @@ interface LearnState {
   connectionError: string | null;
   confirmDialogMode: 'back' | 'exit';
   isLoadingProgress: boolean;
+  isCompleted: boolean;
 }
 
 interface LearnActions {
@@ -95,6 +96,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         connectionError: null,
         confirmDialogMode: 'back',
         isLoadingProgress: false,
+        isCompleted: false,
 
         setCourse: (course) => set({ course, loading: false }),
         setCurrentStep: (currentStep) => {
@@ -131,7 +133,10 @@ export const useLearnStore = create<LearnState & LearnActions>()(
             if (progress && progress.length > 0) {
               const latest = progress[0];
               if (latest.stepIndex >= 0) {
-                set({ currentStep: latest.stepIndex });
+                set({ 
+                  currentStep: latest.stepIndex,
+                  isCompleted: latest.completed
+                });
               }
             }
           } catch (error) {
@@ -143,9 +148,18 @@ export const useLearnStore = create<LearnState & LearnActions>()(
 
         saveProgress: async (courseId: string, stepIndex: number) => {
           try {
+            const state = get();
+            const stepsCount = state.course?.details.steps.length || 0;
+            const reachedFinish = stepsCount > 0 && stepIndex >= stepsCount;
+            const completed = state.isCompleted || reachedFinish;
+
+            if (reachedFinish && !state.isCompleted) {
+              set({ isCompleted: true });
+            }
+
             await api.courses.saveProgress(courseId, { 
               stepIndex,
-              completed: false 
+              completed
             });
           } catch (error) {
             console.error('Failed to save progress:', error);
@@ -166,6 +180,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
           isConnected: false,
           connectionError: null,
           isLoadingProgress: false,
+          isCompleted: false,
           selectedImage: localStorage.getItem('selectedImageFullName')?.trim() || '',
           selectedImageSourceId: localStorage.getItem('imageSourceId')?.trim() || '',
         }),
