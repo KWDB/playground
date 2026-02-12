@@ -192,14 +192,24 @@ export function CourseList() {
 
       const progressPromises = sorted.map(course => 
         api.courses.getProgress(course.id)
-          .then(res => ({ id: course.id, data: res[0] }))
-          .catch(() => ({ id: course.id, data: undefined }))
+          .then(res => ({
+            id: course.id,
+            progress: res.progress ? {
+              userId: res.progress.user_id,
+              courseId: res.progress.course_id,
+              stepIndex: res.progress.current_step,
+              completed: res.progress.completed,
+              createdAt: res.progress.started_at,
+              updatedAt: res.progress.updated_at,
+            } : null
+          }))
+          .catch(() => ({ id: course.id, progress: null }))
       );
       
       const results = await Promise.all(progressPromises);
       const newProgressMap: Record<string, UserProgress> = {};
       results.forEach(r => {
-        if (r.data) newProgressMap[r.id] = r.data;
+        if (r.progress) newProgressMap[r.id] = r.progress;
       });
       setProgressMap(newProgressMap);
     } catch (err) {

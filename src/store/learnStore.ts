@@ -129,13 +129,20 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         loadProgress: async (courseId: string) => {
           set({ isLoadingProgress: true });
           try {
-            const progress = await api.courses.getProgress(courseId);
-            if (progress && progress.length > 0) {
-              const latest = progress[0];
-              if (latest.stepIndex >= 0) {
+            const response = await api.courses.getProgress(courseId);
+            if (response.progress) {
+              const progress = {
+                userId: response.progress.user_id,
+                courseId: response.progress.course_id,
+                stepIndex: response.progress.current_step,
+                completed: response.progress.completed,
+                createdAt: response.progress.started_at,
+                updatedAt: response.progress.updated_at,
+              };
+              if (progress.stepIndex >= 0) {
                 set({ 
-                  currentStep: latest.stepIndex,
-                  isCompleted: latest.completed
+                  currentStep: progress.stepIndex,
+                  isCompleted: progress.completed
                 });
               }
             }
