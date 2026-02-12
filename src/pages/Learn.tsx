@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Server, ImageIcon } from 'lucide-react'
 import SqlTerminal, { SqlTerminalRef } from '../components/business/SqlTerminal'
@@ -562,21 +562,31 @@ export function Learn() {
     }
   }, [startStatusMonitoring]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 使用 useLayoutEffect 在渲染前重置状态，防止上一课程内容闪烁
+  useLayoutEffect(() => {
+    if (courseId) {
+      resetState()
+    }
+  }, [courseId, resetState])
+
   useEffect(() => {
     if (!courseId) return
 
-    // 切换课程时重置状态，确保从干净的状态开始
-    resetState()
-
     const controller = new AbortController()
 
-    // 并行获取课程信息和容器状态
-    fetchCourse(courseId, controller.signal)
-    checkExistingContainer(courseId, controller.signal)
-    loadProgress(courseId)
+    const initCourse = async () => {
+      // 串行执行：先获取课程详情，确保数据就绪后再加载进度
+      await fetchCourse(courseId, controller.signal)
+      
+      // 并行检查容器和加载进度
+      checkExistingContainer(courseId, controller.signal)
+      loadProgress(courseId)
+    }
+
+    initCourse()
 
     return () => controller.abort()
-  }, [courseId, fetchCourse, checkExistingContainer, loadProgress, resetState])  
+  }, [courseId, fetchCourse, checkExistingContainer, loadProgress])  
 
   useEffect(() => {
     return () => {
@@ -927,6 +937,14 @@ export function Learn() {
       }
     }
   }, [course?.id, setCurrentStep])
+
+  if (course && course.id !== courseId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">加载课程中...</div>
+      </div>
+    )
+  }
 
   if (loading || isLoadingProgress) {
     return (
