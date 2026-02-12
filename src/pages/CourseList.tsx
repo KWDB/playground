@@ -18,6 +18,7 @@ interface Course {
   tags: string[];
   dockerImage: string;
   sqlTerminal?: boolean;
+  totalSteps?: number;
 }
 
 interface FilterState {
@@ -543,7 +544,7 @@ export function CourseList() {
                       ) : progressMap[course.id] ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
                           <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
-                          进行中 (Step {progressMap[course.id].stepIndex + 1})
+                          进行中 ({course.totalSteps ? Math.round((progressMap[course.id].stepIndex + 1) / course.totalSteps * 100) : 0}%)
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
@@ -644,7 +645,7 @@ export function CourseList() {
                       ) : progressMap[course.id] ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
                           <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
-                          Step {progressMap[course.id].stepIndex + 1}
+                          进行中 ({course.totalSteps ? Math.round((progressMap[course.id].stepIndex + 1) / course.totalSteps * 100) : 0}%)
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
