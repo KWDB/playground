@@ -266,7 +266,7 @@ func (ts *TerminalSession) handleWebSocketInput() {
 
 // handleTerminalOutput 处理终端输出并发送到前端
 func (ts *TerminalSession) handleTerminalOutput() {
-	buf := make([]byte, 1024)
+	buf := make([]byte, 4096)
 	for {
 		select {
 		case <-ts.ctx.Done():

@@ -257,14 +257,22 @@ func (d *dockerController) loadExistingContainers(ctx context.Context) error {
 			}
 		}
 
-		// 创建容器信息
+		startedAt := time.Now()
+		if inspect.State.StartedAt != "" {
+			if parsedTime, err := time.Parse(time.RFC3339, inspect.State.StartedAt); err == nil {
+				startedAt = parsedTime
+			} else {
+				d.logger.Warn("无法解析容器 %s 的启动时间 %s: %v", containerName, inspect.State.StartedAt, err)
+			}
+		}
+
 		containerInfo := &ContainerInfo{
 			ID:        containerName,
 			CourseID:  courseID,
 			DockerID:  container.ID,
 			State:     state,
 			Image:     inspect.Config.Image,
-			StartedAt: time.Now(), // 使用当前时间，因为无法准确获取原始启动时间
+			StartedAt: startedAt,
 			Env:       env,
 			Ports:     ports,
 		}
@@ -1069,14 +1077,25 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 
 	d.logger.Info("容器创建成功，Docker ID: %s", resp.ID[:12])
 
-	// 创建容器信息
+	inspect, err := d.client.ContainerInspect(ctx, resp.ID)
+	startedAt := time.Now()
+	if err == nil && inspect.State.StartedAt != "" {
+		if parsedTime, err := time.Parse(time.RFC3339, inspect.State.StartedAt); err == nil {
+			startedAt = parsedTime
+		} else {
+			d.logger.Warn("无法解析容器 %s 的启动时间 %s: %v", containerName, inspect.State.StartedAt, err)
+		}
+	} else if err != nil {
+		d.logger.Warn("无法检查容器 %s 以获取启动时间: %v", containerName, err)
+	}
+
 	containerInfo := &ContainerInfo{
 		ID:         containerName,
 		CourseID:   courseID,
 		DockerID:   resp.ID,
 		State:      StateCreating,
 		Image:      config.Image,
-		StartedAt:  time.Now(),
+		StartedAt:  startedAt,
 		Env:        config.Env,
 		Ports:      config.Ports,
 		Privileged: config.Privileged,
