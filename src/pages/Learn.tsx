@@ -571,7 +571,7 @@ export function Learn() {
     loadProgress(courseId)
 
     return () => controller.abort()
-  }, [courseId, fetchCourse, checkExistingContainer, loadProgress]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [courseId, fetchCourse, checkExistingContainer, loadProgress])  
 
   useEffect(() => {
     return () => {
@@ -905,6 +905,23 @@ export function Learn() {
   const handleCancelExit = () => {
     setShowConfirmDialog(false)
   }
+
+
+  // 处理重置进度
+  const handleResetProgress = useCallback(async () => {
+    if (!course?.id) return
+    
+    if (window.confirm('确定要重置当前课程的学习进度吗？将会回到课程介绍页。')) {
+      try {
+        await api.courses.resetProgress(course.id)
+        setCurrentStep(-1)
+        // 成功后不弹窗，直接跳转即可，体验更流畅
+      } catch (err) {
+        console.error('Failed to reset progress:', err)
+        alert('重置进度失败，请重试')
+      }
+    }
+  }, [course?.id, setCurrentStep])
 
   if (loading || isLoadingProgress) {
     return (
@@ -1278,6 +1295,7 @@ export function Learn() {
               canPrev={canGoPrevious()}
               canNext={canGoNext()}
               onExit={handleExitClick}
+              onReset={handleResetProgress}
             />
           </Panel>
 

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { RotateCcw } from 'lucide-react';
 
 export interface CourseContentPanelProps {
   title: string;
@@ -11,6 +12,7 @@ export interface CourseContentPanelProps {
   canPrev: boolean;
   canNext: boolean;
   onExit: () => void;
+  onReset: () => void;
 }
 
 export default function CourseContentPanel({
@@ -24,6 +26,7 @@ export default function CourseContentPanel({
   canPrev,
   canNext,
   onExit,
+  onReset,
 }: CourseContentPanelProps) {
   const isCompleted = currentStep >= stepsLength;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -85,18 +88,23 @@ export default function CourseContentPanel({
           <span className="text-sm text-[var(--color-text-secondary)] truncate max-w-[120px]">{steps.find(s => s.id === currentStep)?.title || '介绍'}</span>
         </div>
         <div className="flex items-center justify-between px-4 py-3 bg-[var(--color-bg-primary)]">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onReset}
+              className="btn btn-ghost text-[var(--color-text-tertiary)] hover:text-[var(--color-error)] p-2"
+              title="重置进度"
+            >
+              <RotateCcw size={16} />
+            </button>
+            <button onClick={onPrev} disabled={!canPrev} className="btn btn-secondary text-sm">上一步</button>
+          </div>
+          <span className="text-sm text-[var(--color-text-secondary)]">
+            {isCompleted ? '完成' : (currentStep === -1 ? '介绍' : `步骤 ${currentStep + 1}/${stepsLength}`)}
+          </span>
           {isCompleted ? (
-            <>
-              <button onClick={onPrev} disabled={!canPrev} className="btn btn-secondary text-sm">上一步</button>
-              <span className="text-sm text-[var(--color-text-secondary)]">完成</span>
-              <button onClick={onExit} className="btn btn-ghost text-sm text-[var(--color-error)]">退出课程</button>
-            </>
+            <button onClick={onExit} className="btn btn-ghost text-sm text-[var(--color-error)]">退出课程</button>
           ) : (
-            <>
-              <button onClick={onPrev} disabled={!canPrev} className="btn btn-secondary text-sm">上一步</button>
-              <span className="text-sm text-[var(--color-text-secondary)]">{currentStep === -1 ? '介绍' : `步骤 ${currentStep + 1}/${stepsLength}`}</span>
-              <button onClick={onNext} disabled={!canNext} className="btn btn-primary text-sm">下一步</button>
-            </>
+            <button onClick={onNext} disabled={!canNext} className="btn btn-primary text-sm">下一步</button>
           )}
         </div>
       </div>
