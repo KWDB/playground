@@ -2040,6 +2040,14 @@ func (h *Handler) getProgress(c *gin.Context) {
 	}
 
 	h.logger.Debug("[getProgress] 获取进度成功: courseID=%s, exists=%v", courseID, exists)
+
+	if !exists {
+		c.JSON(http.StatusOK, gin.H{
+			"exists": false,
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"progress": progress,
 		"exists":   exists,
