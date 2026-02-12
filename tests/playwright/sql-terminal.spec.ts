@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-test('SQL 终端测试', async ({ page }) => {
+test.describe('SQL 终端', () => {
+  test.beforeEach(async ({ request }) => {
+    await request.post('/api/progress/sql/reset');
+  });
+
+  test('SQL 终端测试', async ({ page }) => {
   // 1) 直接进入首页
   await page.goto('/');
   await page.getByRole('link', { name: '开始学习' }).click();
@@ -64,4 +69,5 @@ test('SQL 终端测试', async ({ page }) => {
   await page.getByRole('button', { name: '确定' }).click();
   await expect(page.getByRole('heading', { name: '课程列表' })).toBeVisible({ timeout: 10000 });
   console.log('✅ 退出课程');
+  });
 });
