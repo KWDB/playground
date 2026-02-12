@@ -29,7 +29,7 @@ LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.Git
 # 环境变量文件
 ENV_FILE ?= .env
 
-.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist playwright e2e-playwright e2e-docker docker-build docker-up docker-down
+.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-linux-arm64 release-darwin-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist playwright e2e-playwright e2e-docker docker-build docker-up docker-down
 
 # 默认目标
 all: build
@@ -123,11 +123,23 @@ release-linux-amd64: frontend
 	GOOS=linux GOARCH=amd64 COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME)-linux-amd64 .
 	@ls -lh bin/$(APP_NAME)-linux-amd64
 
+release-linux-arm64: frontend
+	@echo "🐧 Building RELEASE for Linux arm64 ..."
+	@mkdir -p bin
+	GOOS=linux GOARCH=arm64 COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME)-linux-arm64 .
+	@ls -lh bin/$(APP_NAME)-linux-arm64
+
 release-darwin-arm64: frontend
 	@echo "🍎 Building RELEASE for macOS arm64 ..."
 	@mkdir -p bin
 	GOOS=darwin GOARCH=arm64 COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME)-darwin-arm64 .
 	@ls -lh bin/$(APP_NAME)-darwin-arm64
+
+release-darwin-amd64: frontend
+	@echo "🍎 Building RELEASE for macOS amd64 ..."
+	@mkdir -p bin
+	GOOS=darwin GOARCH=amd64 COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME)-darwin-amd64 .
+	@ls -lh bin/$(APP_NAME)-darwin-amd64
 
 release-windows-amd64: frontend
 	@echo "🪟 Building RELEASE for Windows amd64 ..."
@@ -135,7 +147,7 @@ release-windows-amd64: frontend
 	GOOS=windows GOARCH=amd64 COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME)-windows-amd64.exe .
 	@ls -lh bin/$(APP_NAME)-windows-amd64.exe
 
-release-all: release-linux-amd64 release-darwin-arm64 release-windows-amd64
+release-all: release-linux-amd64 release-linux-arm64 release-darwin-arm64 release-darwin-amd64 release-windows-amd64
 	@echo "🎉 All release builds completed!"
 	@ls -lh bin/
 
@@ -282,7 +294,7 @@ help:
 	@echo ""
 	@echo "🚀 开发模式:"
 	@echo "  dev           - 启动统一开发服务器 (端口 $(SERVER_PORT))"
-	@echo "  playwright    - Playwright 专用服务器启动
+	@echo "  playwright    - Playwright 专用服务器启动"
 	@echo ""
 	@echo "🏗️ 构建和部署:"
 	@echo "  frontend      - 构建前端"

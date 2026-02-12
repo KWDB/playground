@@ -33,20 +33,36 @@ EOF
 fi
 
 # Linux amd64 tar.gz
-pkg_linux=kwdb-playground-linux-amd64
-mkdir -p "$pkg_linux"
-cp bin/kwdb-playground-linux-amd64 "$pkg_linux"/kwdb-playground
-cp dist/README.txt "$pkg_linux"/
-cp dist/LICENSE "$pkg_linux"/
-tar -czf dist/kwdb-playground-linux-amd64.tar.gz "$pkg_linux"/
+pkg_linux_amd64=kwdb-playground-linux-amd64
+mkdir -p "$pkg_linux_amd64"
+cp bin/kwdb-playground-linux-amd64 "$pkg_linux_amd64"/kwdb-playground
+cp dist/README.txt "$pkg_linux_amd64"/
+cp dist/LICENSE "$pkg_linux_amd64"/
+tar -czf dist/kwdb-playground-linux-amd64.tar.gz "$pkg_linux_amd64"/
+
+# Linux arm64 tar.gz
+pkg_linux_arm64=kwdb-playground-linux-arm64
+mkdir -p "$pkg_linux_arm64"
+cp bin/kwdb-playground-linux-arm64 "$pkg_linux_arm64"/kwdb-playground
+cp dist/README.txt "$pkg_linux_arm64"/
+cp dist/LICENSE "$pkg_linux_arm64"/
+tar -czf dist/kwdb-playground-linux-arm64.tar.gz "$pkg_linux_arm64"/
+
+# macOS amd64 tar.gz
+pkg_darwin_amd64=kwdb-playground-darwin-amd64
+mkdir -p "$pkg_darwin_amd64"
+cp bin/kwdb-playground-darwin-amd64 "$pkg_darwin_amd64"/kwdb-playground
+cp dist/README.txt "$pkg_darwin_amd64"/
+cp dist/LICENSE "$pkg_darwin_amd64"/
+tar -czf dist/kwdb-playground-darwin-amd64.tar.gz "$pkg_darwin_amd64"/
 
 # macOS arm64 tar.gz
-pkg_darwin=kwdb-playground-darwin-arm64
-mkdir -p "$pkg_darwin"
-cp bin/kwdb-playground-darwin-arm64 "$pkg_darwin"/kwdb-playground
-cp dist/README.txt "$pkg_darwin"/
-cp dist/LICENSE "$pkg_darwin"/
-tar -czf dist/kwdb-playground-darwin-arm64.tar.gz "$pkg_darwin"/
+pkg_darwin_arm64=kwdb-playground-darwin-arm64
+mkdir -p "$pkg_darwin_arm64"
+cp bin/kwdb-playground-darwin-arm64 "$pkg_darwin_arm64"/kwdb-playground
+cp dist/README.txt "$pkg_darwin_arm64"/
+cp dist/LICENSE "$pkg_darwin_arm64"/
+tar -czf dist/kwdb-playground-darwin-arm64.tar.gz "$pkg_darwin_arm64"/
 
 # Windows amd64 zip
 pkg_win=kwdb-playground-windows-amd64

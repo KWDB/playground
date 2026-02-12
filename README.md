@@ -66,6 +66,18 @@ KWDB Playground 是一个面向学习与演示的交互式课程平台，支持�
 
 ### 发布版使用（推荐）
 
+#### Homebrew 安装
+
+如果您使用 Homebrew，可以通过以下命令快速安装：
+
+```bash
+brew tap kwdb/tap
+brew install kwdb-playground
+kwdb-playground server
+```
+
+#### 手动下载
+
 - 在 [Release 页面](https://github.com/kwdb/playground/releases) 下载最新版本的 `kwdb-playground` 二进制文件。
 - 启动服务：
   ```bash
