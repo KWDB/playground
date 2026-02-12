@@ -8,7 +8,7 @@
 
 2.  **启动数据库**
 
-启动 KWDB（非安全模式）：`./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=/var/lib/kaiwudb --background`{{exec}}
+启动 KWDB（非安全模式）：`./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=/var/lib/kaiwudb --background > kwbase.log 2>&1`{{exec}}
 
 3.  **检查节点状态**
 
