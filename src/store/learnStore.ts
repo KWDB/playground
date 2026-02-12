@@ -126,38 +126,31 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         setConnectionError: (connectionError) => set({ connectionError }),
         setConfirmDialogMode: (confirmDialogMode) => set({ confirmDialogMode }),
         
-        loadProgress: async (courseId: string) => {
-          set({ isLoadingProgress: true });
-          try {
-            const response = await api.courses.getProgress(courseId);
-            if (response.progress) {
-              const progress = {
-                userId: response.progress.user_id,
-                courseId: response.progress.course_id,
-                stepIndex: response.progress.current_step,
-                completed: response.progress.completed,
-                createdAt: response.progress.started_at,
-                updatedAt: response.progress.updated_at,
-              };
-              if (progress.stepIndex >= 0) {
-                set({ 
-                  currentStep: progress.stepIndex,
-                  isCompleted: progress.completed
-                });
-              }
-            } else {
-              // No progress found, reset to Intro
-              set({ 
-                currentStep: -1, 
-                isCompleted: false 
-              });
-            }
-          } catch (error) {
-            console.error('Failed to load progress:', error);
-          } finally {
-            set({ isLoadingProgress: false });
-          }
-        },
+         loadProgress: async (courseId: string) => {
+           set({ isLoadingProgress: true });
+           try {
+             const response = await api.courses.getProgress(courseId);
+             if (response.progress) {
+               const stepIndex = (typeof response.progress.current_step === 'number') ? response.progress.current_step : -1;
+               const completed = response.progress.completed || false;
+               
+               set({ 
+                 currentStep: stepIndex,
+                 isCompleted: completed
+               });
+             } else {
+               // No progress found, reset to Intro
+               set({ 
+                 currentStep: -1, 
+                 isCompleted: false 
+               });
+             }
+           } catch (error) {
+             console.error('Failed to load progress:', error);
+           } finally {
+             set({ isLoadingProgress: false });
+           }
+         },
 
         saveProgress: async (courseId: string, stepIndex: number) => {
           try {
