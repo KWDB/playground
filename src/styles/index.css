@@ -408,6 +408,14 @@
   }
 }
 
+.xterm .xterm-selection div {
+  background-color: #5e6ad240 !important;
+}
+
+.xterm.focus .xterm-selection div {
+  background-color: #5e6ad260 !important;
+}
+
 /* Terminal Styles */
 .terminal-scrollbar::-webkit-scrollbar {
   width: 6px;

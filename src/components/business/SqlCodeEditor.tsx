@@ -33,10 +33,10 @@ export default function SqlCodeEditor({
   // Linear 风格浅色主题
   const linearLightTheme = EditorView.theme({
     '&': { 
-      backgroundColor: 'var(--cm-bg)', 
-      color: 'var(--cm-foreground)', 
+      backgroundColor: 'transparent', 
+      color: 'var(--color-text-primary)', 
       height: 'auto',
-      borderRadius: '6px',
+      borderRadius: 'var(--radius-md)',
       overflow: 'hidden',
     },
     
@@ -51,12 +51,12 @@ export default function SqlCodeEditor({
     },
 
     '.cm-content': {
-      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+      fontFamily: 'var(--font-mono)',
       fontSize: '14px',
       lineHeight: '1.6',
-      color: 'var(--cm-foreground)',
+      color: 'var(--color-text-primary)',
       padding: '12px',
-      caretColor: 'var(--cm-accent)',
+      caretColor: 'var(--color-accent-primary)',
       outline: 'none !important',
       border: 'none !important',
     },
@@ -70,7 +70,7 @@ export default function SqlCodeEditor({
       maxHeight: '12rem', 
       minHeight: '6rem',
       scrollbarWidth: 'thin',
-      scrollbarColor: 'var(--cm-scrollbar) transparent',
+      scrollbarColor: 'var(--color-border-default) transparent',
     },
 
     '.cm-scroller::-webkit-scrollbar': {
@@ -81,84 +81,85 @@ export default function SqlCodeEditor({
       background: 'transparent',
     },
     '.cm-scroller::-webkit-scrollbar-thumb': {
-      background: 'var(--cm-scrollbar)',
+      background: 'var(--color-border-default)',
       borderRadius: '3px',
     },
     '.cm-scroller::-webkit-scrollbar-thumb:hover': {
-      background: 'var(--cm-scrollbar-hover)',
+      background: 'var(--color-border-dark)',
     },
 
     '.cm-gutters': {
-      backgroundColor: 'var(--cm-gutter-bg)',
+      backgroundColor: 'var(--color-bg-secondary)',
       border: 'none',
-      color: 'var(--cm-gutter-text)',
-      borderRadius: '6px 0 0 6px',
+      color: 'var(--color-text-tertiary)',
+      borderRadius: 'var(--radius-md) 0 0 var(--radius-md)',
       paddingRight: '8px',
     },
 
     '.cm-selectionBackground': { 
-      backgroundColor: 'var(--cm-selection)',
+      backgroundColor: 'var(--color-accent-subtle)',
       borderRadius: '2px',
     },
 
     '.cm-cursor': { 
-      borderLeftColor: 'var(--cm-accent)',
+      borderLeftColor: 'var(--color-accent-primary)',
       borderLeftWidth: '2px',
     },
 
     '.cm-placeholder': { 
-      color: 'var(--cm-placeholder)',
+      color: 'var(--color-text-tertiary)',
       fontStyle: 'italic',
     },
 
-    // 语法高亮 - 使用更柔和的颜色
+    // 语法高亮
     '.cm-keyword': { 
-      color: 'var(--cm-keyword)', 
+      color: '#7c3aed', 
       fontWeight: '600',
     },
     '.cm-string': { 
-      color: 'var(--cm-string)',
+      color: '#059669',
     },
     '.cm-number': { 
-      color: 'var(--cm-number)',
+      color: '#d97706',
       fontWeight: '500',
     },
     '.cm-comment': { 
-      color: 'var(--cm-comment)',
+      color: 'var(--color-text-tertiary)',
       fontStyle: 'italic',
     },
     '.cm-operator': { 
-      color: 'var(--cm-operator)',
+      color: '#dc2626',
     },
     '.cm-punctuation': { 
-      color: 'var(--cm-punctuation)',
+      color: 'var(--color-text-secondary)',
     },
     '.cm-variableName': { 
-      color: 'var(--cm-variable)',
+      color: 'var(--color-accent-primary)',
     },
 
     // 工具提示
     '.cm-tooltip': {
-      backgroundColor: 'var(--cm-tooltip-bg)',
-      border: '1px solid var(--cm-tooltip-border)',
-      borderRadius: '6px',
-      boxShadow: 'var(--cm-tooltip-shadow)',
+      backgroundColor: 'var(--color-bg-primary)',
+      border: '1px solid var(--color-border-light)',
+      borderRadius: 'var(--radius-md)',
+      boxShadow: 'var(--shadow-lg)',
       zIndex: '9999',
     },
 
     '.cm-tooltip-autocomplete': { 
       overflow: 'hidden',
       zIndex: '2147483647',
+      backgroundColor: 'var(--color-bg-primary)',
     },
 
     '.cm-tooltip-signature': {
-      backgroundColor: 'var(--cm-tooltip-bg)',
-      color: 'var(--cm-foreground)',
-      border: '1px solid var(--cm-tooltip-border)',
-      borderRadius: '6px',
+      backgroundColor: 'var(--color-bg-primary)',
+      color: 'var(--color-text-primary)',
+      border: '1px solid var(--color-border-light)',
+      borderRadius: 'var(--radius-md)',
       padding: '6px 10px',
       fontSize: '13px',
-      boxShadow: 'var(--cm-tooltip-shadow)',
+      boxShadow: 'var(--shadow-lg)',
     },
 
     // 补全列表
@@ -167,37 +168,44 @@ export default function SqlCodeEditor({
       margin: 0,
       maxHeight: '280px',
       overflow: 'auto',
+      backgroundColor: 'var(--color-bg-primary)',
     },
 
     '.cm-completionItem': {
       padding: '6px 10px',
-      borderRadius: '4px',
+      borderRadius: 'var(--radius-sm)',
       margin: '2px 0',
-      color: 'var(--cm-foreground)',
+      color: 'var(--color-text-primary)',
       cursor: 'pointer',
     },
 
     '.cm-completionItem:hover': {
-      backgroundColor: 'var(--cm-list-hover-bg)',
+      backgroundColor: 'var(--color-bg-tertiary)',
     },
 
     '.cm-completionSelected': {
-      backgroundColor: 'var(--cm-list-selected-bg)',
+      backgroundColor: 'var(--color-bg-tertiary)',
     },
 
     '.cm-completionLabel': {
-      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+      fontFamily: 'var(--font-mono)',
     },
 
     '.cm-completionDetail': { 
-      color: 'var(--cm-muted)',
+      color: 'var(--color-text-tertiary)',
       fontSize: '12px',
       marginLeft: '8px',
     },
 
     '.cm-completionMatchedText': { 
-      color: 'var(--cm-accent)', 
+      color: 'var(--color-text-primary)', 
       fontWeight: '600',
+      textDecoration: 'none',
+    },
+
+    '.cm-completionSelected .cm-completionMatchedText': {
+      color: 'var(--color-text-primary)',
+      textDecoration: 'none',
     },
 
     '.cm-completionIcon': { 
@@ -218,7 +226,7 @@ export default function SqlCodeEditor({
     },
     '.cm-completionIcon-function': { 
       color: '#ffffff',
-      backgroundColor: 'var(--cm-accent)',
+      backgroundColor: 'var(--color-accent-primary)',
     },
     '.cm-completionIcon-variable': { 
       color: '#ffffff',
@@ -319,41 +327,14 @@ export default function SqlCodeEditor({
     })
   }, [disabled])
 
-  // 设置 Linear 浅色主题 CSS 变量
-  useEffect(() => {
-    const host = hostRef.current
-    if (!host) return
-    
-    host.style.setProperty('--cm-bg', '#ffffff')
-    host.style.setProperty('--cm-foreground', '#1a1a1a')
-    host.style.setProperty('--cm-muted', '#737373')
-    host.style.setProperty('--cm-accent', '#2563eb')
-    host.style.setProperty('--cm-keyword', '#7c3aed')
-    host.style.setProperty('--cm-string', '#059669')
-    host.style.setProperty('--cm-number', '#d97706')
-    host.style.setProperty('--cm-comment', '#737373')
-    host.style.setProperty('--cm-operator', '#dc2626')
-    host.style.setProperty('--cm-punctuation', '#525252')
-    host.style.setProperty('--cm-variable', '#2563eb')
-    host.style.setProperty('--cm-placeholder', '#a3a3a3')
-    host.style.setProperty('--cm-selection', 'rgba(37, 99, 235, 0.15)')
-    host.style.setProperty('--cm-gutter-bg', '#fafafa')
-    host.style.setProperty('--cm-gutter-text', '#737373')
-    host.style.setProperty('--cm-scrollbar', 'rgba(0, 0, 0, 0.15)')
-    host.style.setProperty('--cm-scrollbar-hover', 'rgba(0, 0, 0, 0.25)')
-    host.style.setProperty('--cm-tooltip-bg', '#ffffff')
-    host.style.setProperty('--cm-tooltip-border', '#e5e5e5')
-    host.style.setProperty('--cm-tooltip-shadow', '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)')
-    host.style.setProperty('--cm-list-hover-bg', 'rgba(0, 0, 0, 0.04)')
-    host.style.setProperty('--cm-list-selected-bg', 'rgba(37, 99, 235, 0.08)')
-  }, [])
+
 
   return (
     <div
       ref={hostRef}
       className={`
         relative w-full 
-        bg-white
+        bg-[var(--color-bg-primary)]
         rounded-md
         border border-[var(--color-border-default)]
         transition-all duration-200

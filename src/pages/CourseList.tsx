@@ -118,16 +118,56 @@ export function CourseList() {
     }
   };
 
+  const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set());
+
+  const handleSelectAll = () => {
+    if (selectedCourses.size === containers.length) {
+      setSelectedCourses(new Set());
+    } else {
+      setSelectedCourses(new Set(containers.map(c => c.courseId)));
+    }
+  };
+
+  const handleSelectContainer = (courseId: string) => {
+    const newSelected = new Set(selectedCourses);
+    if (newSelected.has(courseId)) {
+      newSelected.delete(courseId);
+    } else {
+      newSelected.add(courseId);
+    }
+    setSelectedCourses(newSelected);
+  };
+
+  const formatDuration = (startedAt: string): string => {
+    const start = new Date(startedAt).getTime();
+    const now = Date.now();
+    const diff = now - start;
+    
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days}天 ${hours % 24}小时`;
+    if (hours > 0) return `${hours}小时 ${minutes % 60}分钟`;
+    return `${minutes}分钟`;
+  };
+
   const handleCleanup = async () => {
+    if (selectedCourses.size === 0) return;
+    
     setCleaning(true);
     try {
-      const response = await fetch('/api/containers', { method: 'DELETE' });
-      if (response.ok) {
-        fetchContainers();
-        setTimeout(() => {
-          if (showCleanupModal) setShowCleanupModal(false);
-        }, 1500);
-      }
+      const cleanupPromises = Array.from(selectedCourses).map(courseId => 
+        fetch(`/api/courses/${courseId}/cleanup-containers`, { method: 'POST' })
+      );
+      
+      await Promise.all(cleanupPromises);
+      
+      fetchContainers();
+      setSelectedCourses(new Set());
+      setTimeout(() => {
+        if (showCleanupModal) setShowCleanupModal(false);
+      }, 1500);
     } finally {
       setCleaning(false);
     }
@@ -576,33 +616,160 @@ export function CourseList() {
 
       {showCleanupModal && (
         <Dialog open={showCleanupModal} onOpenChange={setShowCleanupModal}>
-          <DialogContent className="max-w-sm">
-            <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
-              清理确认
-            </DialogTitle>
-            <div className="mt-4">
-              <div className="p-3 rounded-lg bg-[var(--color-error-subtle)] border border-[var(--color-error)] mb-4">
-                <p className="text-sm text-[var(--color-text-secondary)]">
-                  即将清理 {containers.length} 个运行中的容器。此操作不可撤销。
-                </p>
+          <DialogContent className="w-[90vw] max-w-4xl min-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-[var(--color-bg-primary)]">
+            <div className="p-8 pb-0">
+              <div className="flex items-start gap-5">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[var(--color-error-subtle)] flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-[var(--color-error)]" />
+                </div>
+                <div className="flex-1">
+                  <DialogTitle className="text-xl font-semibold text-[var(--color-text-primary)]">
+                    确认清理环境
+                  </DialogTitle>
+                  <p className="mt-3 text-base text-[var(--color-text-secondary)] leading-relaxed">
+                    检测到 {containers.length} 个正在运行的容器环境。选择需要清理的容器，清理后所有未保存的进度和数据将丢失。
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto mb-4">
-                {containers.map(container => (
-                  <div key={container.id} className="flex items-center justify-between text-sm p-2 rounded bg-[var(--color-bg-secondary)]">
-                    <span className="text-[var(--color-text-primary)]">
-                      {courses.find(c => c.id === container.courseId)?.title || container.name}
-                    </span>
-                    <span className="text-xs text-[var(--color-text-tertiary)]">{container.state}</span>
-                  </div>
-                ))}
+            </div>
+
+            <div className="px-8 py-6">
+              <div className="flex items-center justify-between mb-4 px-1">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={selectedCourses.size === containers.length && containers.length > 0}
+                    onChange={handleSelectAll}
+                    className="w-5 h-5 rounded border-[var(--color-border-default)] text-[var(--color-accent-primary)] focus:ring-[var(--color-accent-primary)] cursor-pointer"
+                  />
+                  <span className="text-base font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-text-secondary)] transition-colors">
+                    全选
+                  </span>
+                </label>
+                <span className="text-sm text-[var(--color-text-tertiary)]">
+                  已选择 {selectedCourses.size} / {containers.length} 个
+                </span>
               </div>
-              <div className="flex gap-2">
-                <Button variant="secondary" className="flex-1" onClick={() => setShowCleanupModal(false)} disabled={cleaning}>
+
+              <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] max-h-[520px] min-h-[300px] overflow-y-auto">
+                {containers.map((container, index) => {
+                  const course = courses.find(c => c.id === container.courseId);
+                  const isSelected = selectedCourses.has(container.courseId);
+                  const isSql = course?.sqlTerminal ?? false;
+                  
+                  return (
+                    <div 
+                      key={container.id} 
+                      className={`flex items-center gap-4 p-5 text-base transition-colors cursor-pointer ${
+                        isSelected ? 'bg-[var(--color-accent-subtle)]' : 'hover:bg-[var(--color-bg-tertiary)]'
+                      } ${index !== containers.length - 1 ? 'border-b border-[var(--color-border-light)]' : ''}`}
+                      onClick={() => handleSelectContainer(container.courseId)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleSelectContainer(container.courseId)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-5 h-5 rounded border-[var(--color-border-default)] text-[var(--color-accent-primary)] focus:ring-[var(--color-accent-primary)] cursor-pointer shrink-0"
+                      />
+                      
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
+                        isSql 
+                          ? 'bg-[var(--color-accent-subtle)]' 
+                          : 'bg-[rgba(59,130,246,0.1)]'
+                      }`}>
+                        {isSql ? (
+                          <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
+                        ) : (
+                          <Terminal className="w-5 h-5 text-[#3b82f6]" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-3">
+                          <span 
+                            className="font-semibold text-[var(--color-text-primary)] text-base leading-snug"
+                            title={course?.title || container.name || '未命名容器'}
+                          >
+                            {course?.title || container.name || '未命名容器'}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-md text-xs font-semibold shrink-0 mt-0.5 ${
+                            isSql 
+                              ? 'bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]' 
+                              : 'bg-[rgba(59,130,246,0.1)] text-[#3b82f6]'
+                          }`}>
+                            {isSql ? 'SQL' : 'Shell'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-[var(--color-text-secondary)]">
+                          <span className="flex items-center gap-1.5 shrink-0">
+                            <Clock className="w-4 h-4" />
+                            运行 {formatDuration(container.startedAt)}
+                          </span>
+                          <span 
+                            className="font-mono text-[var(--color-text-tertiary)] truncate max-w-[280px]"
+                            title={container.id}
+                          >
+                            {container.id}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <div className={`w-2.5 h-2.5 rounded-full ${
+                          container.state === 'running' ? 'bg-[var(--color-success)]' :
+                          container.state === 'paused' ? 'bg-[var(--color-warning)]' :
+                          'bg-[var(--color-text-tertiary)]'
+                        }`} />
+                        <span className="text-sm font-medium text-[var(--color-text-secondary)] capitalize">
+                          {container.state === 'running' ? '运行中' :
+                           container.state === 'paused' ? '已暂停' :
+                           container.state}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {containers.length === 0 && (
+                <div className="text-center py-16 text-[var(--color-text-tertiary)]">
+                  <p className="text-base">暂无运行中的容器</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-8 flex items-center justify-between bg-[var(--color-bg-primary)] border-t border-[var(--color-border-light)]">
+              <div className="text-base text-[var(--color-text-secondary)]">
+                {selectedCourses.size > 0 ? (
+                  <span className="text-[var(--color-error)] font-semibold">
+                    将清理 {selectedCourses.size} 个容器
+                  </span>
+                ) : (
+                  <span className="text-[var(--color-text-tertiary)]">
+                    请选择要清理的容器
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-4">
+                <Button 
+                  variant="ghost" 
+                  size="lg"
+                  onClick={() => setShowCleanupModal(false)} 
+                  disabled={cleaning}
+                  className="hover:bg-[var(--color-bg-secondary)] px-6"
+                >
                   取消
                 </Button>
-                <Button variant="danger" className="flex-1" onClick={handleCleanup} loading={cleaning}>
-                  {cleaning ? '清理中...' : '确认清理'}
+                <Button 
+                  variant="danger" 
+                  size="lg"
+                  onClick={handleCleanup} 
+                  loading={cleaning}
+                  disabled={selectedCourses.size === 0}
+                  className="shadow-sm shadow-red-500/20 px-6"
+                >
+                  {cleaning ? '正在清理...' : `确认清理 (${selectedCourses.size})`}
                 </Button>
               </div>
             </div>

@@ -49,15 +49,18 @@ test.describe('课程列表状态与交互测试', () => {
     await cleanupButton.click();
     
     // 确认弹窗
-    await expect(page.getByText('清理确认')).toBeVisible();
+    await expect(page.getByText('确认清理环境')).toBeVisible();
+    
+    const containerCheckbox = page.locator('input[type="checkbox"]').first();
+    await containerCheckbox.click();
     
     // 点击确认清理
-    const confirmButton = page.getByRole('button', { name: /确认/ }); 
+    const confirmButton = page.getByRole('button', { name: /确认清理/ }); 
     await confirmButton.click();
     
     // 等待清理完成（增加超时时间，因为停止容器可能较慢）
     // 等待弹窗关闭表示清理完成
-    await expect(page.getByText('清理确认')).toBeHidden({ timeout: 60000 });
+    await expect(page.getByText('确认清理环境')).toBeHidden({ timeout: 60000 });
     
     // 5. 验证卡片恢复初始状态（不显示“运行中”）
     await expect(courseCard).not.toHaveText(/运行中/);
