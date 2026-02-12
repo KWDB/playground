@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useCallback, useRef, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Server, ImageIcon } from 'lucide-react'
 import SqlTerminal, { SqlTerminalRef } from '../components/business/SqlTerminal'
@@ -62,6 +62,7 @@ export function Learn() {
 
   // 确认弹窗模式：区分来源以动态文案
   // const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
+  const [showResetDialog, setShowResetDialog] = useState(false)
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const statusAbortControllerRef = useRef<AbortController | null>(null)
   const startAbortControllerRef = useRef<AbortController | null>(null)
@@ -923,20 +924,23 @@ export function Learn() {
 
 
   // 处理重置进度
-  const handleResetProgress = useCallback(async () => {
+  const handleResetProgress = useCallback(() => {
     if (!course?.id) return
-    
-    if (window.confirm('确定要重置当前课程的学习进度吗？将会回到课程介绍页。')) {
-      try {
-        await api.courses.resetProgress(course.id)
-        setCurrentStep(-1)
-        // 成功后不弹窗，直接跳转即可，体验更流畅
-      } catch (err) {
-        console.error('Failed to reset progress:', err)
-        alert('重置进度失败，请重试')
-      }
+    setShowResetDialog(true)
+  }, [course?.id])
+
+  const handleConfirmReset = async () => {
+    if (!course?.id) return
+    setShowResetDialog(false)
+    try {
+      await api.courses.resetProgress(course.id)
+      setCurrentStep(-1)
+      // 成功后不弹窗，直接跳转即可，体验更流畅
+    } catch (err) {
+      console.error('Failed to reset progress:', err)
+      alert('重置进度失败，请重试')
     }
-  }, [course?.id, setCurrentStep])
+  }
 
   if (course && course.id !== courseId) {
     return (
@@ -1376,6 +1380,17 @@ export function Learn() {
         onConfirm={handleConfirmExit}
         onCancel={handleCancelExit}
         variant="warning"
+      />
+
+      <ConfirmDialog
+        isOpen={showResetDialog}
+        title="重置进度"
+        message="确定要重置当前课程的学习进度吗？将会回到课程介绍页。"
+        confirmText="确定重置"
+        cancelText="取消"
+        onConfirm={handleConfirmReset}
+        onCancel={() => setShowResetDialog(false)}
+        variant="danger"
       />
 
       {/* 端口冲突处理组件 */}
