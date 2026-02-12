@@ -72,3 +72,12 @@ export interface PortConflictInfo {
   conflictingPort?: number
   courseId?: string
 }
+
+export interface UserProgress {
+  userId: string
+  courseId: string
+  stepIndex: number
+  completed: boolean
+  createdAt: string
+  updatedAt: string
+}
