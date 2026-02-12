@@ -472,6 +472,18 @@ export function CourseList() {
               const isRunning = containers.some(c => c.courseId === course.id && c.state === 'running');
               const isPaused = containers.some(c => c.courseId === course.id && c.state === 'paused');
 
+              const progress = progressMap[course.id];
+              const progressPercent = course.totalSteps && progress
+                ? Math.round((progress.stepIndex + 1) / course.totalSteps * 100)
+                : 0;
+              
+              let courseStatus: 'completed' | 'in-progress' | 'to-learn' = 'to-learn';
+              if (progress?.completed) {
+                courseStatus = 'completed';
+              } else if (progress) {
+                courseStatus = 'in-progress';
+              }
+
               if (viewMode === 'list') {
                 return (
                   <Link
@@ -575,17 +587,15 @@ export function CourseList() {
                   key={course.id}
                   className={`
                     group block p-5 rounded-xl
-                    border bg-[var(--color-bg-primary)]
-                    transition-all duration-200 ease-out
-                    hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5
-                    active:translate-y-0 active:shadow-[var(--shadow-sm)]
-                    ${isRunning 
-                      ? course.sqlTerminal 
-                        ? 'border-l-[3px] border-l-[var(--color-accent-primary)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
-                        : 'border-l-[3px] border-l-[#3b82f6] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
-                      : course.sqlTerminal
-                        ? 'border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]'
-                        : 'border-[var(--color-border-light)] hover:border-[#3b82f6]'
+                    border transition-all duration-200 ease-out
+                    hover:shadow-md hover:-translate-y-0.5
+                    active:translate-y-0 active:shadow-sm
+                    ${
+                      courseStatus === 'completed' 
+                        ? 'bg-green-50/40 border-green-200 hover:border-green-300' 
+                        : courseStatus === 'in-progress'
+                        ? 'bg-blue-50/40 border-blue-200 hover:border-blue-300'
+                        : 'bg-white border-gray-200 hover:border-gray-300'
                     }
                   `}
                 >
@@ -620,6 +630,15 @@ export function CourseList() {
                       <p className="text-xs text-[var(--color-text-tertiary)] line-clamp-2 leading-relaxed">
                         {course.description}
                       </p>
+                      
+                      {courseStatus === 'in-progress' && (
+                        <div className="mt-2 h-1.5 w-full bg-blue-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-light)]">
@@ -637,22 +656,23 @@ export function CourseList() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {progressMap[course.id]?.completed ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                      {courseStatus === 'completed' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">
                           <CheckCircle className="w-3.5 h-3.5" />
                           已完成
                         </span>
-                      ) : progressMap[course.id] ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
-                          进行中 ({course.totalSteps ? Math.round((progressMap[course.id].stepIndex + 1) / course.totalSteps * 100) : 0}%)
+                      ) : courseStatus === 'in-progress' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                          进行中 {progressPercent}%
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700">
                           <Circle className="w-3.5 h-3.5" />
                           待学习
                         </span>
                       )}
+                      
                       {isRunning && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
                           <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
