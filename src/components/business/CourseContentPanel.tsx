@@ -38,11 +38,11 @@ export default function CourseContentPanel({
     });
   }
 
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [currentStep]);
+   useEffect(() => {
+     if (scrollContainerRef.current) {
+       scrollContainerRef.current.scrollTo({ top: 0, behavior: 'auto' });
+     }
+   }, [currentStep]);
 
   return (
     <div className="h-full bg-[var(--color-bg-primary)] border-r border-[var(--color-border-light)] flex flex-col overflow-hidden">
