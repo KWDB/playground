@@ -133,7 +133,7 @@ export const api = {
 
     getProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<UserProgress[]> => {
       const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
-      return request<UserProgress[]>(`/courses/${id}/progress${query}`, { signal })
+      return request<UserProgress[]>(`/progress/${id}${query}`, { signal })
     },
 
     saveProgress: (
@@ -141,7 +141,7 @@ export const api = {
       body: { stepIndex: number; completed?: boolean; userId?: string },
       signal?: AbortSignal
     ): Promise<UserProgress> =>
-      request<UserProgress>(`/courses/${id}/progress`, {
+      request<UserProgress>(`/progress/${id}`, {
         method: 'POST',
         body: JSON.stringify(body),
         signal,
@@ -149,7 +149,7 @@ export const api = {
 
     resetProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<void> => {
       const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
-      return request<void>(`/courses/${id}/progress${query}`, { method: 'DELETE', signal })
+      return request<void>(`/progress/${id}/reset${query}`, { method: 'POST', signal })
     },
   },
 
