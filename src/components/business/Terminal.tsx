@@ -431,6 +431,8 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
         background: '#fafafa',
         foreground: '#1a1a1a',
         cursor: '#1a1a1a',
+        selectionBackground: '#5e6ad240',
+        selectionForeground: '#1a1a1a',
         black: '#1a1a1a',
         red: '#dc2626',
         green: '#16a34a',
