@@ -1,6 +1,19 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Quick Start', () => {
+  test.beforeEach(async ({ request, page }) => {
+    // 停止 quick-start 课程
+    try { await request.post('/api/courses/quick-start/stop'); } catch {}
+    // 清理容器
+    try { await request.delete('/api/containers'); } catch {}
+    // 清理 localStorage
+    await page.addInitScript(() => {
+      localStorage.removeItem('imageSourceId');
+      localStorage.removeItem('selectedImageFullName');
+      localStorage.removeItem('customImageName');
+    });
+  });
+
   test('测试课程全流程', async ({ page, request }) => {
     // 0) 尝试停止残留容器，保证初始状态（忽略错误）
     // 这样可以避免上一次测试留下的运行中状态导致文案不匹配
