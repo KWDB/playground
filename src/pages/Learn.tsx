@@ -47,6 +47,8 @@ export function Learn() {
     setSelectedImage,
     selectedImageSourceId,
     setSelectedImageSourceId,
+    isLoadingProgress,
+    loadProgress,
   } = useLearnStore()
 
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
@@ -566,9 +568,10 @@ export function Learn() {
     // 并行获取课程信息和容器状态
     fetchCourse(courseId, controller.signal)
     checkExistingContainer(courseId, controller.signal)
+    loadProgress(courseId)
 
     return () => controller.abort()
-  }, [courseId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [courseId, fetchCourse, checkExistingContainer, loadProgress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
@@ -903,7 +906,7 @@ export function Learn() {
     setShowConfirmDialog(false)
   }
 
-  if (loading) {
+  if (loading || isLoadingProgress) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">加载课程中...</div>
