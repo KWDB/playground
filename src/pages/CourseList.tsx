@@ -190,21 +190,21 @@ export function CourseList() {
       });
       setCourses(sorted);
 
-      const progressPromises = sorted.map(course => 
-        api.courses.getProgress(course.id)
-          .then(res => ({
-            id: course.id,
-            progress: res.progress ? {
-              userId: res.progress.user_id,
-              courseId: res.progress.course_id,
-              stepIndex: res.progress.current_step,
-              completed: res.progress.completed,
-              createdAt: res.progress.started_at,
-              updatedAt: res.progress.updated_at,
-            } : null
-          }))
-          .catch(() => ({ id: course.id, progress: null }))
-      );
+       const progressPromises = sorted.map(course => 
+         api.courses.getProgress(course.id)
+           .then(res => ({
+             id: course.id,
+             progress: res.exists && res.progress ? {
+               userId: res.progress.user_id,
+               courseId: res.progress.course_id,
+               stepIndex: res.progress.current_step,
+               completed: res.progress.completed,
+               createdAt: res.progress.started_at,
+               updatedAt: res.progress.updated_at,
+             } : null
+           }))
+           .catch(() => ({ id: course.id, progress: null }))
+       );
       
       const results = await Promise.all(progressPromises);
       const newProgressMap: Record<string, UserProgress> = {};
@@ -540,7 +540,7 @@ export function CourseList() {
                           <CheckCircle className="w-3.5 h-3.5" />
                           已完成
                         </span>
-                      ) : progressMap[course.id]?.stepIndex > -1 ? (
+                      ) : progressMap[course.id] ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
                           <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
                           进行中 (Step {progressMap[course.id].stepIndex + 1})
@@ -641,7 +641,7 @@ export function CourseList() {
                           <CheckCircle className="w-3.5 h-3.5" />
                           已完成
                         </span>
-                      ) : progressMap[course.id]?.stepIndex > -1 ? (
+                      ) : progressMap[course.id] ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
                           <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
                           Step {progressMap[course.id].stepIndex + 1}
