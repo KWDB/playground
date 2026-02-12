@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw } from 'lucide-react';
+import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, Circle } from 'lucide-react';
 import { ContainerInfo } from '@/types';
 import { api } from '@/lib/api/client';
 import { UserProgress } from '@/lib/api/types';
@@ -545,7 +545,12 @@ export function CourseList() {
                           <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
                           进行中 (Step {progressMap[course.id].stepIndex + 1})
                         </span>
-                      ) : null}
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                          <Circle className="w-3.5 h-3.5" />
+                          待学习
+                        </span>
+                      )}
                       {isRunning && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
                           <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
@@ -641,7 +646,12 @@ export function CourseList() {
                           <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
                           Step {progressMap[course.id].stepIndex + 1}
                         </span>
-                      ) : null}
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                          <Circle className="w-3.5 h-3.5" />
+                          待学习
+                        </span>
+                      )}
                       {isRunning && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
                           <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
