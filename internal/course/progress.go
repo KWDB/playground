@@ -101,15 +101,17 @@ func (pm *ProgressManager) SaveProgress(userID, courseID string, step int, compl
 	}
 
 	// 如果是新建记录，设置起始时间
+	var existingCompleted bool
 	if existing, exists := store.Progress[key]; exists {
 		progress.StartedAt = existing.StartedAt
 		progress.CompletedAt = existing.CompletedAt
+		existingCompleted = existing.Completed
 	} else {
 		progress.StartedAt = time.Now()
 	}
 
 	// 如果标记为已完成且之前未完成，设置完成时间
-	if completed && !progress.Completed {
+	if completed && !existingCompleted {
 		now := time.Now()
 		progress.CompletedAt = &now
 	}
