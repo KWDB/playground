@@ -76,3 +76,144 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew-tap:
+    name: Update Homebrew Formula
+    runs-on: ubuntu-latest
+    needs: build_and_release
+    steps:
+      - name: Get version from workflow run
+        id: version
+        run: |
+          # Get the tag from the release
+          TAG=${{ needs.build_and_release.outputs.version }}
+          if [ -z "$TAG" ]; then
+            TAG=${{ github.ref_name }}
+          fi
+          echo "VERSION=${TAG#v}" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+        with:
+          path: main-repo
+
+      - name: Checkout tap repo
+        uses: actions/checkout@v4
+        with:
+          repository: kwdb/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+          fetch-depth: 0
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          cd homebrew-tap
+          
+          echo "Downloading assets for version v${VERSION}..."
+          
+          # Download assets
+          gh release download "v${VERSION}" \
+            --repo ${{ github.repository }} \
+            --pattern "kwdb-playground-darwin-arm64.tar.gz" \
+            --output "darwin-arm64.tar.gz"
+          
+          gh release download "v${VERSION}" \
+            --repo ${{ github.repository }} \
+            --pattern "kwdb-playground-darwin-amd64.tar.gz" \
+            --output "darwin-amd64.tar.gz"
+
+          gh release download "v${VERSION}" \
+            --repo ${{ github.repository }} \
+            --pattern "kwdb-playground-linux-arm64.tar.gz" \
+            --output "linux-arm64.tar.gz"
+
+          gh release download "v${VERSION}" \
+            --repo ${{ github.repository }} \
+            --pattern "kwdb-playground-linux-amd64.tar.gz" \
+            --output "linux-amd64.tar.gz"
+
+      - name: Calculate SHA256 checksums
+        id: checksums
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          cd homebrew-tap
+          
+          DARWIN_ARM64_SHA=$(sha256sum darwin-arm64.tar.gz | cut -d' ' -f1)
+          DARWIN_AMD64_SHA=$(sha256sum darwin-amd64.tar.gz | cut -d' ' -f1)
+          LINUX_ARM64_SHA=$(sha256sum linux-arm64.tar.gz | cut -d' ' -f1)
+          LINUX_AMD64_SHA=$(sha256sum linux-amd64.tar.gz | cut -d' ' -f1)
+          
+          echo "darwin_arm64_sha=$DARWIN_ARM64_SHA" >> $GITHUB_OUTPUT
+          echo "darwin_amd64_sha=$DARWIN_AMD64_SHA" >> $GITHUB_OUTPUT
+          echo "linux_arm64_sha=$LINUX_ARM64_SHA" >> $GITHUB_OUTPUT
+          echo "linux_amd64_sha=$LINUX_AMD64_SHA" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Clean up downloaded assets
+          rm *.tar.gz
+
+      - name: Update formula
+        env:
+          VERSION: ${{ steps.checksums.outputs.version }}
+          DARWIN_ARM64_SHA: ${{ steps.checksums.outputs.darwin_arm64_sha }}
+          DARWIN_AMD64_SHA: ${{ steps.checksums.outputs.darwin_amd64_sha }}
+          LINUX_ARM64_SHA: ${{ steps.checksums.outputs.linux_arm64_sha }}
+          LINUX_AMD64_SHA: ${{ steps.checksums.outputs.linux_amd64_sha }}
+        run: |
+          cd homebrew-tap/Formula
+          
+          echo "Updating formula for version ${VERSION}..."
+          
+          # Use Ruby to update the formula file safely
+          ruby -e "
+            text = File.read('kwdb-playground.rb')
+            
+            # Update version
+            version = ENV['VERSION']
+            text.sub!(/version \"[^\"]*\"/, \"version \\\"#{version}\\\"\")
+            
+            # Define SHA256 values in the order they appear in the file
+            # Order: macOS-ARM, macOS-Intel, Linux-ARM, Linux-Intel
+            shas = [
+              ENV['DARWIN_ARM64_SHA'],
+              ENV['DARWIN_AMD64_SHA'],
+              ENV['LINUX_ARM64_SHA'],
+              ENV['LINUX_AMD64_SHA']
+            ]
+            
+            idx = 0
+            # Replace each sha256 occurrence
+            text.gsub!(/sha256 \"[^\"]*\"/) do |match|
+              if idx < shas.length
+                new_sha = shas[idx]
+                idx += 1
+                \"sha256 \\\"#{new_sha}\\\"\"
+              else
+                match
+              end
+            end
+            
+            File.write('kwdb-playground.rb', text)
+          "
+          
+          cat kwdb-playground.rb
+
+      - name: Commit and push
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if [ -n "$(git status --porcelain)" ]; then
+            git add Formula/kwdb-playground.rb
+            git commit -m "Update kwdb-playground to v${{ steps.checksums.outputs.version }}"
+            git push origin main
+          else
+            echo "No changes to commit"
+          fi
