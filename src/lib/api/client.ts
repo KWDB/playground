@@ -6,6 +6,7 @@ import type {
   StartCourseResponse,
   SqlInfo,
   PortConflictInfo,
+  UserProgress,
 } from './types'
 
 // ApiError 是从 ApiClientError 类重新导出的类型别名
@@ -26,7 +27,7 @@ class ApiClientError extends Error {
   }
 }
 
-async function request<T>(
+export async function request<T>(
   endpoint: string,
   options: RequestInit = {},
   config: { timeout?: number; retries?: number } = {}
@@ -129,6 +130,27 @@ export const api = {
 
     checkPortConflict: (id: string, port: number, signal?: AbortSignal): Promise<PortConflictInfo> =>
       request<PortConflictInfo>(`/courses/${id}/port-conflict?port=${port}`, { signal }),
+
+    getProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<{ progress: any; exists: boolean }> => {
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
+      return request<{ progress: any; exists: boolean }>(`/progress/${id}${query}`, { signal })
+    },
+
+    saveProgress: (
+      id: string,
+      body: { stepIndex: number; completed?: boolean; userId?: string },
+      signal?: AbortSignal
+    ): Promise<UserProgress> =>
+      request<UserProgress>(`/progress/${id}`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+        signal,
+      }),
+
+    resetProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<void> => {
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
+      return request<void>(`/progress/${id}/reset${query}`, { method: 'POST', signal })
+    },
   },
 
   containers: {

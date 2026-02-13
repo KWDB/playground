@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import { api } from '@/lib/api/client';
 
 export interface Course {
   id: string;
@@ -43,6 +44,8 @@ interface LearnState {
   isConnected: boolean;
   connectionError: string | null;
   confirmDialogMode: 'back' | 'exit';
+  isLoadingProgress: boolean;
+  isCompleted: boolean;
 }
 
 interface LearnActions {
@@ -69,6 +72,8 @@ interface LearnActions {
   resumeCourse: (courseId: string, containerId?: string | null) => Promise<void>;
   checkContainerStatus: (containerId: string) => Promise<ContainerStatus | null>;
   startCourseContainer: (courseId: string, image?: string) => Promise<boolean>;
+  loadProgress: (courseId: string) => Promise<void>;
+  saveProgress: (courseId: string, stepIndex: number) => Promise<void>;
 }
 
 export const useLearnStore = create<LearnState & LearnActions>()(
@@ -90,9 +95,17 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         isConnected: false,
         connectionError: null,
         confirmDialogMode: 'back',
+        isLoadingProgress: false,
+        isCompleted: false,
 
         setCourse: (course) => set({ course, loading: false }),
-        setCurrentStep: (currentStep) => set({ currentStep }),
+        setCurrentStep: (currentStep) => {
+          set({ currentStep });
+          const { course } = get();
+          if (course && currentStep >= 0) {
+            get().saveProgress(course.id, currentStep);
+          }
+        },
         setLoading: (loading) => set({ loading }),
         setError: (error) => set({ error, connectionError: error }),
         setShowConfirmDialog: (showConfirmDialog) => set({ showConfirmDialog }),
@@ -112,6 +125,52 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         setIsConnected: (isConnected) => set({ isConnected }),
         setConnectionError: (connectionError) => set({ connectionError }),
         setConfirmDialogMode: (confirmDialogMode) => set({ confirmDialogMode }),
+        
+         loadProgress: async (courseId: string) => {
+           set({ isLoadingProgress: true });
+           try {
+             const response = await api.courses.getProgress(courseId);
+             if (response.progress) {
+               const stepIndex = (typeof response.progress.current_step === 'number') ? response.progress.current_step : -1;
+               const completed = response.progress.completed || false;
+               
+               set({ 
+                 currentStep: stepIndex,
+                 isCompleted: completed
+               });
+             } else {
+               // No progress found, reset to Intro
+               set({ 
+                 currentStep: -1, 
+                 isCompleted: false 
+               });
+             }
+           } catch (error) {
+             console.error('Failed to load progress:', error);
+           } finally {
+             set({ isLoadingProgress: false });
+           }
+         },
+
+        saveProgress: async (courseId: string, stepIndex: number) => {
+          try {
+            const state = get();
+            const stepsCount = state.course?.details.steps.length || 0;
+            const reachedFinish = stepsCount > 0 && stepIndex >= stepsCount;
+            const completed = state.isCompleted || reachedFinish;
+
+            if (reachedFinish && !state.isCompleted) {
+              set({ isCompleted: true });
+            }
+
+            await api.courses.saveProgress(courseId, { 
+              stepIndex,
+              completed
+            });
+          } catch (error) {
+            console.error('Failed to save progress:', error);
+          }
+        },
 
         resetState: () => set({
           course: null,
@@ -126,6 +185,8 @@ export const useLearnStore = create<LearnState & LearnActions>()(
           showImageSelector: false,
           isConnected: false,
           connectionError: null,
+          isLoadingProgress: false,
+          isCompleted: false,
           selectedImage: localStorage.getItem('selectedImageFullName')?.trim() || '',
           selectedImageSourceId: localStorage.getItem('imageSourceId')?.trim() || '',
         }),

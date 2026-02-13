@@ -37,6 +37,7 @@ type Service struct {
 	courses         map[string]*Course // 课程缓存，key为课程ID
 	mu              sync.RWMutex       // 读写锁，保护courses map的并发访问
 	logger          *logger.Logger     // 日志记录器实例
+	progressManager *ProgressManager   // 用户进度管理器
 }
 
 // NewService 创建新的课程服务实例
@@ -49,11 +50,19 @@ func NewService(coursesDir string) *Service {
 	// 创建默认INFO级别的logger实例
 	loggerInstance := logger.NewLogger(logger.INFO)
 	loggerInstance.Debug("Creating new course service with directory: %s", coursesDir)
+
+	// 创建数据目录（如果不存在）
+	dataDir := "data"
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		loggerInstance.Warn("创建数据目录失败: %v", err)
+	}
+
 	return &Service{
-		coursesDir: coursesDir,
-		courses:    make(map[string]*Course),
-		mu:         sync.RWMutex{},
-		logger:     loggerInstance,
+		coursesDir:      coursesDir,
+		courses:         make(map[string]*Course),
+		mu:              sync.RWMutex{},
+		logger:          loggerInstance,
+		progressManager: NewProgressManager("data/progress.json", loggerInstance),
 	}
 }
 
@@ -67,12 +76,20 @@ func NewService(coursesDir string) *Service {
 func NewServiceFromFS(coursesFS fs.FS, basePath string) *Service {
 	loggerInstance := logger.NewLogger(logger.INFO)
 	loggerInstance.Debug("Creating new course service from FS with base path: %s", basePath)
+
+	// 创建数据目录（如果不存在）
+	dataDir := "data"
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		loggerInstance.Warn("创建数据目录失败: %v", err)
+	}
+
 	return &Service{
 		coursesFS:       coursesFS,
 		coursesBasePath: basePath,
 		courses:         make(map[string]*Course),
 		mu:              sync.RWMutex{},
 		logger:          loggerInstance,
+		progressManager: NewProgressManager("data/progress.json", loggerInstance),
 	}
 }
 
@@ -198,6 +215,9 @@ func (s *Service) loadCourse(courseID, coursePath string) (*Course, error) {
 		return nil, fmt.Errorf("failed to parse course config: %w", err)
 	}
 
+	// 计算总步骤数
+	course.TotalSteps = len(course.Details.Steps)
+
 	// 兼容误拼写键 slqTerminal：若yaml中存在且为true，则置位SqlTerminal
 	var raw map[string]interface{}
 	if err := yaml.Unmarshal(configData, &raw); err == nil {
@@ -245,6 +265,9 @@ func (s *Service) loadCourseFromFS(courseID, coursePath string) (*Course, error)
 	if err := yaml.Unmarshal(configData, &course); err != nil {
 		return nil, fmt.Errorf("failed to parse course config: %w", err)
 	}
+
+	// 计算总步骤数
+	course.TotalSteps = len(course.Details.Steps)
 
 	// 兼容误拼写键 slqTerminal：若yaml中存在且为true，则置位SqlTerminal
 	var raw map[string]interface{}
@@ -535,4 +558,48 @@ func (s *Service) ReadCourseFile(courseID, relativePath string) ([]byte, error) 
 	}
 	diskPath := filepath.Join(s.coursesDir, courseID, relativePath)
 	return os.ReadFile(diskPath)
+}
+
+// GetProgress 获取用户的课程进度
+// 参数:
+//
+//	userID: 用户ID（如果为空则使用默认用户"default-user"）
+//	courseID: 课程ID
+//
+// 返回: 用户进度、是否存在、错误信息
+func (s *Service) GetProgress(userID, courseID string) (*UserProgress, bool, error) {
+	if userID == "" {
+		userID = "default-user"
+	}
+	return s.progressManager.GetProgress(userID, courseID)
+}
+
+// SaveProgress 保存用户的课程进度
+// 参数:
+//
+//	userID: 用户ID（如果为空则使用默认用户"default-user"）
+//	courseID: 课程ID
+//	step: 当前步骤索引
+//	completed: 是否已完成
+//
+// 返回: 错误信息
+func (s *Service) SaveProgress(userID, courseID string, step int, completed bool) error {
+	if userID == "" {
+		userID = "default-user"
+	}
+	return s.progressManager.SaveProgress(userID, courseID, step, completed)
+}
+
+// ResetProgress 重置用户的课程进度
+// 参数:
+//
+//	userID: 用户ID（如果为空则使用默认用户"default-user"）
+//	courseID: 课程ID
+//
+// 返回: 错误信息
+func (s *Service) ResetProgress(userID, courseID string) error {
+	if userID == "" {
+		userID = "default-user"
+	}
+	return s.progressManager.ResetProgress(userID, courseID)
 }

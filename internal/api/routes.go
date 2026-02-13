@@ -115,6 +115,14 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 			images.GET("/sources", h.getImageSources)
 		}
 
+		// 用户进度相关路由
+		progress := api.Group("/progress")
+		{
+			progress.GET("/:courseId", h.getProgress)
+			progress.POST("/:courseId", h.saveProgress)
+			progress.POST("/:courseId/reset", h.resetProgress)
+		}
+
 		// SQL 信息与健康（REST 信息类）
 		api.GET("/sql/info", h.sqlInfo)
 		api.GET("/sql/health", h.sqlHealth)
@@ -1997,5 +2005,147 @@ func (h *Handler) unpauseContainer(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "容器恢复成功",
 		"containerId": id,
+	})
+}
+
+// getProgress 获取用户的课程进度
+// 查询参数:
+//
+//	userId: 用户ID（可选，默认为"default-user"）
+//
+// 响应:
+//
+//	200: {"progress": progressObject, "exists": bool} - 获取成功
+//	400: {"error": "课程ID不能为空"} - 课程ID为空
+//	500: {"error": "获取进度失败: 错误信息"} - 获取失败
+func (h *Handler) getProgress(c *gin.Context) {
+	courseID := c.Param("courseId")
+	userID := c.DefaultQuery("userId", "")
+
+	if strings.TrimSpace(courseID) == "" {
+		h.logger.Error("[getProgress] 错误: 课程ID为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "课程ID不能为空",
+		})
+		return
+	}
+
+	progress, exists, err := h.courseService.GetProgress(userID, courseID)
+	if err != nil {
+		h.logger.Error("[getProgress] 获取进度失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("获取进度失败: %v", err),
+		})
+		return
+	}
+
+	h.logger.Debug("[getProgress] 获取进度成功: courseID=%s, exists=%v", courseID, exists)
+
+	if !exists {
+		c.JSON(http.StatusOK, gin.H{
+			"exists": false,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"progress": progress,
+		"exists":   exists,
+	})
+}
+
+// saveProgress 保存用户的课程进度
+// 查询参数:
+//
+//	userId: 用户ID（可选，默认为"default-user"）
+//
+// 请求体:
+//
+//	{
+//	  "currentStep": int,  // 当前步骤索引
+//	  "completed": bool    // 是否已完成
+//	}
+//
+// 响应:
+//
+//	200: {"message": "进度保存成功", "courseId": id} - 保存成功
+//	400: {"error": "课程ID不能为空"} 或 {"error": "请求体格式错误"} - 参数错误
+//	500: {"error": "保存进度失败: 错误信息"} - 保存失败
+func (h *Handler) saveProgress(c *gin.Context) {
+	courseID := c.Param("courseId")
+	userID := c.DefaultQuery("userId", "")
+
+	if strings.TrimSpace(courseID) == "" {
+		h.logger.Error("[saveProgress] 错误: 课程ID为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "课程ID不能为空",
+		})
+		return
+	}
+
+	var req struct {
+		CurrentStep int  `json:"currentStep"`
+		Completed   bool `json:"completed"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("[saveProgress] 请求体格式错误: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "请求体格式错误",
+		})
+		return
+	}
+
+	err := h.courseService.SaveProgress(userID, courseID, req.CurrentStep, req.Completed)
+	if err != nil {
+		h.logger.Error("[saveProgress] 保存进度失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("保存进度失败: %v", err),
+		})
+		return
+	}
+
+	h.logger.Info("[saveProgress] 进度保存成功: courseID=%s, step=%d, completed=%v", courseID, req.CurrentStep, req.Completed)
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "进度保存成功",
+		"courseId": courseID,
+	})
+}
+
+// resetProgress 重置用户的课程进度
+// 查询参数:
+//
+//	userId: 用户ID（可选，默认为"default-user"）
+//
+// 响应:
+//
+//	200: {"message": "进度已重置", "courseId": id} - 重置成功
+//	400: {"error": "课程ID不能为空"} - 课程ID为空
+//	500: {"error": "重置进度失败: 错误信息"} - 重置失败
+func (h *Handler) resetProgress(c *gin.Context) {
+	courseID := c.Param("courseId")
+	userID := c.DefaultQuery("userId", "")
+
+	if strings.TrimSpace(courseID) == "" {
+		h.logger.Error("[resetProgress] 错误: 课程ID为空")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "课程ID不能为空",
+		})
+		return
+	}
+
+	err := h.courseService.ResetProgress(userID, courseID)
+	if err != nil {
+		h.logger.Error("[resetProgress] 重置进度失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("重置进度失败: %v", err),
+		})
+		return
+	}
+
+	h.logger.Info("[resetProgress] 进度已重置: courseID=%s", courseID)
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "进度已重置",
+		"courseId": courseID,
 	})
 }
