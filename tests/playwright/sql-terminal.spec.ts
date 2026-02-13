@@ -98,9 +98,8 @@ test.describe('SQL 终端', () => {
     await page.getByRole('button', { name: '确定重置' }).click();
     console.log('✅ 确认重置');
 
-    // 6) 验证返回到介绍页（第0步）
-    await expect(page.getByText('终端未连接')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('button', { name: '启动容器' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: '课程介绍' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('容器: 运行中')).toBeVisible({ timeout: 5000 });
     console.log('✅ 已返回介绍页');
   });
 });
