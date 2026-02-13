@@ -46,3 +46,5 @@ docs/LOGGING.md
 tests/e2e/__pycache__
 
 .sisyphus
+
+data/progress.json
