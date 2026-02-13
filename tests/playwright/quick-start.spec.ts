@@ -106,4 +106,38 @@ test.describe('Quick Start', () => {
     // await expect(page.getByText('停止中...')).toBeVisible({ timeout: 120000 });
     // await expect(page.getByText('请先启动容器')).toBeVisible({ timeout: 240000 });
   });
+
+  test('进度恢复功能', async ({ page, request }) => {
+    // 1) 进入 quick-start 学习页
+    await page.goto('/learn/quick-start');
+    await expect(page.getByText('终端未连接')).toBeVisible();
+    console.log('✅ 进入课程页');
+
+    // 2) 启动容器
+    const startBtn = page.getByRole('button', { name: '启动容器' });
+    await expect(startBtn).toBeVisible();
+    await startBtn.click();
+    await expect(page.getByText('运行中')).toBeVisible({ timeout: 120000 });
+    await expect(page.locator('[aria-label="Shell 终端"]')).toBeVisible({ timeout: 120000 });
+    console.log('✅ 容器已启动');
+
+    // 3) 进入第一步
+    await page.getByRole('button', { name: '下一步' }).click();
+    await expect(page.getByRole('heading', { name: '启动 KWDB' })).toBeVisible();
+    console.log('✅ 进入第一步');
+
+    // 4) 返回课程列表
+    await page.goto('/courses');
+    await expect(page.getByRole('heading', { name: '课程列表' })).toBeVisible({ timeout: 10000 });
+    console.log('✅ 返回课程列表');
+
+    // 5) 再次进入课程
+    await page.locator('a[href="/learn/quick-start"]').click();
+    console.log('✅ 再次进入课程');
+
+    // 6) 验证恢复到第一步（非介绍页）
+    await expect(page.getByRole('heading', { name: '启动 KWDB' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('运行中')).toBeVisible({ timeout: 5000 });
+    console.log('✅ 进度已恢复到第一步');
+  });
 });

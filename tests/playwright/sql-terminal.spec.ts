@@ -70,4 +70,37 @@ test.describe('SQL 终端', () => {
   await expect(page.getByRole('heading', { name: '课程列表' })).toBeVisible({ timeout: 10000 });
   console.log('✅ 退出课程');
   });
+
+  test('重置进度功能', async ({ page }) => {
+    // 1) 进入 SQL 课程
+    await page.goto('/');
+    await page.getByRole('link', { name: '开始学习' }).click();
+    await page.locator('a[href="/learn/sql"]').click();
+    console.log('✅ 进入 SQL 课程');
+
+    // 2) 启动容器并进入第一步
+    await expect(page.getByText('终端未连接')).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: '启动容器' }).click();
+    await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 10000 });
+    console.log('✅ 容器启动成功');
+
+    // 3) 进入第一步
+    await page.getByRole('button', { name: '下一步' }).click();
+    await expect(page.getByText('创建一个名为 sensor_data 的时序数据库：')).toBeVisible({ timeout: 10000 });
+    console.log('✅ 进入第一步');
+
+    // 4) 点击重置进度按钮
+    await page.getByRole('button', { name: '重置进度' }).click();
+    console.log('✅ 点击重置进度');
+
+    // 5) 确认对话框
+    await expect(page.getByText('确定要重置学习进度吗？')).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: '确定' }).click();
+    console.log('✅ 确认重置');
+
+    // 6) 验证返回到介绍页（第0步）
+    await expect(page.getByText('终端未连接')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: '启动容器' })).toBeVisible({ timeout: 5000 });
+    console.log('✅ 已返回介绍页');
+  });
 });
