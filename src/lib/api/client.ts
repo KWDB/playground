@@ -27,7 +27,7 @@ class ApiClientError extends Error {
   }
 }
 
-async function request<T>(
+export async function request<T>(
   endpoint: string,
   options: RequestInit = {},
   config: { timeout?: number; retries?: number } = {}
