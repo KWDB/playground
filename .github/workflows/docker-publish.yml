@@ -60,9 +60,12 @@ jobs:
           tags: |
             type=raw,value=latest
 
-      - name: Set VERSION without v prefix
+      - name: Set VERSION and lowercase repo name
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          # 使用 Bash 参数扩展转换为小写
+          echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -74,8 +77,8 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/playground:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/playground:${{ steps.version.outputs.VERSION }}
-            ghcr.io/${{ toLowerCase(github.repository) }}:latest
-            ghcr.io/${{ toLowerCase(github.repository) }}:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ steps.version.outputs.REPO_LOWER }}:latest
+            ghcr.io/${{ steps.version.outputs.REPO_LOWER }}:${{ steps.version.outputs.VERSION }}
             registry.cn-hangzhou.aliyuncs.com/kwdb/playground:latest
             registry.cn-hangzhou.aliyuncs.com/kwdb/playground:${{ steps.version.outputs.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
