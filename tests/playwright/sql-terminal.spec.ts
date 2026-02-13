@@ -94,8 +94,8 @@ test.describe('SQL 终端', () => {
     console.log('✅ 点击重置进度');
 
     // 5) 确认对话框
-    await expect(page.getByText('确定要重置学习进度吗？')).toBeVisible({ timeout: 5000 });
-    await page.getByRole('button', { name: '确定' }).click();
+    await expect(page.getByText('确定要重置当前课程的学习进度吗？')).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: '确定重置' }).click();
     console.log('✅ 确认重置');
 
     // 6) 验证返回到介绍页（第0步）
