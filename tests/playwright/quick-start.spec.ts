@@ -6,6 +6,8 @@ test.describe('Quick Start', () => {
     try { await request.post('/api/courses/quick-start/stop'); } catch {}
     // 清理容器
     try { await request.delete('/api/containers'); } catch {}
+    // 重置服务端进度
+    try { await request.post('/api/progress/quick-start/reset'); } catch {}
     // 清理 localStorage
     await page.addInitScript(() => {
       localStorage.removeItem('imageSourceId');
