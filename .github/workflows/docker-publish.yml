@@ -74,8 +74,8 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/playground:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/playground:${{ steps.version.outputs.VERSION }}
-            ghcr.io/${{ github.repository.toLowerCase() }}:latest
-            ghcr.io/${{ github.repository.toLowerCase() }}:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ toLowerCase(github.repository) }}:latest
+            ghcr.io/${{ toLowerCase(github.repository) }}:${{ steps.version.outputs.VERSION }}
             registry.cn-hangzhou.aliyuncs.com/kwdb/playground:latest
             registry.cn-hangzhou.aliyuncs.com/kwdb/playground:${{ steps.version.outputs.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
