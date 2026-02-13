@@ -15,7 +15,7 @@ endif
 
 # 设置默认变量
 APP_NAME ?= kwdb-playground
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo "dev")
 BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
@@ -104,7 +104,7 @@ build: backend
 	@ls -lh bin/$(APP_NAME)
 
 # 发布模式（单一二进制，嵌入 courses 与 dist）
-release: frontend
+release: clean frontend
 	@echo "🚀📦 Building RELEASE (single binary with embedded assets and courses) ..."
 	@mkdir -p bin
 	COURSES_USE_EMBED=true CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS) -s -w" -o bin/$(APP_NAME) .

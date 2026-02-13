@@ -58,10 +58,11 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/playground
             registry.cn-hangzhou.aliyuncs.com/kwdb/playground
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Set VERSION without v prefix
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -70,7 +71,13 @@ jobs:
           file: docker/playground/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/playground:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/playground:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ github.repository.toLowerCase() }}:latest
+            ghcr.io/${{ github.repository.toLowerCase() }}:${{ steps.version.outputs.VERSION }}
+            registry.cn-hangzhou.aliyuncs.com/kwdb/playground:latest
+            registry.cn-hangzhou.aliyuncs.com/kwdb/playground:${{ steps.version.outputs.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ github.ref_name }}

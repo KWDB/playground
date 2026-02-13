@@ -1,17 +1,31 @@
 name: Update Homebrew Tap
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   update-homebrew-tap:
     name: Update Homebrew Formula
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
+      - name: Get version from workflow run
+        id: version
+        run: |
+          # Get the tag from workflow run event
+          # For tag push, head_branch will be like "refs/tags/v0.5.0"
+          RUN_ID=${{ github.event.workflow_run.id }}
+          TAG=$(gh api repos/${{ github.repository }}/actions/runs/$RUN_ID -q '.head_branch // .head_branch' | sed 's|refs/tags/||' | sed 's/^v//')
+          echo "VERSION=${TAG}" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Checkout main repo
         uses: actions/checkout@v4
         with:
@@ -28,8 +42,8 @@ jobs:
       - name: Download release assets
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
           cd homebrew-tap
           
           echo "Downloading assets for version v${VERSION}..."
@@ -57,8 +71,9 @@ jobs:
 
       - name: Calculate SHA256 checksums
         id: checksums
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
           cd homebrew-tap
           
           DARWIN_ARM64_SHA=$(sha256sum darwin-arm64.tar.gz | cut -d' ' -f1)

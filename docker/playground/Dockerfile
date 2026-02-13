@@ -47,7 +47,7 @@ ARG GIT_COMMIT=unknown
 
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
     -ldflags "-s -w \
-      -X main.Version=${VERSION} \
+      -X main.Version=${VERSION#v} \
       -X main.BuildTime=${BUILD_TIME} \
       -X main.GitCommit=${GIT_COMMIT} \
       -X kwdb-playground/internal/config.BuildDefaultUseEmbed=true" \
