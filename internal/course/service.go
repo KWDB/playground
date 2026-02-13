@@ -76,12 +76,20 @@ func NewService(coursesDir string) *Service {
 func NewServiceFromFS(coursesFS fs.FS, basePath string) *Service {
 	loggerInstance := logger.NewLogger(logger.INFO)
 	loggerInstance.Debug("Creating new course service from FS with base path: %s", basePath)
+
+	// 创建数据目录（如果不存在）
+	dataDir := "data"
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		loggerInstance.Warn("创建数据目录失败: %v", err)
+	}
+
 	return &Service{
 		coursesFS:       coursesFS,
 		coursesBasePath: basePath,
 		courses:         make(map[string]*Course),
 		mu:              sync.RWMutex{},
 		logger:          loggerInstance,
+		progressManager: NewProgressManager("data/progress.json", loggerInstance),
 	}
 }
 
