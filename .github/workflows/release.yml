@@ -95,12 +95,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Checkout main repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: main-repo
 
       - name: Checkout tap repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: kwdb/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
