@@ -23,7 +23,7 @@ test.describe('SQL 终端', () => {
   // 4) 测试 Enter 执行
   await page.getByRole('textbox').fill('SELECT 1');
   await page.getByRole('textbox').press('Enter');
-  await expect(page.getByRole('cell', { name: '?column?' })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('columnheader', { name: '?column?' })).toBeVisible({ timeout: 10000 });
   console.log('✅ Enter 执行');
   // 5) 测试清理按钮
   await page.getByRole('button', { name: '清除输入' }).click();
@@ -59,7 +59,7 @@ test.describe('SQL 终端', () => {
   });
 
   // 8) 查看最终结果，确认数据插入成功
-  await expect(page.getByRole('cell', { name: 'timestamp' })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('columnheader', { name: 'timestamp' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole('cell', { name: '25.8' })).toBeVisible({ timeout: 10000 });
   console.log('✅ 查看最终结果');
 
