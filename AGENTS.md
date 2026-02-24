@@ -1,4 +1,11 @@
-# AGENTS.md - KWDB Playground Guidelines
+# PROJECT KNOWLEDGE BASE
+
+**Generated:** 2026-02-24
+**Branch:** main
+
+## OVERVIEW
+
+Full-stack interactive learning platform: Go 1.24 backend (Gin, Docker SDK, WebSocket) + React 18 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
 
 ## Quick Commands
 
@@ -157,7 +164,7 @@ pnpm run test:pw                   # E2E tests (if changing core flows)
     -   Mock API calls only if testing UI states; prefer real integration for E2E.
 -   **Container Tests**: Ensure `docker/` package tests clean up containers.
 
-## Environment Variables
+## ENVIRONMENT VARIABLES
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -166,4 +173,36 @@ pnpm run test:pw                   # E2E tests (if changing core flows)
 | LOG_LEVEL | info | debug/info/warn/error |
 | GIN_MODE | debug | Gin mode |
 | COURSES_USE_EMBED | false | Use embedded FS (release) |
+
+## ARCHITECTURE HOTSPOTS
+
+| Area | File | Lines | Risk |
+|------|------|-------|------|
+| Docker orchestration | internal/docker/controller.go | 2316 | Concurrency, polling races |
+| API routes | internal/api/routes.go | 2151 | Long handlers, error cleanup |
+| Learn page | src/pages/Learn.tsx | 1464 | Duplicate orchestration logic |
+| Terminal WS | internal/websocket/terminal.go | 368 | Session lifecycle |
+
+## KEY DEVIATIONS FOUND
+
+1. **API path mismatch**: `checkPortConflict` frontend expects `/port-conflict`, backend has `/check-port-conflict`
+2. **Cleanup endpoint mismatch**: frontend `/containers/cleanup`, backend `/courses/:id/cleanup-containers`
+3. **Vite dev proxy missing**: no `/api` proxy to backend :3006
+4. **tsconfig strict=false**: many type checks disabled
+5. **No ESLint config file**: scripts exist but no .eslintrc found
+
+## KNOWN BUGS TO FIX
+
+- Port conflict detection fails due to route mismatch
+- Dev server cannot reach API without proxy config
+- Container start race conditions in controller.go polling loops
+
+## BUILD & RELEASE
+
+```bash
+make install    # pnpm + go mod tidy
+make dev        # hot reload dev
+make release    # single binary with embedded assets
+make docker-build
+```
 
