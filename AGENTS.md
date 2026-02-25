@@ -1,6 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-24
+**Generated:** 2026-02-25
+**Commit:** e423696
 **Branch:** main
 
 ## OVERVIEW
@@ -183,6 +184,22 @@ pnpm run test:pw                   # E2E tests (if changing core flows)
 | Learn page | src/pages/Learn.tsx | 1464 | Duplicate orchestration logic |
 | Terminal WS | internal/websocket/terminal.go | 368 | Session lifecycle |
 
+## BUILD & CI PATTERNS
+
+| Pattern | Location | Notes |
+|---------|----------|-------|
+| Multi-registry push | .github/workflows/docker-publish.yml | ghcr.io + Docker Hub + Aliyun ACR |
+| Homebrew auto-update | .github/workflows/release.yml | Auto-updates kwdb/homebrew-tap |
+| Aliyun mirror | docker/ubuntu-20.04/Dockerfile | Chinese apt mirror |
+| Embedded assets | Makefile + Dockerfile | dist/ + courses/ embedded in binary |
+| Dual E2E testing | .github/workflows/playwright.yml | Native + Docker deployment |
+
+**Non-standard patterns found:**
+- Chinese market localization (Aliyun mirrors, ACR registry)
+- Single binary release with embedded frontend + courses
+- Docker-in-Docker (DinD) via socket mount
+- Automated Homebrew tap updates on release
+
 ## KEY DEVIATIONS FOUND
 
 1. **API path mismatch**: `checkPortConflict` frontend expects `/port-conflict`, backend has `/check-port-conflict`
@@ -205,4 +222,3 @@ make dev        # hot reload dev
 make release    # single binary with embedded assets
 make docker-build
 ```
-

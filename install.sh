@@ -157,5 +157,5 @@ fi
 
 echo ""
 echo -e "${BLUE}To get started, simply run:${NC}"
-echo -e "  ${GREEN}kwdb-playground server${NC}"
+echo -e "  ${GREEN}kwdb-playground start${NC}"
 echo ""

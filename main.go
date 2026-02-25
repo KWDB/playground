@@ -8,7 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	checkcmd "kwdb-playground/cmd/check"
-	servercmd "kwdb-playground/cmd/server"
+	startcmd "kwdb-playground/cmd/start"
+	"kwdb-playground/cmd/stop"
 )
 
 //go:embed dist/* courses/*
@@ -41,8 +42,13 @@ func newRootCmd() *cobra.Command {
 	}
 	root.AddCommand(versionCmd)
 
-	root.AddCommand(servercmd.NewCommand(staticFiles))
+	// start 子命令
+	root.AddCommand(startcmd.NewCommand(staticFiles))
 
+	// stop 子命令
+	root.AddCommand(stop.NewCommand())
+
+	// check 子命令
 	root.AddCommand(checkcmd.NewCommand(staticFiles))
 
 	return root

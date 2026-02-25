@@ -16,21 +16,57 @@ KWDB Playground 提供了一个实践环境，以便用户可以轻松地探索 
 安装项目依赖：
 
 ```bash
-# 前端依赖
-pnpm install
-
-# 若使用 Python 运行 e2e 测试（可选）
-pip install -r requirements.txt
+make install
 ```
 
 ### 2. 启动命令与参数
 
-使用 `kwdb-playground server` 子命令启动项目，支持 Flags 与环境变量组合配置，优先级为：`Flags > Env > 默认值`。
+使用 `kwdb-playground start` 子命令启动项目，支持 Flags 与环境变量组合配置，优先级为：`Flags > Env > 默认值`。
 
 - 服务启动命令
 
 ```bash
-kwdb-playground server
+kwdb-playground start
+```
+
+- 常用 Flags（显式设置时将覆盖环境变量）
+  - `--daemon`, `-d`：以守护进程模式运行（默认）
+  - `--no-daemon`：前台运行（不进入守护进程）
+  - `--no-open`, `-n`：禁止自动打开浏览器
+  - `--host`：服务器监听地址（覆盖 `SERVER_HOST`）
+  - `--port`：服务器端口（覆盖 `SERVER_PORT`）
+  - `--log-level`：日志级别（覆盖 `LOG_LEVEL`），可选：`debug|info|warn|error`，默认 `warn`
+  - `--log-format`：日志格式（覆盖 `LOG_FORMAT`），可选：`json|text`，默认 `text`
+
+- `.env` 自动加载
+  - 后端启动时会尝试加载根目录 `.env`（使用 `godotenv`），便于本地开发配置。
+
+### 3. 运行项目的具体命令
+
+本地开发启动：
+
+```bash
+make dev
+```
+
+构建并启动（非守护）：
+
+```bash
+# 构建前后端
+make build
+
+# 启动二进制
+./bin/kwdb-playground start --no-daemon
+```
+
+访问地址：http://localhost:3006
+
+使用 `kwdb-playground start` 子命令启动项目，支持 Flags 与环境变量组合配置，优先级为：`Flags > Env > 默认值`。
+
+- 服务启动命令
+
+```bash
+kwdb-playground start
 ```
 
 - 常用 Flags（显式设置时将覆盖环境变量）
@@ -59,7 +95,7 @@ make dev
 make build
 
 # 启动二进制
-./bin/kwdb-playground server
+./bin/kwdb-playground start --no-daemon
 ```
 
 访问地址：http://localhost:3006
@@ -177,10 +213,28 @@ COURSES_USE_EMBED=1 make release-all
 
 ```bash
 # 开发模式（磁盘资源）后台运行
-./bin/kwdb-playground server -d
+./bin/kwdb-playground start
 
 # 发布模式（嵌入资源）后台运行
-COURSES_USE_EMBED=1 ./bin/kwdb-playground server -d
+COURSES_USE_EMBED=1 ./bin/kwdb-playground start
+
+# 前台运行（不进入守护进程）
+./bin/kwdb-playground start --no-daemon
+
+# 不自动打开浏览器
+./bin/kwdb-playground start --no-open
+
+# 查看日志
+ tail -f logs/daemon.log
+
+# 停止守护进程
+./bin/kwdb-playground stop
+```
+# 开发模式（磁盘资源）后台运行
+./bin/kwdb-playground start
+
+# 发布模式（嵌入资源）后台运行
+COURSES_USE_EMBED=1 ./bin/kwdb-playground start
 
 # 查看日志
  tail -f logs/daemon.log
