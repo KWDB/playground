@@ -1,8 +1,8 @@
+ #:schema https://json.schemastore.org/any.json
 # Air配置文件 - Go热重载工具
 # 更多配置选项: https://github.com/cosmtrek/air
 
 root = "."
-testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
@@ -16,7 +16,7 @@ tmp_dir = "tmp"
   exclude_unchanged = false
   follow_symlink = false
   full_bin = ""
-  args_bin = ["start", "--no-daemon"]
+  args_bin = ["start", "--no-daemon", "--no-open"]
   bin = "./tmp/main"
   cmd = "pnpm run build && go build -o ./tmp/main ."
   delay = 1000

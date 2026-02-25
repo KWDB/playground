@@ -32,7 +32,6 @@ export default function EnvCheckButton({ onClick, variant = 'default' }: EnvChec
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [version, setVersion] = useState<string>('dev');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -40,19 +39,13 @@ export default function EnvCheckButton({ onClick, variant = 'default' }: EnvChec
       setLoading(true);
       setError(null);
       try {
-        const [checkResp, versionResp] = await Promise.all([
+        const [checkResp] = await Promise.all([
           fetch('/api/check', { signal: controller.signal }),
-          fetch('/api/version', { signal: controller.signal }),
         ]);
 
         if (!checkResp.ok) throw new Error('环境检测接口返回错误');
         const json: Summary = await checkResp.json();
         setData(json);
-
-        if (versionResp.ok) {
-          const versionJson = await versionResp.json();
-          setVersion(versionJson.version || 'dev');
-        }
       } catch (e: unknown) {
         setError(getErrorMessage(e));
       } finally {
@@ -75,8 +68,7 @@ export default function EnvCheckButton({ onClick, variant = 'default' }: EnvChec
         aria-haspopup="dialog"
         aria-controls="env-check-modal"
       >
-        <span className="text-xs text-[var(--color-text-tertiary)]">v{version}</span>
-        <div className="w-px h-3 bg-[var(--color-border-default)]" />
+        <span className="text-xs text-[var(--color-text-tertiary)]">环境</span>
         {loading ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--color-text-tertiary)]" />
         ) : allPassed ? (
