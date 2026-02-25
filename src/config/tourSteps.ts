@@ -20,9 +20,9 @@ export const tourSteps: Record<string, TourStep[]> = {
     },
     {
       targetId: 'home-env-check',
-      title: '环境检测',
-      content: '点击这里检测您的 Docker 环境是否就绪',
-      position: 'left',
+      title: '版本与环境',
+      content: '显示当前版本号和环境检测状态，点击可查看详情',
+      position: 'bottom',
     },
   ],
   courses: [
