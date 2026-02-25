@@ -1,12 +1,30 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Menu, X } from 'lucide-react';
+import { Home, BookOpen, Menu, X, CircleHelp } from 'lucide-react';
+import { useTourStore } from '@/store/tourStore';
 import { FaGithub } from 'react-icons/fa';
 import LogoUrl from '/assets/logo.svg?url';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
+  const { startTour, isActive: isTourActive, currentPage: tourCurrentPage } = useTourStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const getPageName = (pathname: string) => {
+    if (pathname === '/') return 'home';
+    if (pathname === '/courses') return 'courses';
+    if (pathname.startsWith('/learn/')) return 'learn';
+    return null;
+  };
+
+  const pageName = getPageName(location.pathname);
+
+  const handleHelp = () => {
+    if (pageName) {
+      startTour(pageName);
+      setIsMobileMenuOpen(false);
+    }
+  };
 
   const navItems = [
     { path: '/', label: '首页', icon: Home },
@@ -50,6 +68,22 @@ const Navbar: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleHelp}
+              disabled={!pageName}
+              className={`hidden md:block p-2 rounded-md transition-colors ${
+                pageName 
+                  ? (isTourActive && tourCurrentPage === pageName ? 'text-[var(--color-primary)] bg-[var(--color-bg-secondary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]')
+                  : 'text-[var(--color-text-disabled)] cursor-not-allowed opacity-50'
+              }`}
+              aria-label="帮助"
+              title="开启页面引导"
+              data-tour-id="help-button"
+              data-testid="help-button"
+            >
+              <CircleHelp className="w-4 h-4" />
+            </button>
+
             <a
               href="https://github.com/KWDB/KWDB"
               target="_blank"
@@ -89,7 +123,16 @@ const Navbar: React.FC = () => {
                 </Link>
               ))}
               <div className="h-px bg-[var(--color-border-light)] my-2" />
-              <button className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors text-left">
+              <button 
+                onClick={handleHelp}
+                disabled={!pageName}
+                className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-left ${
+                  pageName
+                    ? 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
+                    : 'text-[var(--color-text-disabled)] cursor-not-allowed opacity-50'
+                }`}
+              >
+                <CircleHelp className="w-4 h-4" />
                 使用指南
               </button>
             </div>

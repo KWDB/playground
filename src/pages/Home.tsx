@@ -1,12 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Terminal, Zap, ChevronRight } from 'lucide-react';
+import { useTourStore } from '@/store/tourStore';
+import { TourTooltip } from '@/components/ui/TourTooltip';
+import { getStepsForPage, getTotalSteps } from '@/config/tourSteps';
 import { Button } from '@/components/ui/Button';
 import EnvCheckButton from '@/components/business/EnvCheckButton';
 import EnvCheckPanel from '@/components/business/EnvCheckPanel';
 
 export function Home() {
   const [showEnvModal, setShowEnvModal] = useState(false);
+  const { seenPages, startTour, nextStep, prevStep, skipTour, currentStep, isActive, hasHydrated } = useTourStore();
+  const hasCheckedTour = useRef(false);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (hasCheckedTour.current) return;
+    hasCheckedTour.current = true;
+
+    const timer = setTimeout(() => {
+      const hasSeenHome = seenPages?.home === true;
+      if (!hasSeenHome && !isActive) {
+        startTour('home');
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [seenPages?.home, isActive, hasHydrated, startTour]);
+
+  const steps = getStepsForPage('home');
+  const totalSteps = getTotalSteps('home');
+  const step = steps[currentStep];
 
   const features = [
     {
@@ -45,7 +69,7 @@ export function Home() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link to="/courses">
-              <Button size="lg" className="gap-2">
+              <Button size="lg" className="gap-2" data-tour-id="home-start-learning">
                 开始学习
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -96,9 +120,21 @@ export function Home() {
       )}
 
       {!showEnvModal && (
-        <div className="fixed bottom-6 right-6 z-40">
+        <div className="fixed bottom-6 right-6 z-40" data-tour-id="home-env-check">
           <EnvCheckButton onClick={() => setShowEnvModal(true)} />
         </div>
+      )}
+
+      {step && (
+        <TourTooltip
+          isOpen={isActive && !showEnvModal}
+          step={step}
+          currentStep={currentStep}
+          totalSteps={totalSteps}
+          onNext={nextStep}
+          onPrev={prevStep}
+          onSkip={skipTour}
+        />
       )}
     </div>
   );
