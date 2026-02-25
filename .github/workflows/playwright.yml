@@ -57,10 +57,6 @@ jobs:
       - name: Run Playwright tests
         run: pnpm exec playwright test --reporter=html
 
-      - name: Stop Playwright server
-        if: always()
-        run: make stop
-
       - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v6
