@@ -81,6 +81,9 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		// 环境检测
 		api.GET("/check", h.envCheck)
 
+		// 版本信息
+		api.GET("/version", h.getVersion)
+
 		// 课程相关路由
 		courses := api.Group("/courses")
 		{
@@ -259,6 +262,17 @@ func (h *Handler) healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "ok",
 		"message": "KWDB Playground is running",
+	})
+}
+
+// getVersion 返回版本信息
+func (h *Handler) getVersion(c *gin.Context) {
+	version := "dev"
+	if h.cfg != nil {
+		version = config.Version
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"version": version,
 	})
 }
 

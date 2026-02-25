@@ -84,132 +84,76 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
     if (!targetRect) return {};
     
     const gap = 12;
-    const position = step.position || 'bottom';
-    const tooltipWidth = 320; // w-80 = 320px
-    const tooltipHeight = 200; // 估算 tooltip 高度
-    const padding = 20;
+    const padding = 16;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    
+    // Get actual tooltip dimensions after render
+    const tooltipWidth = tooltipRef.current?.offsetWidth || 320;
+    const tooltipHeight = tooltipRef.current?.offsetHeight || 150;
     
     const style: React.CSSProperties = {
       position: 'fixed',
       zIndex: 60,
     };
 
-    // 边界检测：检测是否需要调整位置
-    let adjustedPosition = position;
+    // Helper functions
+    const wouldOverflowRight = (left: number) => left + tooltipWidth > viewportWidth - padding;
+    const wouldOverflowLeft = (left: number) => left < padding;
+    const wouldOverflowBottom = (top: number) => top + tooltipHeight > viewportHeight - padding;
+    const wouldOverflowTop = (top: number) => top < padding;
     
-    // 检测右侧溢出
-    const wouldOverflowRight = (left: number) => left + tooltipWidth + padding > viewportWidth;
-    // 检测左侧溢出
-    const wouldOverflowLeft = (left: number) => left - tooltipWidth - padding < 0;
-    // 检测底部溢出
-    const wouldOverflowBottom = (top: number) => top + tooltipHeight + padding > viewportHeight;
-    // 检测顶部溢出
-    const wouldOverflowTop = (top: number) => top - tooltipHeight - padding < 0;
-
-    switch (position) {
-      case 'top':
-        style.top = `${targetRect.top - gap}px`;
-        style.left = `${targetRect.left + targetRect.width / 2}px`;
-        style.transform = 'translate(-50%, -100%)';
-        
-        // 检测溢出并调整
-        if (wouldOverflowTop(targetRect.top - gap - tooltipHeight)) {
-          // 顶部空间不足，改为底部
-          adjustedPosition = 'bottom';
-        } else if (wouldOverflowLeft(parseFloat(style.left!) - tooltipWidth / 2)) {
-          // 左侧空间不足，调整 left
-          style.left = `${padding + tooltipWidth / 2}px`;
-        } else if (wouldOverflowRight(parseFloat(style.left!) + tooltipWidth / 2)) {
-          // 右侧空间不足，调整 left
-          style.left = `${viewportWidth - padding - tooltipWidth / 2}px`;
-        }
-        break;
-      case 'bottom':
-        style.top = `${targetRect.bottom + gap}px`;
-        style.left = `${targetRect.left + targetRect.width / 2}px`;
-        style.transform = 'translate(-50%, 0)';
-        
-        // 检测溢出并调整
-        if (wouldOverflowBottom(targetRect.bottom + gap + tooltipHeight)) {
-          // 底部空间不足，改为顶部
-          adjustedPosition = 'top';
-        } else if (wouldOverflowLeft(parseFloat(style.left!) - tooltipWidth / 2)) {
-          // 左侧空间不足，调整 left
-          style.left = `${padding + tooltipWidth / 2}px`;
-        } else if (wouldOverflowRight(parseFloat(style.left!) + tooltipWidth / 2)) {
-          // 右侧空间不足，改为左侧显示
-          adjustedPosition = 'left';
-        }
-        break;
-      case 'left':
-        style.top = `${targetRect.top + targetRect.height / 2}px`;
-        style.left = `${targetRect.left - gap}px`;
-        style.transform = 'translate(-100%, -50%)';
-        
-        // 检测溢出并调整
-        if (wouldOverflowLeft(targetRect.left - gap - tooltipWidth)) {
-          // 左侧空间不足，改为右侧
-          adjustedPosition = 'right';
-        } else if (wouldOverflowTop(parseFloat(style.top!) - tooltipHeight / 2)) {
-          style.top = `${padding + tooltipHeight / 2}px`;
-        } else if (wouldOverflowBottom(parseFloat(style.top!) + tooltipHeight / 2)) {
-          style.top = `${viewportHeight - padding - tooltipHeight / 2}px`;
-        }
-        break;
-      case 'right': {
-        const rightCenterTop = targetRect.top + targetRect.height / 2;
-        style.left = `${targetRect.right + gap}px`;
-        style.transform = 'translate(0, -50%)';
-        
-        if (wouldOverflowRight(targetRect.right + gap + tooltipWidth)) {
-          adjustedPosition = 'left';
-        }
-        
-        const topOverflows = rightCenterTop - tooltipHeight / 2 < padding;
-        const bottomOverflows = rightCenterTop + tooltipHeight / 2 > viewportHeight - padding;
-        
-        if (topOverflows && !bottomOverflows) {
-          style.top = `${padding + tooltipHeight / 2}px`;
-          style.transform = 'translate(0, 0)';
-        } else if (bottomOverflows && !topOverflows) {
-          style.top = `${viewportHeight - padding - tooltipHeight / 2}px`;
-          style.transform = 'translate(0, -100%)';
-        } else if (topOverflows && bottomOverflows) {
-          style.top = `${viewportHeight / 2}px`;
-          style.transform = 'translate(0, -50%)';
-        } else {
-          style.top = `${rightCenterTop}px`;
-        }
+    // Try positions in order of preference
+    const positions: Array<'top' | 'bottom' | 'left' | 'right'> = ['top', 'bottom', 'left', 'right'];
+    const preferredPosition = step.position || 'bottom';
+    
+    // Reorder to try preferred first
+    const tryOrder = [preferredPosition, ...positions.filter(p => p !== preferredPosition)];
+    
+    let positioned = false;
+    for (const pos of tryOrder) {
+      let left: number, top: number;
+      
+      switch (pos) {
+        case 'top':
+          left = targetRect.left + (targetRect.width - tooltipWidth) / 2;
+          top = targetRect.top - tooltipHeight - gap;
+          break;
+        case 'bottom':
+          left = targetRect.left + (targetRect.width - tooltipWidth) / 2;
+          top = targetRect.bottom + gap;
+          break;
+        case 'left':
+          left = targetRect.left - tooltipWidth - gap;
+          top = targetRect.top + (targetRect.height - tooltipHeight) / 2;
+          break;
+        case 'right':
+          left = targetRect.right + gap;
+          top = targetRect.top + (targetRect.height - tooltipHeight) / 2;
+          break;
+      }
+      
+      if (!wouldOverflowLeft(left) && !wouldOverflowRight(left) && 
+          !wouldOverflowTop(top) && !wouldOverflowBottom(top)) {
+        style.left = `${left}px`;
+        style.top = `${top}px`;
+        positioned = true;
         break;
       }
     }
-
-    // 应用调整后的位置样式
-    if (adjustedPosition !== position) {
-      switch (adjustedPosition) {
-        case 'top':
-          style.top = `${targetRect.top - gap}px`;
-          style.left = `${targetRect.left + targetRect.width / 2}px`;
-          style.transform = 'translate(-50%, -100%)';
-          break;
-        case 'bottom':
-          style.top = `${targetRect.bottom + gap}px`;
-          style.left = `${targetRect.left + targetRect.width / 2}px`;
-          style.transform = 'translate(-50%, 0)';
-          break;
-        case 'left':
-          style.top = `${targetRect.top + targetRect.height / 2}px`;
-          style.left = `${targetRect.left - gap}px`;
-          style.transform = 'translate(-100%, -50%)';
-          break;
-        case 'right':
-          style.top = `${targetRect.top + targetRect.height / 2}px`;
-          style.left = `${targetRect.right + gap}px`;
-          style.transform = 'translate(0, -50%)';
-          break;
-      }
+    
+    // Fallback: force within bounds
+    if (!positioned) {
+      let left = targetRect.left + (targetRect.width - tooltipWidth) / 2;
+      let top = targetRect.bottom + gap;
+      
+      if (wouldOverflowLeft(left)) left = padding;
+      if (wouldOverflowRight(left)) left = viewportWidth - tooltipWidth - padding;
+      if (wouldOverflowTop(top)) top = targetRect.top - tooltipHeight - gap;
+      if (wouldOverflowBottom(top)) top = viewportHeight - tooltipHeight - padding;
+      
+      style.left = `${left}px`;
+      style.top = `${top}px`;
     }
 
     return style;

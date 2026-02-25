@@ -13,6 +13,9 @@ import (
 // 在未设置环境变量 COURSES_USE_EMBED 时，此值作为默认值生效
 var BuildDefaultUseEmbed = ""
 
+// Version 版本信息，通过 -ldflags 注入
+var Version = "dev"
+
 // Config 应用程序配置结构
 // 包含服务器和课程相关的所有配置项
 type Config struct {

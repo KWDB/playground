@@ -1,15 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Terminal, Zap, ChevronRight } from 'lucide-react';
 import { useTourStore } from '@/store/tourStore';
 import { TourTooltip } from '@/components/ui/TourTooltip';
 import { getStepsForPage, getTotalSteps } from '@/config/tourSteps';
 import { Button } from '@/components/ui/Button';
-import EnvCheckButton from '@/components/business/EnvCheckButton';
-import EnvCheckPanel from '@/components/business/EnvCheckPanel';
 
 export function Home() {
-  const [showEnvModal, setShowEnvModal] = useState(false);
   const { seenPages, startTour, nextStep, prevStep, skipTour, currentStep, isActive, hasHydrated } = useTourStore();
   const hasCheckedTour = useRef(false);
 
@@ -97,37 +94,9 @@ export function Home() {
         </section>
       </div>
 
-      {showEnvModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowEnvModal(false)} />
-          <div className="relative z-10 w-full max-w-2xl bg-[var(--color-bg-primary)] rounded-xl border border-[var(--color-border-default)] shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)]">
-              <h3 className="font-medium text-[var(--color-text-primary)]">环境检测</h3>
-              <button
-                onClick={() => setShowEnvModal(false)}
-                className="p-1 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-4 max-h-[70vh] overflow-y-auto">
-              <EnvCheckPanel alwaysExpanded />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!showEnvModal && (
-        <div className="fixed bottom-6 right-6 z-40" data-tour-id="home-env-check">
-          <EnvCheckButton onClick={() => setShowEnvModal(true)} />
-        </div>
-      )}
-
       {step && (
         <TourTooltip
-          isOpen={isActive && !showEnvModal}
+          isOpen={isActive}
           step={step}
           currentStep={currentStep}
           totalSteps={totalSteps}

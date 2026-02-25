@@ -59,7 +59,7 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
   const passed = data?.items?.filter(i => i.ok).length ?? 0;
 
   return (
-    <div className="w-full">
+    <div className="w-full bg-[var(--color-bg-primary)] rounded-lg shadow-lg border border-[var(--color-border-light)]">
       <div className={`transition-all duration-300 overflow-hidden ${alwaysExpanded ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'}`}>
         {error && (
           <div className="mb-4 p-4 rounded-lg border border-[var(--color-error)] bg-[var(--color-error-subtle)]">

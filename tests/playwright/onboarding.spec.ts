@@ -91,6 +91,34 @@ test.describe('Onboarding Tour', () => {
     await expect(tooltip).not.toBeVisible({ timeout: 2000 });
   });
 
+  test('版本环境按钮显示正确', async ({ page }) => {
+    await page.goto('/');
+    
+    // 等待页面加载完成
+    await page.waitForLoadState('networkidle');
+    
+    // 先关闭引导弹窗（如果存在）
+    const tooltip = page.locator('[data-testid="tour-tooltip"]');
+    if (await tooltip.isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await expect(tooltip).not.toBeVisible({ timeout: 3000 });
+    }
+    
+    // 查找版本环境按钮 (在导航栏中)
+    const versionButton = page.locator('[data-tour-id="home-env-check"]');
+    await expect(versionButton).toBeVisible({ timeout: 5000 });
+    
+    // 验证版本号显示
+    await expect(versionButton).toContainText(/v\d+\.\d+\.\d+|vdev/);
+    
+    // 点击打开面板
+    await versionButton.click();
+    
+    // 验证面板出现 - 检查 Docker 环境检测项
+    const envPanel = page.locator('text=Docker 环境');
+    await expect(envPanel).toBeVisible({ timeout: 3000 });
+  });
+
   test('键盘导航', async ({ page }) => {
     await page.goto('/');
     const tooltip = page.locator('[data-testid="tour-tooltip"]');

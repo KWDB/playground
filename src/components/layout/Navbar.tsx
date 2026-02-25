@@ -1,14 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, BookOpen, Menu, X, CircleHelp } from 'lucide-react';
 import { useTourStore } from '@/store/tourStore';
 import { FaGithub } from 'react-icons/fa';
 import LogoUrl from '/assets/logo.svg?url';
+import EnvCheckButton from '@/components/business/EnvCheckButton';
+import EnvCheckPanel from '@/components/business/EnvCheckPanel';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
   const { startTour, isActive: isTourActive, currentPage: tourCurrentPage } = useTourStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showEnvPanel, setShowEnvPanel] = useState(false);
+  const envPanelRef = useRef<HTMLDivElement>(null);
+
+  // Click outside handler to close panel
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (envPanelRef.current && !envPanelRef.current.contains(event.target as Node)) {
+        setShowEnvPanel(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const getPageName = (pathname: string) => {
     if (pathname === '/') return 'home';
@@ -93,6 +108,19 @@ const Navbar: React.FC = () => {
             >
               <FaGithub className="w-4 h-4" />
             </a>
+
+            {/* Version and env status button */}
+            <div ref={envPanelRef} className="relative" data-tour-id="home-env-check">
+              <EnvCheckButton 
+                variant="navbar" 
+                onClick={() => setShowEnvPanel(!showEnvPanel)} 
+              />
+              {showEnvPanel && (
+                <div className="absolute right-0 top-full mt-2 w-80 z-50">
+                  <EnvCheckPanel alwaysExpanded={true} />
+                </div>
+              )}
+            </div>
 
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
