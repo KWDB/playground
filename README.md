@@ -41,7 +41,7 @@ curl -fsSL https://kwdb.tech/playground.sh | bash
 安装完成后，直接运行即可启动服务：
 
 ```bash
-kwdb-playground server
+kwdb-playground start
 ```
 
 #### Homebrew 安装 (macOS)
@@ -51,7 +51,7 @@ kwdb-playground server
 ```bash
 brew tap kwdb/tap
 brew install kwdb-playground
-kwdb-playground server
+kwdb-playground start
 ```
 
 #### 手动下载
@@ -59,7 +59,7 @@ kwdb-playground server
 1. 在 [Release 页面](https://github.com/kwdb/playground/releases) 下载最新版本的 `kwdb-playground` 二进制文件。
 2. 启动服务：
    ```bash
-   kwdb-playground server
+   kwdb-playground start
    ```
 3. 打开浏览器访问 `http://localhost:3006`，进入课程列表并开始交互体验。
 

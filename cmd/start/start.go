@@ -1,13 +1,16 @@
-package server
+package start
 
 import (
 	"context"
 	"embed"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,10 +34,7 @@ const (
 	daemonLogPath = "logs/daemon.log"         // 守护进程日志文件，重定向标准输出/错误
 )
 
-// Run 是 server 子命令的入口
-// 参数:
-//   - staticFiles: 嵌入的静态资源与课程文件（来自上层 main 的 go:embed）
-//   - args: 子命令后续的参数（例如 -d/--daemon、-h/--help）
+// Run 是 start 子命令的入口
 func Run(staticFiles embed.FS, args []string) error {
 	// 1) 处理帮助
 	if hasHelpFlag(args) {
@@ -63,7 +63,6 @@ func Run(staticFiles embed.FS, args []string) error {
 	// 4) 业务主流程：加载配置、构建依赖、启动 HTTP 服务
 	cfg, err := config.Load()
 	if err != nil {
-		// 创建临时logger用于配置加载失败的错误输出
 		tempLogger := logger.NewLogger(logger.ERROR)
 		tempLogger.Error("Failed to load configuration: %v", err)
 		os.Exit(1)
@@ -135,10 +134,8 @@ func Run(staticFiles embed.FS, args []string) error {
 		c.Data(http.StatusOK, contentType, data)
 	})
 
-	// 兼容根级静态文件（favicon、manifest等）
-	// 单独路由以支持 /favicon.ico 和 /favicon.svg 等常见路径
+	// 兼容根级静态文件
 	r.GET("/favicon.ico", func(c *gin.Context) {
-		// 优先读取磁盘
 		if !cfg.Course.UseEmbed {
 			if data, err := os.ReadFile("dist/favicon.ico"); err == nil {
 				c.Header("Cache-Control", "public, max-age=31536000")
@@ -146,7 +143,6 @@ func Run(staticFiles embed.FS, args []string) error {
 				return
 			}
 		}
-		// 回退到嵌入资源
 		if data, err := staticFiles.ReadFile("dist/favicon.ico"); err == nil {
 			c.Header("Cache-Control", "public, max-age=31536000")
 			c.Data(http.StatusOK, "image/x-icon", data)
@@ -174,11 +170,6 @@ func Run(staticFiles embed.FS, args []string) error {
 	// API 路由
 	apiHandler := api.NewHandler(courseService, dockerController, terminalManager, appLogger, cfg)
 	apiHandler.SetupRoutes(r)
-
-	// 调试：列出所有已注册路由
-	for _, ri := range r.Routes() {
-		appLogger.Debug("Route registered: %s %s", ri.Method, ri.Path)
-	}
 
 	// 前端路由（index.html）
 	r.NoRoute(func(c *gin.Context) {
@@ -218,6 +209,12 @@ func Run(staticFiles embed.FS, args []string) error {
 		}
 	}()
 
+	// 自动打开浏览器（仅在非守护进程模式且需要打开浏览器时）
+	if os.Getenv("DAEMON_MODE") != "1" && !containsNoOpenFlag(args) {
+		time.Sleep(500 * time.Millisecond)
+		openBrowser(addr)
+	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -248,22 +245,22 @@ func hasHelpFlag(args []string) bool {
 }
 
 func printHelp() {
-	fmt.Println("用法: kwdb-playground server [选项]")
+	fmt.Println("用法: kwdb-playground start [选项]")
 	fmt.Println("选项:")
-	fmt.Println("  -d, --daemon        以守护进程模式运行")
-	fmt.Println("  -h, --help          显示此帮助")
+	fmt.Println("  -d, --daemon        以守护进程模式运行（默认）")
+	fmt.Println("      --no-daemon     前台运行（不进入守护进程）")
+	fmt.Println("  -o, --open         启动后自动在浏览器中打开 (默认)")
+	fmt.Println("      --no-open      禁止自动打开浏览器")
+	fmt.Println("  -h, --help         显示此帮助")
 	fmt.Println("\n环境变量(常用):")
-	fmt.Println("  SERVER_HOST         服务器监听地址 (默认: 0.0.0.0)")
-	fmt.Println("  SERVER_PORT         服务器端口 (默认: 3006/配置)")
-	fmt.Println("  COURSES_USE_EMBED   是否使用嵌入式FS (默认: 由编译期/环境决定)")
-	fmt.Println("  COURSES_RELOAD      是否启用课程热重载 (开发模式友好)")
+	fmt.Println("  SERVER_HOST        服务器监听地址 (默认: 0.0.0.0)")
+	fmt.Println("  SERVER_PORT        服务器端口 (默认: 3006)")
 }
 
 // ----------------------------
 // 守护进程相关工具函数
 // ----------------------------
 
-// containsDaemonFlag 检查 -d/--daemon 是否存在
 func containsDaemonFlag(args []string) bool {
 	for _, a := range args {
 		if a == "-d" || a == "--daemon" {
@@ -273,7 +270,15 @@ func containsDaemonFlag(args []string) bool {
 	return false
 }
 
-// filterDaemonFlags 过滤守护进程相关标志
+func containsNoOpenFlag(args []string) bool {
+	for _, a := range args {
+		if a == "--no-open" {
+			return true
+		}
+	}
+	return false
+}
+
 func filterDaemonFlags(args []string) []string {
 	filtered := make([]string, 0, len(args))
 	for _, a := range args {
@@ -285,13 +290,11 @@ func filterDaemonFlags(args []string) []string {
 	return filtered
 }
 
-// ensureDirForFile 确保文件所在目录存在
 func ensureDirForFile(filePath string) error {
 	dir := filepath.Dir(filePath)
 	return os.MkdirAll(dir, 0o755)
 }
 
-// readPIDFromFile 从 PID 文件读取进程号
 func readPIDFromFile(filePath string) (int, bool) {
 	data, err := os.ReadFile(filePath)
 	if err != nil || len(data) == 0 {
@@ -304,7 +307,6 @@ func readPIDFromFile(filePath string) (int, bool) {
 	return pid, true
 }
 
-// writePID 写入当前进程 PID 到指定文件
 func writePID(filePath string, pid int) error {
 	if err := ensureDirForFile(filePath); err != nil {
 		return err
@@ -312,18 +314,40 @@ func writePID(filePath string, pid int) error {
 	return os.WriteFile(filePath, []byte(strconv.Itoa(pid)), 0o644)
 }
 
-// removePIDFile 删除 PID 文件（忽略错误）
 func removePIDFile(filePath string) { _ = os.Remove(filePath) }
 
-// isProcessRunning 与 runAsDaemon 的平台相关实现已拆分至对应文件：
-//  - daemon_unix.go（非 Windows）
-//  - daemon_windows.go（Windows）
+func openBrowser(addr string) {
+	u := url.URL{
+		Scheme: "http",
+		Host:   addr,
+	}
+	urlStr := u.String()
+
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", urlStr).Start()
+	case "darwin":
+		err = exec.Command("open", urlStr).Start()
+	case "windows":
+		err = exec.Command("cmd", "/c", "start", urlStr).Start()
+	default:
+		err = exec.Command("xdg-open", urlStr).Start()
+		if err != nil {
+			err = exec.Command("gio", "open", urlStr).Start()
+		}
+	}
+	if err != nil {
+		fmt.Printf("无法自动打开浏览器: %v\n", err)
+	} else {
+		fmt.Printf("已在浏览器中打开: %s\n", urlStr)
+	}
+}
 
 // ----------------------------
 // 静态工具函数
 // ----------------------------
 
-// getContentType 根据文件路径返回对应的Content-Type
 func getContentType(p string) string {
 	switch {
 	case strings.HasSuffix(p, ".js"):
@@ -349,16 +373,13 @@ func getContentType(p string) string {
 	}
 }
 
-// NewCommand 定义 server 子命令（Cobra 风格）
-// - 仅暴露 --daemon/-d 开关，其他运行参数通过 Flags（优先级最高）或环境变量读取
-// - 为了降低重构风险，内部仍然复用现有 Run() 实现，并通过设置环境变量来实现“Flags > Env > 默认值”的优先级
+// NewCommand 定义 start 子命令
 func NewCommand(staticFiles embed.FS) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "server",
-		Short: "启动后端服务",
-		Long:  "启动 KWDB Playground",
+		Use:   "start",
+		Short: "启动 KWDB Playground",
+		Long:  "以守护进程模式启动 KWDB Playground 并在浏览器中打开",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// 读取并应用 Flags（仅在用户显式设置时覆盖环境变量），实现“Flags > Env > 默认值”
 			if cmd.Flags().Changed("host") {
 				h, _ := cmd.Flags().GetString("host")
 				_ = os.Setenv("SERVER_HOST", h)
@@ -376,22 +397,24 @@ func NewCommand(staticFiles embed.FS) *cobra.Command {
 				_ = os.Setenv("LOG_FORMAT", lf)
 			}
 
-			// 守护进程开关（为了兼容原有实现，仍然通过传参透传）
-			daemon, _ := cmd.Flags().GetBool("daemon")
+			// 默认以守护进程模式运行，除非用户明确指定 --no-daemon
 			passArgs := []string{}
-			if daemon {
+			if noDaemon, _ := cmd.Flags().GetBool("no-daemon"); !noDaemon {
 				passArgs = append(passArgs, "--daemon")
+			}
+			if noOpen, _ := cmd.Flags().GetBool("no-open"); noOpen {
+				passArgs = append(passArgs, "--no-open")
 			}
 			return Run(staticFiles, passArgs)
 		},
 	}
 
-	// 定义命令行参数（使用合理默认值，仅当用户显式设置时才覆盖环境变量）
-	cmd.Flags().BoolP("daemon", "d", false, "以守护进程模式运行")
-	cmd.Flags().String("host", "", "服务器监听地址（默认从环境变量 SERVER_HOST 或默认值读取）")
-	cmd.Flags().Int("port", 0, "服务器端口（默认从环境变量 SERVER_PORT 或默认值读取）")
-	cmd.Flags().String("log-level", "warn", "日志级别: debug|info|warn|error（默认从环境变量 LOG_LEVEL 或默认值读取）")
-	cmd.Flags().String("log-format", "text", "日志格式: json|text（默认从环境变量 LOG_FORMAT 或默认值读取）")
+	cmd.Flags().Bool("no-daemon", false, "前台运行（不进入守护进程）")
+	cmd.Flags().BoolP("no-open", "n", false, "禁止自动打开浏览器")
+	cmd.Flags().String("host", "", "服务器监听地址")
+	cmd.Flags().Int("port", 0, "服务器端口")
+	cmd.Flags().String("log-level", "warn", "日志级别: debug|info|warn|error")
+	cmd.Flags().String("log-format", "text", "日志格式: json|text")
 
 	return cmd
 }

@@ -95,11 +95,20 @@ func PortOccupation(host string, port int) (bool, string, string) {
 	}
 	_ = conn.Close()
 
+	// 先尝试通过进程名判断是否为 kwdb-playground
+	procInfo, lerr := ListPortProcesses(port)
+	if lerr == nil && procInfo != "" {
+		// 检查进程名是否包含 kwdb-playground
+		if strings.Contains(procInfo, "kwdb-playground") || strings.Contains(procInfo, "kwdb") {
+			return true, "服务已启动（kwdb-playground）", ""
+		}
+	}
+
+	// 如果不是 kwdb-playground，尝试通过 /health 端点判断
 	if IsPortUsedByCurrentService(host, port) {
 		return true, "端口被本服务使用（正常）", ""
 	}
 
-	procInfo, lerr := ListPortProcesses(port)
 	if lerr != nil {
 		return false, "端口已被占用（进程信息获取失败，可能未安装 lsof）", ""
 	}
@@ -189,6 +198,24 @@ func ServiceHealth(host string, port int) (bool, string) {
 	}
 	_ = conn.Close()
 
+	// 检查是否有 kwdb-playground 进程在运行
+	procInfo, lerr := ListPortProcesses(port)
+	if lerr == nil && procInfo != "" && (strings.Contains(procInfo, "kwdb-playground") || strings.Contains(procInfo, "kwdb")) {
+		// 服务正在运行，尝试检查健康端点
+		url := fmt.Sprintf("http://%s:%d/health", host, port)
+		client := &http.Client{Timeout: 2 * time.Second}
+		resp, err := client.Get(url)
+		if err != nil {
+			return true, "服务已启动（kwdb-playground 正在运行，/health 端点响应超时）"
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return true, "服务已启动（kwdb-playground 正在运行，/health 返回非 200）"
+		}
+		return true, "服务正在运行且健康（/health 返回 200）"
+	}
+
+	// 非 kwdb-playground 进程，检查 /health 端点
 	url := fmt.Sprintf("http://%s:%d/health", host, port)
 	client := &http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Get(url)

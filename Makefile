@@ -76,7 +76,7 @@ playwright:
 	pnpm run build
 	@mkdir -p bin
 	go build -ldflags "$(LDFLAGS)" -o bin/$(APP_NAME) .
-	GIN_MODE=release LOG_LEVEL=warn LOG_FORMAT=text QUIET=true SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME) server
+	QUIET=true SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME) start --no-daemon
 
 # 构建前端
 frontend:
@@ -114,7 +114,7 @@ release: clean frontend
 # 以发布模式运行（使用嵌入式FS）
 release-run: release
 	@echo "🚀 Running in RELEASE mode (embedded FS) ..."
-	COURSES_USE_EMBED=true SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME) server
+	COURSES_USE_EMBED=true SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME) start
 
 # 跨平台发布构建
 release-linux-amd64: frontend
@@ -161,10 +161,20 @@ package-dist:
 run: build
 	@echo "🚀 Starting KWDB Playground..."
 	@echo "Server will be available at http://localhost:$(SERVER_PORT)"
-	SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME) server
+	SERVER_PORT=$(SERVER_PORT) ./bin/$(APP_NAME) start --no-daemon
 
 # 停止所有服务
-stop:
+# 停止守护进程
+	@./bin/$(APP_NAME) stop 2>/dev/null || true
+	@# 停止 Vite 和 Air 进程
+	@pkill -f "vite" 2>/dev/null || true
+	@pkill -f "air" 2>/dev/null || true
+	@# 停止 Go 进程
+	@pkill -f "kwdb-playground" 2>/dev/null || true
+	@killall -9 node go 2>/dev/null || true
+	@# 清理 tmp 目录中的残留进程
+	@rm -f tmp/*.pid 2>/dev/null || true
+	@echo "✅ All services stopped!"
 	@echo "🛑 Stopping all services..."
 	@# 停止 Vite 和 Air 进程
 	@pkill -f "vite" 2>/dev/null || true

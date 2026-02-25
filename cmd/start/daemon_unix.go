@@ -1,12 +1,13 @@
 //go:build !windows
 
-package server
+package start
 
 import (
 	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 // isProcessRunning 检查给定 PID 的进程是否仍在运行（Unix）
@@ -24,7 +25,7 @@ func runAsDaemon(pidFile, logFile string, args []string) error {
 		return fmt.Errorf("无法获取可执行文件路径: %w", err)
 	}
 
-	childArgs := append([]string{"server"}, filterDaemonFlags(args)...)
+	childArgs := append([]string{"start"}, filterDaemonFlags(args)...)
 
 	if err = ensureDirForFile(logFile); err != nil {
 		return fmt.Errorf("创建日志目录失败: %w", err)
@@ -55,6 +56,12 @@ func runAsDaemon(pidFile, logFile string, args []string) error {
 
 	if err := writePID(pidFile, cmd.Process.Pid); err != nil {
 		return fmt.Errorf("写入 PID 文件失败: %w", err)
+	}
+
+	// 在守护进程启动后，父进程打开浏览器
+	if !containsNoOpenFlag(args) {
+		time.Sleep(500 * time.Millisecond)
+		openBrowser("localhost:3006")
 	}
 
 	fmt.Printf("守护进程启动成功，PID=%d，日志=%s，PID文件=%s\n", cmd.Process.Pid, logFile, pidFile)

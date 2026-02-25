@@ -18,8 +18,9 @@ function parseMirrorAvailabilityMessage(message: string): { available: string[];
   const trimmed = message.trim();
   if (!trimmed) return null;
 
-  const availableMatch = trimmed.match(/可用：([^；]+)(?:；|$)/);
-  const unavailableMatch = trimmed.match(/不可用：(.+)$/);
+  // 匹配格式: "可用：xxx；不可用：yyy" 或 "镜像源可用（x/y）"
+  const availableMatch = trimmed.match(/可用：([^；]+?)(?:；|$)/);
+  const unavailableMatch = trimmed.match(/可用：.*；不可用：(.+)$/);
   if (!availableMatch && !unavailableMatch) return null;
 
   const splitList = (value: string | undefined) => {
