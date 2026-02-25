@@ -8,6 +8,9 @@ import ProposeCourseCard from '../components/business/ProposeCourseCard';
 import { useDebounce } from '../hooks/useDebounce';
 import PinyinMatch from 'pinyin-match';
 import { Button, Dialog, DialogContent, DialogTitle } from '@/components/ui/Button';
+import { useTourStore } from '@/store/tourStore';
+import { TourTooltip } from '@/components/ui/TourTooltip';
+import { getStepsForPage, getTotalSteps } from '@/config/tourSteps';
 
 interface Course {
   id: string;
@@ -48,6 +51,29 @@ export function CourseList() {
     timeRange: [0, 1000],
   });
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+
+  const { 
+    seenPages, 
+    startTour, 
+    nextStep, 
+    prevStep, 
+    skipTour, 
+    currentPage, 
+    currentStep, 
+    isActive,
+    hasHydrated
+  } = useTourStore();
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (!seenPages?.courses && !isActive) {
+      startTour('courses');
+    }
+  }, [seenPages, startTour, hasHydrated, isActive]);
+
+  const tourSteps = getStepsForPage('courses');
+  const totalSteps = getTotalSteps('courses');
+  const step = tourSteps[currentStep];
 
   const handleViewModeChange = (mode: 'grid' | 'list') => {
     setViewMode(mode);
@@ -290,7 +316,10 @@ export function CourseList() {
             <p className="text-sm text-[var(--color-text-tertiary)]">{filteredCourses.length} 门课程</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center border border-[var(--color-border-default)] rounded-lg overflow-hidden">
+            <div 
+              className="flex items-center border border-[var(--color-border-default)] rounded-lg overflow-hidden"
+              data-tour-id="course-view-toggle"
+            >
               <button
                 onClick={() => handleViewModeChange('grid')}
                 className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}`}
@@ -307,7 +336,13 @@ export function CourseList() {
               </button>
             </div>
             {containers.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setShowCleanupModal(true)} className="text-[var(--color-error)]">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowCleanupModal(true)} 
+                className="text-[var(--color-error)]"
+                data-tour-id="course-cleanup"
+              >
                 <Trash2 className="w-4 h-4" />
                 清理 ({containers.length})
               </Button>
@@ -317,7 +352,7 @@ export function CourseList() {
 
         <div className="mb-6 p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)]">
           <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
+            <div className="relative flex-1" data-tour-id="course-search">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
               <input
                 type="text"
@@ -332,6 +367,7 @@ export function CourseList() {
               size="md"
               onClick={() => setFilterPanelOpen(!filterPanelOpen)}
               className="gap-2"
+              data-tour-id="course-filter"
             >
               <Filter className="w-4 h-4" />
               筛选
@@ -467,8 +503,10 @@ export function CourseList() {
             <Button variant="secondary" onClick={handleResetFilters}>清除筛选</Button>
           </div>
         ) : (
-          <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
-            {filteredCourses.map((course) => {
+          <div 
+            className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}
+          >
+            {filteredCourses.map((course, index) => {
               const isRunning = containers.some(c => c.courseId === course.id && c.state === 'running');
               const isPaused = containers.some(c => c.courseId === course.id && c.state === 'paused');
 
@@ -489,6 +527,7 @@ export function CourseList() {
                   <Link
                     to={`/learn/${course.id}`}
                     key={course.id}
+                    data-tour-id={index === 0 ? 'course-card-first' : undefined}
                     className={`
                       group flex items-center gap-4 p-5 rounded-xl 
                       border bg-[var(--color-bg-primary)]
@@ -585,6 +624,7 @@ export function CourseList() {
                 <Link
                   to={`/learn/${course.id}`}
                   key={course.id}
+                  data-tour-id={index === 0 ? 'course-card-first' : undefined}
                   className={`
                     group block p-5 rounded-xl
                     border transition-all duration-200 ease-out
@@ -856,6 +896,18 @@ export function CourseList() {
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {step && isActive && currentPage === 'courses' && (
+        <TourTooltip
+          isOpen={isActive && currentPage === 'courses'}
+          step={step}
+          currentStep={currentStep}
+          totalSteps={totalSteps}
+          onNext={nextStep}
+          onPrev={prevStep}
+          onSkip={skipTour}
+        />
       )}
     </div>
   );

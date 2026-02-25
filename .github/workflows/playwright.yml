@@ -43,6 +43,17 @@ jobs:
       - name: Install Playwright browsers and system deps
         run: pnpm exec playwright install --with-deps
 
+      - name: Start Playwright server
+        run: |
+          make playwright &
+          for i in {1..60}; do
+            if curl -sf http://localhost:3006/health >/dev/null; then
+              echo "Server is ready"
+              break
+            fi
+            sleep 2
+          done
+
       - name: Run Playwright tests
         run: pnpm exec playwright test --reporter=html
 

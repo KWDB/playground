@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useCallback, useRef, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Server, ImageIcon } from 'lucide-react'
+import { ArrowLeft, Server, ImageIcon, HelpCircle } from 'lucide-react'
 import SqlTerminal, { SqlTerminalRef } from '../components/business/SqlTerminal'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -16,6 +16,9 @@ import PortConflictHandler from '../components/business/PortConflictHandler';
 import { ImageSelector } from '../components/business/ImageSelector';
 import '../styles/markdown.css';
 import { useLearnStore, effectiveImageSelector, imageSourceLabelSelector } from '../store/learnStore';
+import { useTourStore } from '../store/tourStore';
+import { TourTooltip } from '../components/ui/TourTooltip';
+import { getStepsForPage, getTotalSteps } from '../config/tourSteps';
 import { api } from '../lib/api/client'
 
 export function Learn() {
@@ -51,6 +54,19 @@ export function Learn() {
     loadProgress,
     resetState,
   } = useLearnStore()
+
+  const { seenPages, startTour, nextStep, prevStep, skipTour, currentStep: tourCurrentStep, isActive: isTourActive, hasHydrated } = useTourStore();
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (!seenPages?.learn && !isTourActive) {
+      startTour('learn');
+    }
+  }, [seenPages.learn, isTourActive, startTour, hasHydrated]);
+
+  const tourSteps = getStepsForPage('learn');
+  const totalTourSteps = getTotalSteps('learn');
+  const activeTourStep = tourSteps[tourCurrentStep];
 
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
   const terminalRef = useRef<TerminalRef>(null)
@@ -1225,7 +1241,17 @@ export function Learn() {
               <ArrowLeft className="h-4 w-4 mr-1.5" />
               <span className="hidden sm:inline">返回</span>
             </button>
-            <h1 className="text-base font-medium text-[var(--color-text-primary)]">{course.title}</h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-base font-medium text-[var(--color-text-primary)]">{course.title}</h1>
+              <button
+                onClick={() => startTour('learn')}
+                className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+                title="查看引导"
+                data-tour-id="learn-help-btn"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* 容器状态栏 */}
@@ -1251,6 +1277,7 @@ export function Learn() {
                   onClick={() => setShowImageSelector(true)}
                   className="btn btn-ghost text-sm"
                   title={`镜像源：${imageSourceLabel}（${effectiveImage}）`}
+                  data-tour-id="learn-image-source"
                 >
                   <ImageIcon className="w-4 h-4" />
                   <span className="hidden sm:inline ml-2">镜像源</span>
@@ -1265,11 +1292,12 @@ export function Learn() {
                   onClick={() => course?.id && startCourseContainer(course.id)}
                   disabled={isStartingContainer}
                   className="btn btn-primary text-sm"
+                  data-tour-id="learn-start-container"
                 >
                   <span>{isStartingContainer ? '启动中...' : '启动容器'}</span>
                 </button>
               ) : containerStatus === 'paused' ? (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2" data-tour-id="learn-pause-resume">
                   <button
                     onClick={() => course?.id && resumeContainer(course.id)}
                     className="btn btn-primary text-sm"
@@ -1284,7 +1312,7 @@ export function Learn() {
                   </button>
                 </div>
               ) : containerStatus === 'running' || containerStatus === 'stopping' ? (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2" data-tour-id="learn-pause-resume">
                   <button
                     onClick={() => course?.id && pauseContainer(course.id)}
                     disabled={containerStatus === 'stopping'}
@@ -1311,26 +1339,28 @@ export function Learn() {
         <Group orientation="horizontal" id="course-layout" className="h-full">
           {/* 左侧内容面板 */}
           <Panel defaultSize={50} minSize={30} id="course-content">
-            <CourseContentPanel
-              title={currentTitle}
-              content={currentContent}
-              renderMarkdown={renderMarkdown}
-              currentStep={currentStep}
-              stepsLength={course?.details.steps.length ?? 0}
-              onPrev={goToPrevious}
-              onNext={goToNext}
-              canPrev={canGoPrevious()}
-              canNext={canGoNext()}
-              onExit={handleExitClick}
-              onReset={handleResetProgress}
-            />
+            <div className="h-full" data-tour-id="learn-steps">
+              <CourseContentPanel
+                title={currentTitle}
+                content={currentContent}
+                renderMarkdown={renderMarkdown}
+                currentStep={currentStep}
+                stepsLength={course?.details.steps.length ?? 0}
+                onPrev={goToPrevious}
+                onNext={goToNext}
+                canPrev={canGoPrevious()}
+                canNext={canGoNext()}
+                onExit={handleExitClick}
+                onReset={handleResetProgress}
+              />
+            </div>
           </Panel>
 
           <Separator className="w-1 bg-[var(--color-border-light)] hover:bg-[var(--color-border-default)] transition-colors cursor-col-resize" />
 
           {/* 右侧终端面板 */}
           <Panel defaultSize={50} minSize={30} id="terminal">
-            <div className="h-full text-white flex flex-col" style={{ backgroundColor: '#0d1117' }}>
+            <div className="h-full text-white flex flex-col" style={{ backgroundColor: '#0d1117' }} data-tour-id="learn-terminal">
               {/* 终端内容区域 - 移除内边距，确保完全填充可用空间 */}
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="flex-1 overflow-hidden">
@@ -1415,6 +1445,18 @@ export function Learn() {
           }}
           isOpen={showImageSelector}
           onClose={() => setShowImageSelector(false)}
+        />
+      )}
+
+      {activeTourStep && (
+        <TourTooltip
+          isOpen={isTourActive && !showConfirmDialog && !showResetDialog && !showImageSelector && !showPortConflictHandler}
+          step={activeTourStep}
+          currentStep={tourCurrentStep}
+          totalSteps={totalTourSteps}
+          onNext={nextStep}
+          onPrev={prevStep}
+          onSkip={skipTour}
         />
       )}
     </div>

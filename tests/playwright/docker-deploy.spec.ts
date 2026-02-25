@@ -3,15 +3,25 @@ import { test, expect } from '@playwright/test';
 test.describe('Docker 部署验证', () => {
   test.beforeEach(async ({ request, page }) => {
     // 停止可能的课程
-    try { await request.post('/api/courses/quick-start/stop'); } catch {}
-    try { await request.post('/api/courses/sql/stop'); } catch {}
+    try { await request.post('/api/courses/quick-start/stop'); } catch (error) { void error; }
+    try { await request.post('/api/courses/sql/stop'); } catch (error) { void error; }
     // 清理容器
-    try { await request.delete('/api/containers'); } catch {}
+    try { await request.delete('/api/containers'); } catch (error) { void error; }
     // 清理 localStorage
     await page.addInitScript(() => {
       localStorage.removeItem('imageSourceId');
       localStorage.removeItem('selectedImageFullName');
       localStorage.removeItem('customImageName');
+      localStorage.setItem('hasSeenTour', JSON.stringify({
+        state: {
+          seenPages: { home: true, courses: true, learn: true },
+          currentPage: null,
+          currentStep: 0,
+          isActive: false,
+          hasHydrated: true,
+        },
+        version: 0,
+      }));
     });
   });
 
@@ -36,6 +46,11 @@ test.describe('Docker 部署验证', () => {
 
   test('课程列表页面正常渲染', async ({ page }) => {
     await page.goto('/courses');
+    const tooltip = page.locator('[data-testid="tour-tooltip"]');
+    if (await tooltip.isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await expect(tooltip).not.toBeVisible({ timeout: 3000 });
+    }
     await expect(page.getByRole('heading', { name: '课程列表' })).toBeVisible();
     await expect(page.locator('a[href="/learn/quick-start"]')).toBeVisible();
     await expect(page.locator('a[href="/learn/sql"]')).toBeVisible();
@@ -53,6 +68,11 @@ test.describe('Docker 部署验证', () => {
     });
 
     await page.goto('/learn/quick-start');
+    const tooltip1 = page.locator('[data-testid="tour-tooltip"]');
+    if (await tooltip1.isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await expect(tooltip1).not.toBeVisible({ timeout: 3000 });
+    }
     await expect(page.getByText('终端未连接')).toBeVisible();
 
     const startBtn = page.getByRole('button', { name: '启动容器' });
@@ -81,6 +101,11 @@ test.describe('Docker 部署验证', () => {
     });
 
     await page.goto('/learn/sql');
+    const tooltip2 = page.locator('[data-testid="tour-tooltip"]');
+    if (await tooltip2.isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await expect(tooltip2).not.toBeVisible({ timeout: 3000 });
+    }
     await expect(page.getByText('终端未连接')).toBeVisible();
 
     await page.getByRole('button', { name: '启动容器' }).click();

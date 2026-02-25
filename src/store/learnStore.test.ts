@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useLearnStore } from './learnStore';
 import { api } from '@/lib/api/client';
 
@@ -22,13 +22,17 @@ describe('learnStore', () => {
     it('should load progress successfully', async () => {
       const mockProgress = {
         progress: {
+          user_id: 'user-1',
+          course_id: 'course-1',
           current_step: 2,
           completed: false,
+          started_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
         },
         exists: true,
       };
 
-      (api.courses.getProgress as any).mockResolvedValue(mockProgress);
+      vi.mocked(api.courses.getProgress).mockResolvedValue(mockProgress);
 
       await useLearnStore.getState().loadProgress('course-1');
 
@@ -40,7 +44,7 @@ describe('learnStore', () => {
     });
 
     it('should handle non-existent progress', async () => {
-      (api.courses.getProgress as any).mockResolvedValue({ progress: null, exists: false });
+      vi.mocked(api.courses.getProgress).mockResolvedValue({ progress: null, exists: false });
 
       await useLearnStore.getState().loadProgress('course-1');
 
@@ -51,7 +55,7 @@ describe('learnStore', () => {
 
     it('should handle errors during load', async () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      (api.courses.getProgress as any).mockRejectedValue(new Error('Network error'));
+      vi.mocked(api.courses.getProgress).mockRejectedValue(new Error('Network error'));
 
       await useLearnStore.getState().loadProgress('course-1');
 
@@ -67,7 +71,7 @@ describe('learnStore', () => {
       const courseId = 'course-1';
       const stepIndex = 3;
 
-      (api.courses.saveProgress as any).mockResolvedValue({});
+      vi.mocked(api.courses.saveProgress).mockResolvedValue({} as never);
 
       await useLearnStore.getState().saveProgress(courseId, stepIndex);
 

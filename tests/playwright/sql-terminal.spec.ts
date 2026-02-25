@@ -1,8 +1,20 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('SQL 终端', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ request, page }) => {
     await request.post('/api/progress/sql/reset');
+    await page.addInitScript(() => {
+      localStorage.setItem('hasSeenTour', JSON.stringify({
+        state: {
+          seenPages: { home: true, courses: true, learn: true },
+          currentPage: null,
+          currentStep: 0,
+          isActive: false,
+          hasHydrated: true,
+        },
+        version: 0,
+      }));
+    });
   });
 
   test('SQL 终端测试', async ({ page }) => {
