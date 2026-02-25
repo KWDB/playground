@@ -60,7 +60,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
 # ============================================================
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata curl
 
 WORKDIR /app
 
@@ -76,7 +76,8 @@ ENV GIN_MODE=release \
 
 EXPOSE 3006
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
+    CMD curl -f http://localhost:3006/health || exit 1
     CMD wget -qO- http://localhost:3006/health || exit 1
 
 ENTRYPOINT ["/app/kwdb-playground"]
