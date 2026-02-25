@@ -78,7 +78,6 @@ EXPOSE 3006
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
     CMD curl -f http://localhost:3006/health || exit 1
-    CMD wget -qO- http://localhost:3006/health || exit 1
 
 ENTRYPOINT ["/app/kwdb-playground"]
-CMD ["start"]
+CMD ["start", "--no-daemon"]
