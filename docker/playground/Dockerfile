@@ -76,7 +76,7 @@ ENV GIN_MODE=release \
 
 EXPOSE 3006
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD wget -qO- http://localhost:3006/health || exit 1
 
 ENTRYPOINT ["/app/kwdb-playground"]
