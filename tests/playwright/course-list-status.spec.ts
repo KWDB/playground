@@ -1,8 +1,16 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+const closeTourIfVisible = async (page: Page) => {
+  const tooltip = page.locator('[data-testid="tour-tooltip"]');
+  if (await tooltip.isVisible().catch(() => false)) {
+    await page.keyboard.press('Escape');
+    await expect(tooltip).not.toBeVisible({ timeout: 3000 });
+  }
+};
 
 test.describe('课程列表状态与交互测试', () => {
   // 测试前清理所有容器，确保环境干净
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ request, page }) => {
     const res = await request.delete('/api/containers');
     expect(res.ok()).toBeTruthy();
     
@@ -10,11 +18,25 @@ test.describe('课程列表状态与交互测试', () => {
     const listRes = await request.get('/api/containers');
     const containers = await listRes.json();
     expect(containers.length).toBe(0);
+
+    await page.addInitScript(() => {
+      localStorage.setItem('hasSeenTour', JSON.stringify({
+        state: {
+          seenPages: { home: true, courses: true, learn: true },
+          currentPage: null,
+          currentStep: 0,
+          isActive: false,
+          hasHydrated: true,
+        },
+        version: 0,
+      }));
+    });
   });
 
   test('验证容器状态变更与清理功能', async ({ page, request }) => {
     // 1. 访问课程列表页
     await page.goto('/courses');
+    await closeTourIfVisible(page);
     
     // 使用 href 定位整个课程卡片（现在卡片本身就是链接）
     const courseCard = page.locator('a[href="/learn/quick-start"]');
@@ -29,6 +51,7 @@ test.describe('课程列表状态与交互测试', () => {
     
     // 刷新页面获取最新状态
     await page.reload();
+    await closeTourIfVisible(page);
 
     // 3. 验证状态变为“运行中”
     await expect(courseCard).toHaveText(/运行中/);
@@ -39,6 +62,7 @@ test.describe('课程列表状态与交互测试', () => {
 
     // 返回课程列表页继续测试清理功能
     await page.goto('/courses');
+    await closeTourIfVisible(page);
     // 重新定位卡片（页面刷新后 DOM 元素更新）
     const courseCardAfterBack = page.locator('a[href="/learn/quick-start"]');
     await expect(courseCardAfterBack).toHaveText(/运行中/);
@@ -68,6 +92,7 @@ test.describe('课程列表状态与交互测试', () => {
 
   test('验证视图模式切换功能', async ({ page }) => {
     await page.goto('/courses');
+    await closeTourIfVisible(page);
 
     // 定位切换按钮
     const gridBtn = page.getByLabel('卡片模式');

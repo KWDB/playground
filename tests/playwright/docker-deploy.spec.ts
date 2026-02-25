@@ -3,10 +3,10 @@ import { test, expect } from '@playwright/test';
 test.describe('Docker 部署验证', () => {
   test.beforeEach(async ({ request, page }) => {
     // 停止可能的课程
-    try { await request.post('/api/courses/quick-start/stop'); } catch {}
-    try { await request.post('/api/courses/sql/stop'); } catch {}
+    try { await request.post('/api/courses/quick-start/stop'); } catch (error) { void error; }
+    try { await request.post('/api/courses/sql/stop'); } catch (error) { void error; }
     // 清理容器
-    try { await request.delete('/api/containers'); } catch {}
+    try { await request.delete('/api/containers'); } catch (error) { void error; }
     // 清理 localStorage
     await page.addInitScript(() => {
       localStorage.removeItem('imageSourceId');

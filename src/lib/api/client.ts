@@ -7,6 +7,7 @@ import type {
   SqlInfo,
   PortConflictInfo,
   UserProgress,
+  GetProgressResponse,
 } from './types'
 
 // ApiError 是从 ApiClientError 类重新导出的类型别名
@@ -131,9 +132,9 @@ export const api = {
     checkPortConflict: (id: string, port: number, signal?: AbortSignal): Promise<PortConflictInfo> =>
       request<PortConflictInfo>(`/courses/${id}/port-conflict?port=${port}`, { signal }),
 
-    getProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<{ progress: any; exists: boolean }> => {
+    getProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<GetProgressResponse> => {
       const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
-      return request<{ progress: any; exists: boolean }>(`/progress/${id}${query}`, { signal })
+      return request<GetProgressResponse>(`/progress/${id}${query}`, { signal })
     },
 
     saveProgress: (
