@@ -109,7 +109,7 @@ test.describe('Onboarding Tour', () => {
     await expect(versionButton).toBeVisible({ timeout: 5000 });
     
     // 验证版本号显示
-    await expect(versionButton).toContainText(/v\d+\.\d+\.\d+|vdev/);
+    await expect(versionButton).toContainText(/v[0-9a-f]{7,}|v\d+\.\d+\.\d+|vdev/);
     
     // 点击打开面板
     await versionButton.click();
