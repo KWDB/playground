@@ -6,20 +6,26 @@ import { FaGithub } from 'react-icons/fa';
 import LogoUrl from '/assets/logo.svg?url';
 import EnvCheckButton from '@/components/business/EnvCheckButton';
 import EnvCheckPanel from '@/components/business/EnvCheckPanel';
+import UpgradeButton from '@/components/business/UpgradeButton';
+import UpgradePanel from '@/components/business/UpgradePanel';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
   const { startTour, isActive: isTourActive, currentPage: tourCurrentPage } = useTourStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showEnvPanel, setShowEnvPanel] = useState(false);
+  const [showUpgradePanel, setShowUpgradePanel] = useState(false);
   const envPanelRef = useRef<HTMLDivElement>(null);
+  const upgradePanelRef = useRef<HTMLDivElement>(null);
 
   // Click outside handler to close panel
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (envPanelRef.current && !envPanelRef.current.contains(event.target as Node)) {
-        setShowEnvPanel(false);
-      }
+      const target = event.target as Node;
+      if (envPanelRef.current && envPanelRef.current.contains(target)) return;
+      if (upgradePanelRef.current && upgradePanelRef.current.contains(target)) return;
+      setShowEnvPanel(false);
+      setShowUpgradePanel(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -109,11 +115,27 @@ const Navbar: React.FC = () => {
               <FaGithub className="w-4 h-4" />
             </a>
 
-            {/* Version and env status button */}
+            <div ref={upgradePanelRef} className="relative" data-tour-id="home-upgrade">
+              <UpgradeButton
+                onClick={() => {
+                  setShowUpgradePanel(!showUpgradePanel);
+                  setShowEnvPanel(false);
+                }}
+              />
+              {showUpgradePanel && (
+                <div className="absolute right-0 top-full mt-2 w-80 z-50">
+                  <UpgradePanel alwaysExpanded={true} />
+                </div>
+              )}
+            </div>
+
             <div ref={envPanelRef} className="relative" data-tour-id="home-env-check">
-              <EnvCheckButton 
-                variant="navbar" 
-                onClick={() => setShowEnvPanel(!showEnvPanel)} 
+              <EnvCheckButton
+                variant="navbar"
+                onClick={() => {
+                  setShowEnvPanel(!showEnvPanel);
+                  setShowUpgradePanel(false);
+                }}
               />
               {showEnvPanel && (
                 <div className="absolute right-0 top-full mt-2 w-80 z-50">

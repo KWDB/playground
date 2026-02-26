@@ -104,16 +104,27 @@ test.describe('Onboarding Tour', () => {
       await expect(tooltip).not.toBeVisible({ timeout: 3000 });
     }
     
-    // 查找版本环境按钮 (在导航栏中)
-    const versionButton = page.locator('[data-tour-id="home-env-check"]');
-    await expect(versionButton).toBeVisible({ timeout: 5000 });
-    
+    // 查找升级按钮 (在导航栏中)
+    const upgradeButton = page.locator('[data-tour-id="home-upgrade"]');
+    await expect(upgradeButton).toBeVisible({ timeout: 5000 });
+
     // 验证版本号显示
-    await expect(versionButton).toContainText(/v[0-9a-f]{7,}|v\d+\.\d+\.\d+|vdev/);
-    
-    // 点击打开面板
-    await versionButton.click();
-    
+    await expect(upgradeButton).toContainText(/v[0-9a-f]{7,}|v\d+\.\d+\.\d+|vdev/);
+
+    // 点击打开升级面板
+    await upgradeButton.click();
+
+    // 验证升级面板出现
+    const upgradePanel = page.locator('text=版本与升级');
+    await expect(upgradePanel).toBeVisible({ timeout: 3000 });
+
+    // 查找环境检测按钮 (在导航栏中)
+    const envButton = page.locator('[data-tour-id="home-env-check"]');
+    await expect(envButton).toBeVisible({ timeout: 5000 });
+
+    // 点击打开环境检测面板
+    await envButton.click();
+
     // 验证面板出现 - 检查 Docker 环境检测项
     const envPanel = page.locator('text=Docker 环境');
     await expect(envPanel).toBeVisible({ timeout: 3000 });
