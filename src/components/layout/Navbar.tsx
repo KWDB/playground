@@ -115,7 +115,7 @@ const Navbar: React.FC = () => {
               <FaGithub className="w-4 h-4" />
             </a>
 
-            <div ref={upgradePanelRef} className="relative">
+            <div ref={upgradePanelRef} className="relative" data-tour-id="home-upgrade">
               <UpgradeButton
                 onClick={() => {
                   setShowUpgradePanel(!showUpgradePanel);

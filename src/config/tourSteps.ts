@@ -19,9 +19,15 @@ export const tourSteps: Record<string, TourStep[]> = {
       position: 'left',
     },
     {
+      targetId: 'home-upgrade',
+      title: '版本升级',
+      content: '查看版本更新状态，点击可进行检查或升级',
+      position: 'bottom',
+    },
+    {
       targetId: 'home-env-check',
-      title: '版本与环境',
-      content: '显示当前版本号和环境检测状态，点击可查看详情',
+      title: '环境检测',
+      content: '查看本地环境检测状态与详情',
       position: 'bottom',
     },
   ],
