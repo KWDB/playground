@@ -65,7 +65,7 @@ func TestFetchReleaseFromAtomGit(t *testing.T) {
 	// Temporarily redirect the fetch function to use our mock server
 	// Since fetchReleaseFromAtomGit uses hardcoded URL, we need to make it configurable or inject the URL.
 	// We refactored the implementation to expose fetchReleaseFromAtomGitWithURL for testing.
-	
+
 	ctx := context.Background()
 	release, err := fetchReleaseFromAtomGitWithURL(ctx, server.URL+"/KWDB/playground.git/info/refs?service=git-upload-pack")
 	if err != nil {
@@ -83,7 +83,7 @@ func TestFetchReleaseFromAtomGit(t *testing.T) {
 	if len(release.Assets) == 0 {
 		t.Error("Expected assets to be populated, got 0")
 	}
-	
+
 	foundDarwinArm64 := false
 	for _, asset := range release.Assets {
 		if asset.Name == "kwdb-playground-darwin-arm64" {

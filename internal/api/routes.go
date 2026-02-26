@@ -840,7 +840,15 @@ func fetchReleaseFromGitHub(ctx context.Context) (githubRelease, error) {
 	return release, nil
 }
 
+func fetchReleaseFromAtomGit(ctx context.Context) (githubRelease, error) {
+	// AtomGit API requires authentication, so we fetch refs directly via Git HTTP protocol
+	// This avoids dependency on git command and works for public repos without token
+	url := "https://atomgit.com/KWDB/playground.git/info/refs?service=git-upload-pack"
+	return fetchReleaseFromAtomGitWithURL(ctx, url)
+}
+
 // fetchReleaseFromAtomGitWithURL allows injecting a custom URL for testing
+// This function is internal and used by fetchReleaseFromAtomGit and tests
 func fetchReleaseFromAtomGitWithURL(ctx context.Context, url string) (githubRelease, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -871,7 +879,7 @@ func fetchReleaseFromAtomGitWithURL(ctx context.Context, url string) (githubRele
 		if len(line) < 4 {
 			continue
 		}
-		
+
 		// Skip length prefix
 		content := line[4:]
 		if len(content) == 0 {
@@ -930,15 +938,7 @@ func fetchReleaseFromAtomGitWithURL(ctx context.Context, url string) (githubRele
 			BrowserDownloadURL: url,
 		})
 	}
-
 	return release, nil
-}
-
-func fetchReleaseFromAtomGit(ctx context.Context) (githubRelease, error) {
-	// AtomGit API requires authentication, so we fetch refs directly via Git HTTP protocol
-	// This avoids dependency on git command and works for public repos without token
-	url := "https://atomgit.com/KWDB/playground.git/info/refs?service=git-upload-pack"
-	return fetchReleaseFromAtomGitWithURL(ctx, url)
 }
 
 // compareVersions returns true if v1 < v2
@@ -972,12 +972,12 @@ func compareVersions(v1, v2 string) bool {
 			return n1 < n2
 		}
 	}
-	
+
 	// If prefixes match, shorter one is smaller? (e.g. 1.0 < 1.0.1)
 	// But actually 1.0 == 1.0.0
 	// If one has suffixes (like -rc), it's complicated.
 	// For standard versions, length doesn't matter if trailing are 0.
-	
+
 	return len1 < len2
 }
 
