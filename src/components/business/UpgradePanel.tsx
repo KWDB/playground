@@ -3,6 +3,10 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
 
+// 缓存 key 和有效期
+const UPGRADE_CHECK_CACHE_KEY = 'kwdb_upgrade_check';
+const UPGRADE_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 小时
+
 type UpgradeCheck = {
   currentVersion: string;
   latestVersion: string;
@@ -10,6 +14,38 @@ type UpgradeCheck = {
   canUpgrade: boolean;
   message: string;
   dockerDeploy: boolean;
+};
+
+// 缓存类型
+type CachedUpgradeCheck = {
+  data: UpgradeCheck;
+  timestamp: number;
+};
+
+// 获取缓存
+const getCachedUpgradeCheck = (): UpgradeCheck | null => {
+  try {
+    const cached = localStorage.getItem(UPGRADE_CHECK_CACHE_KEY);
+    if (!cached) return null;
+    const { data, timestamp }: CachedUpgradeCheck = JSON.parse(cached);
+    if (Date.now() - timestamp > UPGRADE_CACHE_DURATION) {
+      localStorage.removeItem(UPGRADE_CHECK_CACHE_KEY);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+// 设置缓存
+const setCachedUpgradeCheck = (data: UpgradeCheck) => {
+  try {
+    const cached: CachedUpgradeCheck = { data, timestamp: Date.now() };
+    localStorage.setItem(UPGRADE_CHECK_CACHE_KEY, JSON.stringify(cached));
+  } catch {
+    // 忽略缓存错误
+  }
 };
 
 export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpanded?: boolean }) {
@@ -52,18 +88,36 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
     }
   };
 
-  const loadUpgradeCheck = async () => {
+  const loadUpgradeCheck = async (forceRefresh = false) => {
+    // 如果不是强制刷新，先尝试使用缓存
+    if (!forceRefresh) {
+      const cached = getCachedUpgradeCheck();
+      if (cached) {
+        setUpgradeCheck(cached);
+        return;
+      }
+    }
+
     setUpgradeCheckLoading(true);
     setUpgradeCheckError(null);
     try {
       const resp = await fetch('/api/upgrade/check');
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        throw new Error(json.error || '检查更新失败');
+        // 简化错误信息，不显示具体原因
+        throw new Error('检查更新失败，请稍后重试');
       }
       setUpgradeCheck(json as UpgradeCheck);
+      // 缓存结果
+      setCachedUpgradeCheck(json as UpgradeCheck);
     } catch (e: unknown) {
-      setUpgradeCheckError(e instanceof Error ? e.message : '检查更新失败');
+      // 如果有缓存，显示缓存数据，不显示错误
+      const cached = getCachedUpgradeCheck();
+      if (cached) {
+        setUpgradeCheck(cached);
+        return;
+      }
+      setUpgradeCheckError(e instanceof Error ? e.message : '检查更新失败，请稍后重试');
     } finally {
       setUpgradeCheckLoading(false);
     }
@@ -100,7 +154,7 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={loadUpgradeCheck}
+                  onClick={() => loadUpgradeCheck(true)}
                   disabled={upgradeCheckLoading}
                   className="gap-1.5"
                 >

@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build windows
 
 package stop
 
@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/sys/unix"
+	"golang.org/x/sys/windows"
 )
 
 const (
@@ -22,7 +22,12 @@ func isProcessRunning(pid int) bool {
 	if pid <= 0 {
 		return false
 	}
-	return unix.Kill(pid, 0) == nil
+	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, false, uint32(pid))
+	if err != nil {
+		return false
+	}
+	windows.CloseHandle(handle)
+	return true
 }
 
 // readPIDFromFile 从 PID 文件读取进程号
@@ -36,6 +41,16 @@ func readPIDFromFile(filePath string) (int, bool) {
 		return 0, false
 	}
 	return pid, true
+}
+
+// terminateProcess 终止指定进程
+func terminateProcess(pid int, force bool) error {
+	handle, err := windows.OpenProcess(windows.PROCESS_TERMINATE, false, uint32(pid))
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(handle)
+	return windows.TerminateProcess(handle, 1)
 }
 
 // NewCommand 创建 stop 子命令
@@ -58,8 +73,8 @@ func NewCommand() *cobra.Command {
 				os.Exit(0)
 			}
 
-			// 发送 SIGTERM 信号
-			if err := unix.Kill(pid, unix.SIGTERM); err != nil {
+			// 尝试正常终止
+			if err := terminateProcess(pid, false); err != nil {
 				fmt.Printf("终止进程失败: %v\n", err)
 				os.Exit(1)
 			}
@@ -80,8 +95,8 @@ func NewCommand() *cobra.Command {
 			fmt.Println()
 
 			// 强制终止
-			fmt.Printf("进程 %d 未响应 SIGTERM，发送 SIGKILL\n", pid)
-			if err := unix.Kill(pid, unix.SIGKILL); err != nil {
+			fmt.Printf("进程 %d 未响应，强制终止\n", pid)
+			if err := terminateProcess(pid, true); err != nil {
 				fmt.Printf("强制终止失败: %v\n", err)
 				os.Exit(1)
 			}
