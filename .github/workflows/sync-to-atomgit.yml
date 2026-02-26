@@ -1,0 +1,39 @@
+name: Sync Release to AtomGit
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git Tag to sync (e.g. v0.6.0)'
+        required: true
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+        run: |
+          if [ -z "$ATOMGIT_TOKEN" ]; then
+            echo "::error::ATOMGIT_TOKEN secret is required"
+            exit 1
+          fi
+          
+          chmod +x .github/scripts/sync_atomgit_release.sh
+          
+          echo "Starting sync for tag: ${{ inputs.tag }}"
+          
+          ATOMGIT_AUTH_MODE=query \
+          .github/scripts/sync_atomgit_release.sh \
+            --tag "${{ inputs.tag }}" \
+            --github-owner "KWDB" \
+            --github-repo "playground" \
+            --atomgit-owner "KWDB" \
+            --atomgit-repo "playground" \
+            --atomgit-token "$ATOMGIT_TOKEN"

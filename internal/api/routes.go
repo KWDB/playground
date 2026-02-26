@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -807,28 +809,176 @@ func shellQuote(value string) string {
 }
 
 func fetchLatestRelease(ctx context.Context) (githubRelease, error) {
+	// Try GitHub first
+	release, err := fetchReleaseFromGitHub(ctx)
+	if err == nil {
+		return release, nil
+	}
+	// Fallback to AtomGit
+	return fetchReleaseFromAtomGit(ctx)
+}
+
+func fetchReleaseFromGitHub(ctx context.Context) (githubRelease, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/KWDB/playground/releases/latest", nil)
 	if err != nil {
 		return githubRelease{}, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return githubRelease{}, err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return githubRelease{}, fmt.Errorf("GitHub 返回状态 %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-
 	var release githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return githubRelease{}, err
 	}
 	return release, nil
+}
+
+func fetchReleaseFromAtomGit(ctx context.Context) (githubRelease, error) {
+	// AtomGit API requires authentication, so we fetch refs directly via Git HTTP protocol
+	// This avoids dependency on git command and works for public repos without token
+	url := "https://atomgit.com/KWDB/playground.git/info/refs?service=git-upload-pack"
+	return fetchReleaseFromAtomGitWithURL(ctx, url)
+}
+
+// fetchReleaseFromAtomGitWithURL allows injecting a custom URL for testing
+// This function is internal and used by fetchReleaseFromAtomGit and tests
+func fetchReleaseFromAtomGitWithURL(ctx context.Context, url string) (githubRelease, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return githubRelease{}, fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return githubRelease{}, fmt.Errorf("连接 AtomGit 失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return githubRelease{}, fmt.Errorf("AtomGit 返回状态: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return githubRelease{}, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	var tags []string
+	scanner := bufio.NewScanner(strings.NewReader(string(body)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Line format: <4-hex-len><sha1> <refname>
+		// Example: 003f7d8... refs/tags/v0.1.0
+		if len(line) < 4 {
+			continue
+		}
+
+		// Skip length prefix
+		content := line[4:]
+		if len(content) == 0 {
+			continue
+		}
+
+		// Find refs/tags/
+		if idx := strings.Index(content, "refs/tags/"); idx != -1 {
+			ref := content[idx:]
+			// Remove peeled tags suffix ^{}
+			ref = strings.TrimSuffix(ref, "^{}")
+			tag := strings.TrimPrefix(ref, "refs/tags/")
+			if tag != "" {
+				tags = append(tags, tag)
+			}
+		}
+	}
+
+	if len(tags) == 0 {
+		return githubRelease{}, fmt.Errorf("未找到 AtomGit tags")
+	}
+
+	// Sort tags to find latest (simple version sort)
+	sort.Slice(tags, func(i, j int) bool {
+		return compareVersions(tags[i], tags[j])
+	})
+
+	latestTag := tags[len(tags)-1]
+
+	// Construct a fake release object since we can't get full details without API
+	// The download URL follows a predictable pattern on AtomGit
+	release := githubRelease{
+		TagName: latestTag,
+		Assets:  []githubAsset{},
+	}
+
+	// We need to construct assets manually based on our naming convention
+	// kwdb-playground-<os>-<arch><ext>
+	targets := []struct {
+		os   string
+		arch string
+		ext  string
+	}{
+		{"linux", "amd64", ""},
+		{"linux", "arm64", ""},
+		{"darwin", "amd64", ""},
+		{"darwin", "arm64", ""},
+		{"windows", "amd64", ".exe"},
+	}
+
+	for _, t := range targets {
+		name := fmt.Sprintf("kwdb-playground-%s-%s%s", t.os, t.arch, t.ext)
+		url := fmt.Sprintf("https://atomgit.com/KWDB/playground/releases/download/%s/%s", latestTag, name)
+		release.Assets = append(release.Assets, githubAsset{
+			Name:               name,
+			BrowserDownloadURL: url,
+		})
+	}
+	return release, nil
+}
+
+// compareVersions returns true if v1 < v2
+func compareVersions(v1, v2 string) bool {
+	// Clean v prefix
+	v1 = strings.TrimPrefix(v1, "v")
+	v2 = strings.TrimPrefix(v2, "v")
+
+	parts1 := strings.Split(v1, ".")
+	parts2 := strings.Split(v2, ".")
+
+	len1 := len(parts1)
+	len2 := len(parts2)
+	maxLen := len1
+	if len2 > maxLen {
+		maxLen = len2
+	}
+
+	for i := 0; i < maxLen; i++ {
+		n1 := 0
+		if i < len1 {
+			// Try to parse number, ignore suffixes for now (simple logic)
+			fmt.Sscanf(parts1[i], "%d", &n1)
+		}
+		n2 := 0
+		if i < len2 {
+			fmt.Sscanf(parts2[i], "%d", &n2)
+		}
+
+		if n1 != n2 {
+			return n1 < n2
+		}
+	}
+
+	// If prefixes match, shorter one is smaller? (e.g. 1.0 < 1.0.1)
+	// But actually 1.0 == 1.0.0
+	// If one has suffixes (like -rc), it's complicated.
+	// For standard versions, length doesn't matter if trailing are 0.
+
+	return len1 < len2
 }
 
 func resolveRuntimeTarget() (string, string, string, error) {
