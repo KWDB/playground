@@ -1859,17 +1859,29 @@ func (d *dockerController) ExecCode(ctx context.Context, containerID string, opt
 		return nil, err
 	}
 
-	// 根据语言构建执行命令
+	// 根据语言构建执行命令（文件执行模式）
 	var cmd []string
+	var codeFile string
 	switch opts.Language {
 	case LanguagePython:
-		cmd = []string{"python3", "-c", opts.Code}
+		codeFile = "/tmp/user_code.py"
+		cmd = []string{"python3", codeFile}
 	case LanguageBash:
-		cmd = []string{"bash", "-c", opts.Code}
+		codeFile = "/tmp/user_code.sh"
+		cmd = []string{"bash", codeFile}
 	case LanguageNode:
-		cmd = []string{"node", "-e", opts.Code}
+		codeFile = "/tmp/user_code.js"
+		cmd = []string{"node", codeFile}
 	default:
-		cmd = []string{"python3", "-c", opts.Code}
+		codeFile = "/tmp/user_code.py"
+		cmd = []string{"python3", codeFile}
+	}
+
+	// 步骤1: 将代码写入容器中的文件
+	d.logger.Info("将代码写入容器文件: %s", codeFile)
+	err = d.CopyFilesToContainer(ctx, containerID, map[string][]byte{codeFile: []byte(opts.Code)})
+	if err != nil {
+		return nil, fmt.Errorf("failed to write code to file: %w", err)
 	}
 
 	// 准备执行环境（非交互式）

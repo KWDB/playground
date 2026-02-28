@@ -734,13 +734,18 @@ export function Learn() {
         } else if (course?.codeTerminal) {
           // 代码终端类型：使用 CodeTerminal 执行 Python 代码
           if (codeTerminalRef.current) {
-            // 从 data-command 中提取 Python 代码（格式：python3 - << 'PYTHON_EOF'\n{code}\nPYTHON_EOF）
+            // 从 data-command 中提取 Python 代码
             const codeMatch = command.match(/python3 - << 'PYTHON_EOF'\n([\s\S]*?)\nPYTHON_EOF$/)
             const pythonCode = codeMatch ? codeMatch[1] : command
+
+            // 先将代码填充到编辑器
+            codeTerminalRef.current.setCode(pythonCode)
+            // 然后执行代码
             codeTerminalRef.current.executeCode(pythonCode, 'python')
           } else {
             console.warn('CodeTerminal组件未准备就绪')
           }
+
         } else {
           // Shell 终端类型：发送命令到终端执行
           if (terminalRef.current) {
@@ -1391,7 +1396,7 @@ export function Learn() {
                   <div
                     className="h-full overflow-y-auto terminal-scrollbar"
                   >
-                    {!(course?.sqlTerminal) && (
+                    {!course?.sqlTerminal && !course?.codeTerminal && (
                       <div className="h-full">
                         {(containerStatus === 'running' || containerStatus === 'starting' || isStartingContainer) ? (
                           <TerminalComponent
@@ -1416,7 +1421,7 @@ export function Learn() {
                       // 将容器状态传入 SQL 终端，驱动其自动连接/停止逻辑
                       <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} />
                     )}
-                    {course?.codeTerminal && containerId && (
+                    {course?.codeTerminal && (
                       <CodeTerminal 
                         ref={codeTerminalRef} 
                         courseId={course.id} 

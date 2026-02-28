@@ -1,9 +1,13 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import { EditorView, placeholder as cmPlaceholder, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, highlightActiveLine } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { python } from '@codemirror/lang-python'
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldGutter, indentOnInput } from '@codemirror/language'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+
+export interface CodeEditorRef {
+  getValue: () => string
+}
 
 export interface CodeEditorProps {
   value: string
@@ -13,9 +17,10 @@ export interface CodeEditorProps {
   className?: string
   onFocus?: () => void
   onBlur?: () => void
+  language?: string
 }
 
-export default function CodeEditor({
+const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   value,
   onChange,
   placeholder,
@@ -23,20 +28,26 @@ export default function CodeEditor({
   className,
   onFocus,
   onBlur,
-}: CodeEditorProps) {
+  language = 'python',
+}, ref) => {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
   const readOnlyCompartment = useRef(new Compartment())
+
+  useImperativeHandle(ref, () => ({
+    getValue: () => viewRef.current?.state.doc.toString() || ''
+  }), [])
 
   // Python 风格浅色主题
   const pythonTheme = EditorView.theme({
     '&': {
       backgroundColor: 'transparent',
       color: 'var(--color-text-primary)',
-      height: 'auto',
+      height: '100%',
       borderRadius: 'var(--radius-md)',
       overflow: 'hidden',
     },
+
 
     '&.cm-focused': {
       outline: 'none !important',
@@ -65,11 +76,10 @@ export default function CodeEditor({
 
     '.cm-scroller': {
       overflow: 'auto',
-      minHeight: '100px',
-      maxHeight: '400px',
       scrollbarWidth: 'thin',
       scrollbarColor: 'var(--color-border-default) transparent',
     },
+
 
     '.cm-scroller::-webkit-scrollbar': {
       width: '6px',
@@ -291,4 +301,6 @@ export default function CodeEditor({
       }}
     />
   )
-}
+})
+
+export default CodeEditor

@@ -14,6 +14,8 @@ type Course struct {
 	Tags             []string     `json:"tags" yaml:"tags"`
 	// SqlTerminal 是否启用SQL终端（互斥显示）
 	SqlTerminal bool `json:"sqlTerminal" yaml:"sqlTerminal"`
+	// CodeTerminal 是否启用代码终端（与SqlTerminal互斥）
+	CodeTerminal bool `json:"codeTerminal" yaml:"codeTerminal"`
 	// TotalSteps 课程总步骤数
 	TotalSteps int `json:"totalSteps" yaml:"-"`
 }
