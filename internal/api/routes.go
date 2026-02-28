@@ -1371,13 +1371,14 @@ func (h *Handler) startCourse(c *gin.Context) {
 
 	// 创建容器配置
 	config := &docker.ContainerConfig{
-		Image:      imageName,
-		WorkingDir: workingDir,                // 使用配置的工作目录
-		Cmd:        cmd,                       // 根据课程配置的Cmd启动容器
-		Privileged: course.Backend.Privileged, // 根据课程配置的Privileged启动容器
-		Ports:      map[string]string{"26257": fmt.Sprintf("%d", course.Backend.Port)},
-		Volumes:    volumes, // 课程定义的卷绑定
-		Env:        env,     // 课程定义的环境变量
+		Image:       imageName,
+		WorkingDir:  workingDir,                // 使用配置的工作目录
+		Cmd:         cmd,                       // 根据课程配置的Cmd启动容器
+		Privileged:  course.Backend.Privileged, // 根据课程配置的Privileged启动容器
+		Ports:       map[string]string{"26257": fmt.Sprintf("%d", course.Backend.Port)},
+		Volumes:     volumes, // 课程定义的卷绑定
+		Env:         env,     // 课程定义的环境变量
+		MemoryLimit: 512 * 1024 * 1024, // 512MB 内存限制
 	}
 
 	h.logger.Debug("[startCourse] 创建容器配置完成，镜像: %s，工作目录: %s，Cmd: %v, Privileged: %v",

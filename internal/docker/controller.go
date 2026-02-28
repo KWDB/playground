@@ -1906,11 +1906,34 @@ func (d *dockerController) ExecCode(ctx context.Context, containerID string, opt
 		return nil, fmt.Errorf("failed to start exec: %w", err)
 	}
 
-	// 读取输出
+	// 使用带超时的上下文读取输出
 	var stdoutBuf, stderrBuf bytes.Buffer
-	_, err = io.Copy(&stdoutBuf, attachResp.Reader)
-	if err != nil && err != io.EOF {
-		return nil, fmt.Errorf("failed to read output: %w", err)
+	var copyErr error
+
+	// 创建通道来协调复制操作和超时
+	doneChan := make(chan struct{})
+	go func() {
+		_, copyErr = io.Copy(&stdoutBuf, attachResp.Reader)
+		close(doneChan)
+	}()
+
+	// 等待复制完成或超时
+	select {
+	case <-doneChan:
+		// 复制完成
+	case <-ctx.Done():
+		// 超时或取消 - 关闭reader以中断复制
+		attachResp.Close()
+		// 等待复制goroutine结束
+		<-doneChan
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("code execution timed out after %v", timeout)
+		}
+		return nil, ctx.Err()
+	}
+
+	if copyErr != nil && copyErr != io.EOF {
+		return nil, fmt.Errorf("failed to read output: %w", copyErr)
 	}
 
 	// 检查执行结果

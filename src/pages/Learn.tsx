@@ -18,7 +18,9 @@ import '../styles/markdown.css';
 import { useLearnStore, effectiveImageSelector, imageSourceLabelSelector } from '../store/learnStore';
 import { useTourStore } from '../store/tourStore';
 import { TourTooltip } from '../components/ui/TourTooltip';
-import { getStepsForPage, getTotalSteps } from '../config/tourSteps';
+import CodeEditor from '../components/business/CodeEditor'
+import CodeTerminal, { CodeTerminalRef } from '../components/business/CodeTerminal'
+import { getStepsForPage, getTotalSteps } from '../config/tourSteps'
 import { api } from '../lib/api/client'
 
 export function Learn() {
@@ -70,6 +72,7 @@ export function Learn() {
 
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
   const terminalRef = useRef<TerminalRef>(null)
+  const codeTerminalRef = useRef<CodeTerminalRef>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const effectiveImage = useMemo(() => effectiveImageSelector(useLearnStore.getState() as any), [course]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -728,6 +731,16 @@ export function Learn() {
           } else {
             console.warn('SQL Terminal组件未准备就绪')
           }
+        } else if (course?.codeTerminal) {
+          // 代码终端类型：使用 CodeTerminal 执行 Python 代码
+          if (codeTerminalRef.current) {
+            // 从 data-command 中提取 Python 代码（格式：python3 - << 'PYTHON_EOF'\n{code}\nPYTHON_EOF）
+            const codeMatch = command.match(/python3 - << 'PYTHON_EOF'\n([\s\S]*?)\nPYTHON_EOF$/)
+            const pythonCode = codeMatch ? codeMatch[1] : command
+            codeTerminalRef.current.executeCode(pythonCode, 'python')
+          } else {
+            console.warn('CodeTerminal组件未准备就绪')
+          }
         } else {
           // Shell 终端类型：发送命令到终端执行
           if (terminalRef.current) {
@@ -741,7 +754,7 @@ export function Learn() {
         alert('请先启动容器后再执行命令')
       }
     }
-  }, [containerId, containerStatus, course?.sqlTerminal])
+  }, [containerId, containerStatus, course?.sqlTerminal, course?.codeTerminal])
 
   // =============================
   // Markdown 渲染：基于 ReactMarkdown + 代码高亮
@@ -821,6 +834,9 @@ export function Learn() {
               const hasExecInClass = langToken.includes('-exec')
               const language = langToken.replace(/-exec$/, '')
 
+              // 检测是否为 Python 代码块
+              const isPython = language === 'python'
+
               return match ? (
                 <div className="markdown-code-block">
                   <div className="markdown-code-header">
@@ -833,11 +849,11 @@ export function Learn() {
                       <span className="markdown-code-language">{language}</span>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <div className="markdown-code-title">{(hasExecMeta || hasExecInClass) ? '可执行代码' : '代码块'}</div>
-                      {(hasExecMeta || hasExecInClass) && (
+                      <div className="markdown-code-title">{(hasExecMeta || hasExecInClass || isPython) ? '可执行代码' : '代码块'}</div>
+                      {(hasExecMeta || hasExecInClass || isPython) && (
                         <button
                           className="exec-btn"
-                          data-command={codeText}
+                          data-command={isPython ? `python3 - << 'PYTHON_EOF'\n${codeText}\nPYTHON_EOF` : codeText}
                           title="执行命令"
                           aria-label="执行当前代码块命令"
                         >
@@ -847,14 +863,22 @@ export function Learn() {
                     </div>
                   </div>
                   <div className="markdown-code-content">
-                    <SyntaxHighlighter
-                      style={highlighterStyle}
-                      language={language}
-                      PreTag="pre"
-                      className="markdown-syntax-highlighter"
-                    >
-                      {codeText}
-                    </SyntaxHighlighter>
+                    {isPython ? (
+                      <CodeEditor
+                        value={codeText}
+                        readOnly
+                        className="python-editor"
+                      />
+                    ) : (
+                      <SyntaxHighlighter
+                        style={highlighterStyle}
+                        language={language}
+                        PreTag="pre"
+                        className="markdown-syntax-highlighter"
+                      >
+                        {codeText}
+                      </SyntaxHighlighter>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1391,6 +1415,14 @@ export function Learn() {
                     {course?.sqlTerminal && course?.backend?.port && course?.id && (
                       // 将容器状态传入 SQL 终端，驱动其自动连接/停止逻辑
                       <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} />
+                    )}
+                    {course?.codeTerminal && containerId && (
+                      <CodeTerminal 
+                        ref={codeTerminalRef} 
+                        courseId={course.id} 
+                        containerId={containerId} 
+                        containerStatus={containerStatus} 
+                      />
                     )}
                   </div>
                 </div>
