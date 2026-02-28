@@ -1832,6 +1832,108 @@ func (d *dockerController) CopyFilesToContainer(ctx context.Context, containerID
 	return nil
 }
 
+
+// ExecCode 在容器中执行代码（非交互式）
+// 支持Python、Bash等语言，带超时控制
+func (d *dockerController) ExecCode(ctx context.Context, containerID string, opts *ExecCodeOptions) (*ExecCodeResult, error) {
+	if containerID == "" {
+		return nil, fmt.Errorf("container ID cannot be empty")
+	}
+	if opts == nil || opts.Code == "" {
+		return nil, fmt.Errorf("code cannot be empty")
+	}
+
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	d.logger.Info("在容器 %s 中执行代码，语言: %s", containerID, opts.Language)
+
+	// 获取容器信息
+	containerInfo, inspect, err := d.getContainerInfo(ctx, containerID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 根据语言构建执行命令
+	var cmd []string
+	switch opts.Language {
+	case LanguagePython:
+		cmd = []string{"python3", "-c", opts.Code}
+	case LanguageBash:
+		cmd = []string{"bash", "-c", opts.Code}
+	case LanguageNode:
+		cmd = []string{"node", "-e", opts.Code}
+	default:
+		cmd = []string{"python3", "-c", opts.Code}
+	}
+
+	// 准备执行环境（非交互式）
+	env, user, workingDir := d.prepareExecEnvironment(inspect, false)
+
+	// 创建执行配置（非交互式，不使用TTY）
+	execConfig := client.ExecCreateOptions{
+		Cmd:          cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+		AttachStdin:  false,
+		TTY:          false,
+		WorkingDir:   workingDir,
+		Env:          env,
+		User:         user,
+	}
+
+	// 创建执行实例
+	execResp, err := d.client.ContainerExecCreate(ctx, containerInfo.DockerID, execConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create exec: %w", err)
+	}
+
+	// 启动执行并附加输出流
+	attachResp, err := d.client.ContainerExecAttach(ctx, execResp.ID, client.ExecAttachOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach exec: %w", err)
+	}
+	defer attachResp.Close()
+
+	// 启动命令执行
+	err = d.client.ContainerExecStart(ctx, execResp.ID, client.ExecStartOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to start exec: %w", err)
+	}
+
+	// 读取输出
+	var stdoutBuf, stderrBuf bytes.Buffer
+	_, err = io.Copy(&stdoutBuf, attachResp.Reader)
+	if err != nil && err != io.EOF {
+		return nil, fmt.Errorf("failed to read output: %w", err)
+	}
+
+	// 检查执行结果
+	inspectResp, err := d.client.ContainerExecInspect(ctx, execResp.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect exec: %w", err)
+	}
+
+	// 构建结果
+	result := &ExecCodeResult{
+		Stdout:   stdoutBuf.String(),
+		Stderr:   stderrBuf.String(),
+		ExitCode: inspectResp.ExitCode,
+	}
+
+	if inspectResp.ExitCode != 0 {
+		result.Error = fmt.Sprintf("command failed with exit code %d", inspectResp.ExitCode)
+	}
+
+	d.logger.Info("代码执行完成，容器: %s, 退出码: %d", containerID, result.ExitCode)
+	return result, nil
+}
+
 // Close 关闭控制器
 func (d *dockerController) Close() error {
 	if d.client != nil {

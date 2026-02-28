@@ -41,6 +41,7 @@ type Handler struct {
 	dockerController docker.Controller
 	// terminalManager WebSocket终端管理器实例，用于终端会话管理
 	terminalManager *ws.TerminalManager
+	codeManager *ws.CodeManager
 	// logger 日志记录器实例，用于统一日志管理
 	logger *logger.Logger
 
@@ -67,6 +68,7 @@ func NewHandler(
 	courseService *course.Service,
 	dockerController docker.Controller,
 	terminalManager *ws.TerminalManager,
+	codeManager *ws.CodeManager,
 	logger *logger.Logger,
 	cfg *config.Config,
 ) *Handler {
@@ -74,6 +76,7 @@ func NewHandler(
 		courseService:    courseService,
 		dockerController: dockerController,
 		terminalManager:  terminalManager,
+		codeManager:      codeManager,
 		logger:           logger,
 		cfg:              cfg,
 		sqlDriverManager: sql.NewDriverManager(),
@@ -152,6 +155,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 	r.GET("/ws/terminal", h.handleTerminalWebSocket)
 	// SQL WebSocket 路由（与Shell终端操作方式一致）
 	r.GET("/ws/sql", h.handleSqlWebSocket)
+	r.GET("/ws/code", h.handleCodeWebSocket)
 }
 
 // sqlInfo 返回KWDB连接信息（版本、端口、架构、编译时间、连接状态）
@@ -2959,4 +2963,51 @@ func (h *Handler) resetProgress(c *gin.Context) {
 		"message":  "进度已重置",
 		"courseId": courseID,
 	})
+}
+
+// handleCodeWebSocket 处理代码执行WebSocket连接
+func (h *Handler) handleCodeWebSocket(c *gin.Context) {
+	sessionID := c.Query("session_id")
+	if sessionID == "" {
+		sessionID = fmt.Sprintf("code_session_%d", time.Now().UnixNano())
+	}
+
+	if h.codeManager == nil {
+		h.logger.Error("代码执行管理器不可用")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "代码执行管理器不可用"})
+		return
+	}
+
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		h.logger.Error("WebSocket升级失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "WebSocket连接升级失败"})
+		return
+	}
+	defer conn.Close()
+
+	session := h.codeManager.CreateSession(sessionID, conn, h.dockerController)
+	defer h.codeManager.RemoveSession(sessionID)
+	session.SetLogger(h.logger)
+
+	err = session.StartSession()
+	if err != nil {
+		h.logger.Error("启动代码执行会话失败: %v", err)
+		return
+	}
+
+	h.logger.Info("代码执行会话 %s 已启动", sessionID)
+
+	select {
+	case <-c.Request.Context().Done():
+		h.logger.Info("客户端断开连接，会话: %s", sessionID)
+	case <-session.Done():
+		h.logger.Info("代码执行会话结束: %s", sessionID)
+	}
 }

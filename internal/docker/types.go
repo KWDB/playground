@@ -86,3 +86,31 @@ type ImageAvailability struct {
 	CheckedAt    time.Time `json:"checkedAt"`    // 检查时间
 	ResponseTime int64     `json:"responseTime"` // 响应时间（毫秒）
 }
+
+// CodeLanguage 定义支持的代码执行语言
+type CodeLanguage string
+
+const (
+	// LanguagePython Python语言
+	LanguagePython CodeLanguage = "python"
+	// LanguageBash Bash脚本
+	LanguageBash CodeLanguage = "bash"
+	// LanguageNode JavaScript/Node.js
+	LanguageNode CodeLanguage = "node"
+)
+
+// ExecCodeResult 代码执行结果
+type ExecCodeResult struct {
+	Stdout   string `json:"stdout"`          // 标准输出
+	Stderr   string `json:"stderr"`          // 标准错误
+	ExitCode int    `json:"exitCode"`        // 退出码
+	Error    string `json:"error,omitempty"` // 错误信息（如果有）
+	Duration int64  `json:"duration"`        // 执行时长（毫秒）
+}
+
+// ExecCodeOptions 代码执行选项
+type ExecCodeOptions struct {
+	Language CodeLanguage // 代码语言
+	Code     string       // 要执行的代码
+	Timeout  time.Duration // 执行超时时间（默认30秒）
+}
