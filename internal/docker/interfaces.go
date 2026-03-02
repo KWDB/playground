@@ -135,6 +135,9 @@ type Controller interface {
 	// SetNetworkName 设置课程容器使用的 Docker 网络名称
 	SetNetworkName(name string)
 
+	// ExecCode 在容器中执行代码（非交互式）
+	// 支持Python、Bash等语言，带超时控制，返回执行结果
+	ExecCode(ctx context.Context, containerID string, opts *ExecCodeOptions) (*ExecCodeResult, error)
 	// Close 关闭控制器
 	Close() error
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, Circle } from 'lucide-react';
+import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, Code, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, Circle } from 'lucide-react';
 import { ContainerInfo } from '@/types';
 import { api } from '@/lib/api/client';
 import { UserProgress } from '@/lib/api/types';
@@ -21,11 +21,12 @@ interface Course {
   tags: string[];
   dockerImage: string;
   sqlTerminal?: boolean;
+  codeTerminal?: boolean;
   totalSteps?: number;
 }
 
 interface FilterState {
-  type: 'all' | 'sql' | 'shell';
+  type: 'all' | 'sql' | 'shell' | 'code';
   difficulty: string[];
   tags: string[];
   timeRange: [number, number];
@@ -111,7 +112,8 @@ export function CourseList() {
         if (!basicMatch && !pinyinMatch) return false;
       }
       if (filters.type === 'sql' && !course.sqlTerminal) return false;
-      if (filters.type === 'shell' && course.sqlTerminal) return false;
+      if (filters.type === 'code' && !course.codeTerminal) return false;
+      if (filters.type === 'shell' && (course.sqlTerminal || course.codeTerminal)) return false;
       if (filters.difficulty.length > 0 && !filters.difficulty.includes(course.difficulty)) return false;
       if (filters.tags.length > 0) {
         const hasTag = course.tags.some(tag => filters.tags.includes(tag));
@@ -391,11 +393,12 @@ export function CourseList() {
                   课程类型
                 </label>
                 <div className="flex gap-2">
-                  {[
-                    { value: 'all', label: '全部', icon: null },
+                  {([
+                    { value: 'all', label: '全部', icon: null, color: '' },
                     { value: 'sql', label: 'SQL', icon: Database, color: '#7c3aed' },
+                    { value: 'code', label: 'Code', icon: Code, color: '#f32bd8ff' },
                     { value: 'shell', label: 'Shell', icon: Terminal, color: '#16a34a' },
-                  ].map((type) => (
+                  ] as const).map((type) => (
                     <button
                       key={type.value}
                       onClick={() => setFilters({ ...filters, type: type.value as FilterState['type'] })}
@@ -403,6 +406,8 @@ export function CourseList() {
                         filters.type === type.value
                           ? type.value === 'sql'
                             ? 'bg-[#ede9fe] text-[#7c3aed] border-[#7c3aed] shadow-sm'
+                            : type.value === 'code'
+                            ? 'bg-[#f3e8ff] text-[#f32bd8ff] border-[#f32bd8ff] shadow-sm'
                             : type.value === 'shell'
                             ? 'bg-[#dcfce7] text-[#16a34a] border-[#16a34a] shadow-sm'
                             : 'bg-[var(--color-text-primary)] text-white border-[var(--color-text-primary)] shadow-sm'
@@ -537,9 +542,13 @@ export function CourseList() {
                       ${isRunning 
                         ? course.sqlTerminal 
                           ? 'border-l-[3px] border-l-[var(--color-accent-primary)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
+                          : course.codeTerminal
+                          ? 'border-l-[3px] border-l-[#f32bd8ff] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
                           : 'border-l-[3px] border-l-[#3b82f6] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
                         : course.sqlTerminal
                           ? 'border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]'
+                          : course.codeTerminal
+                          ? 'border-[var(--color-border-light)] hover:border-[#f32bd8ff]'
                           : 'border-[var(--color-border-light)] hover:border-[#3b82f6]'
                       }
                     `}
@@ -549,11 +558,15 @@ export function CourseList() {
                       transition-colors duration-200 border-2
                       ${course.sqlTerminal 
                         ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)]/20 group-hover:border-[var(--color-accent-primary)]/40' 
+                        : course.codeTerminal
+                        ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
                         : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
                       }
                     `}>
                       {course.sqlTerminal ? (
                         <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
+                      ) : course.codeTerminal ? (
+                        <Code className="w-5 h-5 text-[#f32bd8ff]" />
                       ) : (
                         <Terminal className="w-5 h-5 text-[#3b82f6]" />
                       )}
@@ -566,9 +579,11 @@ export function CourseList() {
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                           course.sqlTerminal 
                             ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
+                            : course.codeTerminal
+                            ? 'bg-[#f3e8ff] text-[#f32bd8ff] border border-[#f32bd8ff]/40'
                             : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
                         }`}>
-                          {course.sqlTerminal ? 'SQL' : 'SHELL'}
+                          {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
                         </span>
                       </div>
                       <p className="text-xs text-[var(--color-text-tertiary)] truncate leading-relaxed">
@@ -645,11 +660,15 @@ export function CourseList() {
                       transition-colors duration-200 border-2
                       ${course.sqlTerminal 
                         ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)]/20 group-hover:border-[var(--color-accent-primary)]/40' 
+                        : course.codeTerminal
+                        ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
                         : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
                       }
                     `}>
                       {course.sqlTerminal ? (
                         <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
+                      ) : course.codeTerminal ? (
+                        <Code className="w-5 h-5 text-[#f32bd8ff]" />
                       ) : (
                         <Terminal className="w-5 h-5 text-[#3b82f6]" />
                       )}
@@ -662,9 +681,11 @@ export function CourseList() {
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                           course.sqlTerminal 
                             ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
+                            : course.codeTerminal
+                            ? 'bg-[#f3e8ff] text-[#f32bd8ff] border border-[#f32bd8ff]/40'
                             : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
                         }`}>
-                          {course.sqlTerminal ? 'SQL' : 'SHELL'}
+                          {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
                         </span>
                       </div>
                       <p className="text-xs text-[var(--color-text-tertiary)] line-clamp-2 leading-relaxed">
@@ -777,6 +798,7 @@ export function CourseList() {
                   const course = courses.find(c => c.id === container.courseId);
                   const isSelected = selectedCourses.has(container.courseId);
                   const isSql = course?.sqlTerminal ?? false;
+                  const isCode = course?.codeTerminal ?? false;
                   
                   return (
                     <div 
@@ -797,10 +819,14 @@ export function CourseList() {
                       <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
                         isSql 
                           ? 'bg-[var(--color-accent-subtle)]' 
+                          : isCode
+                          ? 'bg-[rgba(139,92,246,0.1)]'
                           : 'bg-[rgba(59,130,246,0.1)]'
                       }`}>
                         {isSql ? (
                           <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
+                        ) : isCode ? (
+                          <Code className="w-5 h-5 text-[#f32bd8ff]" />
                         ) : (
                           <Terminal className="w-5 h-5 text-[#3b82f6]" />
                         )}
@@ -817,9 +843,11 @@ export function CourseList() {
                           <span className={`px-2 py-0.5 rounded-md text-xs font-semibold shrink-0 mt-0.5 ${
                             isSql 
                               ? 'bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]' 
+                              : isCode
+                              ? 'bg-[rgba(139,92,246,0.1)] text-[#f32bd8ff]'
                               : 'bg-[rgba(59,130,246,0.1)] text-[#3b82f6]'
                           }`}>
-                            {isSql ? 'SQL' : 'Shell'}
+                            {isSql ? 'SQL' : isCode ? 'Code' : 'Shell'}
                           </span>
                         </div>
                         <div className="flex items-center gap-4 mt-2 text-sm text-[var(--color-text-secondary)]">

@@ -10,6 +10,7 @@ export interface Course {
     finish: { content: string }
   }
   sqlTerminal?: boolean
+  codeTerminal?: boolean
   backend?: {
     port?: number
     imageid?: string

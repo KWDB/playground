@@ -18,7 +18,9 @@ import '../styles/markdown.css';
 import { useLearnStore, effectiveImageSelector, imageSourceLabelSelector } from '../store/learnStore';
 import { useTourStore } from '../store/tourStore';
 import { TourTooltip } from '../components/ui/TourTooltip';
-import { getStepsForPage, getTotalSteps } from '../config/tourSteps';
+import CodeEditor from '../components/business/CodeEditor'
+import CodeTerminal, { CodeTerminalRef } from '../components/business/CodeTerminal'
+import { getStepsForPage, getTotalSteps } from '../config/tourSteps'
 import { api } from '../lib/api/client'
 
 export function Learn() {
@@ -57,19 +59,23 @@ export function Learn() {
 
   const { seenPages, startTour, nextStep, prevStep, skipTour, currentStep: tourCurrentStep, isActive: isTourActive, hasHydrated } = useTourStore();
 
+  // 根据课程类型选择不同的引导
+  const tourKey = course?.codeTerminal ? 'learn-code' : 'learn'
+
   useEffect(() => {
     if (!hasHydrated) return;
-    if (!seenPages?.learn && !isTourActive) {
-      startTour('learn');
+    if (!seenPages?.[tourKey] && !isTourActive) {
+      startTour(tourKey);
     }
-  }, [seenPages.learn, isTourActive, startTour, hasHydrated]);
+  }, [seenPages, isTourActive, startTour, hasHydrated, tourKey]);
 
-  const tourSteps = getStepsForPage('learn');
-  const totalTourSteps = getTotalSteps('learn');
+  const tourSteps = getStepsForPage(tourKey);
+  const totalTourSteps = getTotalSteps(tourKey);
   const activeTourStep = tourSteps[tourCurrentStep];
 
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
   const terminalRef = useRef<TerminalRef>(null)
+  const codeTerminalRef = useRef<CodeTerminalRef>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const effectiveImage = useMemo(() => effectiveImageSelector(useLearnStore.getState() as any), [course]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -728,6 +734,23 @@ export function Learn() {
           } else {
             console.warn('SQL Terminal组件未准备就绪')
           }
+        } else if (course?.codeTerminal) {
+          // 代码终端类型：使用 CodeTerminal 执行代码
+          if (codeTerminalRef.current) {
+            // 从 data-command 中提取代码
+            const codeMatch = command.match(/python3 - << 'PYTHON_EOF'\n([\s\S]*?)\nPYTHON_EOF$/)
+            const code = codeMatch ? codeMatch[1] : command
+
+            // 获取语言类型
+            const execLanguage = button.getAttribute('data-language') || 'bash'
+
+            // 先将代码填充到编辑器
+            codeTerminalRef.current.setCode(code)
+            codeTerminalRef.current.executeCode(code, execLanguage)
+          } else {
+            console.warn('CodeTerminal组件未准备就绪')
+          }
+
         } else {
           // Shell 终端类型：发送命令到终端执行
           if (terminalRef.current) {
@@ -741,7 +764,7 @@ export function Learn() {
         alert('请先启动容器后再执行命令')
       }
     }
-  }, [containerId, containerStatus, course?.sqlTerminal])
+  }, [containerId, containerStatus, course?.sqlTerminal, course?.codeTerminal])
 
   // =============================
   // Markdown 渲染：基于 ReactMarkdown + 代码高亮
@@ -821,6 +844,9 @@ export function Learn() {
               const hasExecInClass = langToken.includes('-exec')
               const language = langToken.replace(/-exec$/, '')
 
+              // 检测是否为可执行代码块
+              const isExecutable = language === 'python' || language === 'bash'
+
               return match ? (
                 <div className="markdown-code-block">
                   <div className="markdown-code-header">
@@ -833,13 +859,13 @@ export function Learn() {
                       <span className="markdown-code-language">{language}</span>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <div className="markdown-code-title">{(hasExecMeta || hasExecInClass) ? '可执行代码' : '代码块'}</div>
-                      {(hasExecMeta || hasExecInClass) && (
+                      <div className="markdown-code-title">{(hasExecMeta || hasExecInClass || isExecutable) ? '可执行代码' : '代码块'}</div>
+                      {(hasExecMeta || hasExecInClass || isExecutable) && (
                         <button
                           className="exec-btn"
-                          data-command={codeText}
+                          data-command={language === 'python' ? `python3 - << 'PYTHON_EOF'\n${codeText}\nPYTHON_EOF` : codeText}
+                          data-language={language}
                           title="执行命令"
-                          aria-label="执行当前代码块命令"
                         >
                           Run
                         </button>
@@ -847,14 +873,22 @@ export function Learn() {
                     </div>
                   </div>
                   <div className="markdown-code-content">
-                    <SyntaxHighlighter
-                      style={highlighterStyle}
-                      language={language}
-                      PreTag="pre"
-                      className="markdown-syntax-highlighter"
-                    >
-                      {codeText}
-                    </SyntaxHighlighter>
+                    {language === 'python' ? (
+                      <CodeEditor
+                        value={codeText}
+                        readOnly
+                        className="python-editor"
+                      />
+                    ) : (
+                      <SyntaxHighlighter
+                        style={highlighterStyle}
+                        language={language}
+                        PreTag="pre"
+                        className="markdown-syntax-highlighter"
+                      >
+                        {codeText}
+                      </SyntaxHighlighter>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1367,7 +1401,7 @@ export function Learn() {
                   <div
                     className="h-full overflow-y-auto terminal-scrollbar"
                   >
-                    {!(course?.sqlTerminal) && (
+                    {!course?.sqlTerminal && !course?.codeTerminal && (
                       <div className="h-full">
                         {(containerStatus === 'running' || containerStatus === 'starting' || isStartingContainer) ? (
                           <TerminalComponent
@@ -1391,6 +1425,14 @@ export function Learn() {
                     {course?.sqlTerminal && course?.backend?.port && course?.id && (
                       // 将容器状态传入 SQL 终端，驱动其自动连接/停止逻辑
                       <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} />
+                    )}
+                    {course?.codeTerminal && (
+                      <CodeTerminal 
+                        ref={codeTerminalRef} 
+                        courseId={course.id} 
+                        containerId={containerId} 
+                        containerStatus={containerStatus} 
+                      />
                     )}
                   </div>
                 </div>

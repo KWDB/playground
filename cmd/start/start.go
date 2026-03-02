@@ -168,7 +168,9 @@ func Run(staticFiles embed.FS, args []string) error {
 	})
 
 	// API 路由
-	apiHandler := api.NewHandler(courseService, dockerController, terminalManager, appLogger, cfg)
+	codeManager := websocket.NewCodeManager()
+
+	apiHandler := api.NewHandler(courseService, dockerController, terminalManager, codeManager, appLogger, cfg)
 	apiHandler.SetupRoutes(r)
 
 	// 前端路由（index.html）

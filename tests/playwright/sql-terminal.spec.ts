@@ -1,7 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './test-setup';
 
 test.describe('SQL 终端', () => {
   test.beforeEach(async ({ request, page }) => {
+    // 确保从干净状态开始
+    try { await request.post('/api/courses/sql/stop'); } catch { /* ignore */ }
     await request.post('/api/progress/sql/reset');
     await page.addInitScript(() => {
       localStorage.setItem('hasSeenTour', JSON.stringify({
@@ -48,20 +50,20 @@ test.describe('SQL 终端', () => {
   await expect(page.getByText('操作成功')).toBeVisible({ timeout: 10000 });
   await page.getByRole('paragraph').filter({ hasText: '创建一个名为 device_management' }).getByRole('button').click();
   await expect(page.getByText('操作成功')).toBeVisible({ timeout: 10000 });
-  await page.locator('pre').filter({ hasText: 'sql可执行代码Run-- 在时序数据库中创建传感器读数表 CREATE TABLE sensor_data.readings ( ts' }).getByLabel('执行当前代码块命令').click();
+  await page.locator('.markdown-code-block').filter({ hasText: '在时序数据库中创建传感器读数表' }).locator('button.exec-btn').click();
   await expect(page.getByText('操作成功')).toBeVisible({ timeout: 10000 });
-  await page.locator('pre').filter({ hasText: 'sql可执行代码Run-- 在关系数据库中创建设备信息表' }).getByLabel('执行当前代码块命令').click();
+  await page.locator('.markdown-code-block').filter({ hasText: '在关系数据库中创建设备信息表' }).locator('button.exec-btn').click();
   await expect(page.getByText('操作成功')).toBeVisible({ timeout: 10000 });
   console.log('✅ 执行第一页的命令');
 
   // 7) 点击“下一步”，执行第二页的命令
   await page.getByRole('button', { name: '下一步' }).click();
   await expect(page.getByText('向关系表插入设备信息')).toBeVisible({ timeout: 10000 });
-  await page.locator('pre').filter({ hasText: 'sql可执行代码RunINSERT INTO device_management.devices VALUES (101, \'温度传感器-101' }).getByLabel('执行当前代码块命令').click();
+  await page.locator('.markdown-code-block').filter({ hasText: 'INSERT INTO device_management.devices' }).locator('button.exec-btn').click();
   await expect(page.getByText('影响 3 行数据')).toBeVisible({ timeout: 10000 });
-  await page.locator('pre').filter({ hasText: 'sql可执行代码RunINSERT INTO sensor_data.readings VALUES (\'2025-08-15 13:00:00\', 23.5' }).getByLabel('执行当前代码块命令').click();
+  await page.locator('.markdown-code-block').filter({ hasText: 'INSERT INTO sensor_data.readings' }).locator('button.exec-btn').click();
   await expect(page.getByText('影响 8 行数据')).toBeVisible({ timeout: 10000 });
-  await page.locator('pre').filter({ hasText: 'sql可执行代码RunSELECT r.ts AS' }).getByLabel('执行当前代码块命令').click();
+  await page.locator('.markdown-code-block').filter({ hasText: 'SELECT r.ts AS' }).locator('button.exec-btn').click();
   console.log('✅ 执行第二页的命令');
 
   // 操作页面右侧滚动条滚动到底部（滚动主文档）

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './test-setup';
 
 test.describe('课程暂停与恢复功能', () => {
   // 每个测试前清理状态
@@ -14,16 +14,8 @@ test.describe('课程暂停与恢复功能', () => {
     // 2. 清理 localStorage，使用默认镜像源
     await page.addInitScript(() => {
       localStorage.clear();
-      localStorage.setItem('hasSeenTour', JSON.stringify({
-        state: {
-          seenPages: { home: true, courses: true, learn: true },
-          currentPage: null,
-          currentStep: 0,
-          isActive: false,
-          hasHydrated: true,
-        },
-        version: 0,
-      }));
+      // Re-set tour disable flag after clear (test-setup sets it, but clear() wipes it)
+      localStorage.setItem('TOUR_DISABLED_FOR_E2E', 'true');
     });
   });
 

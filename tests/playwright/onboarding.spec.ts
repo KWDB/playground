@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './test-setup';
 
 test.describe('Onboarding Tour', () => {
   test.beforeEach(async ({ page }) => {
@@ -7,6 +7,10 @@ test.describe('Onboarding Tour', () => {
         localStorage.removeItem('hasSeenTour');
         sessionStorage.setItem('tourStorageCleared', 'true');
       }
+    });
+    // Enable tours for onboarding tests
+    await page.addInitScript(() => {
+      localStorage.removeItem('TOUR_DISABLED_FOR_E2E');
     });
   });
 

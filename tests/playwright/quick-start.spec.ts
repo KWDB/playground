@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './test-setup';
 
 test.describe('Quick Start', () => {
   test.beforeEach(async ({ request, page }) => {
@@ -29,11 +29,6 @@ test.describe('Quick Start', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(500);
 
-    const tourTooltip = page.locator('[data-testid="tour-tooltip"]');
-    if (await tourTooltip.isVisible().catch(() => false)) {
-      await page.keyboard.press('Escape');
-      await expect(tourTooltip).not.toBeVisible({ timeout: 3000 });
-    }
     await page.waitForTimeout(1000);
 
     const imageSourceBtn = page.locator('button[title^="镜像源："]')
@@ -89,11 +84,6 @@ test.describe('Quick Start', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(500);
 
-    const tourTooltip = page.locator('[data-testid="tour-tooltip"]');
-    if (await tourTooltip.isVisible().catch(() => false)) {
-      await page.keyboard.press('Escape');
-      await expect(tourTooltip).not.toBeVisible({ timeout: 3000 });
-    }
     await page.waitForTimeout(1000);
 
     console.log('✅ 进入课程页');
@@ -118,11 +108,6 @@ test.describe('Quick Start', () => {
     await expect(page.locator('h1')).toContainText('课程列表');
     console.log('✅ 返回课程列表');
 
-    const courseListTourTooltip = page.locator('[data-testid="tour-tooltip"]');
-    if (await courseListTourTooltip.isVisible().catch(() => false)) {
-      await page.keyboard.press('Escape');
-      await expect(courseListTourTooltip).not.toBeVisible({ timeout: 3000 });
-    }
 
     await page.locator('a[href="/learn/quick-start"]').click();
     console.log('✅ 再次进入课程');

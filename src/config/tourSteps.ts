@@ -83,6 +83,39 @@ export const tourSteps: Record<string, TourStep[]> = {
       position: 'right',
     },
   ],
+  // Code 类型课程的引导步骤
+  'learn-code': [
+    {
+      targetId: 'learn-start-container',
+      title: '启动容器',
+      content: '点击启动学习环境容器，KWDB 服务将在容器内启动',
+      position: 'left',
+    },
+    {
+      targetId: 'learn-code-editor',
+      title: '代码编辑器',
+      content: '在左侧编辑器中编写 Python 或 Bash 代码',
+      position: 'left',
+    },
+    {
+      targetId: 'learn-code-run',
+      title: '运行代码',
+      content: '选择代码语言（Python/Bash），点击「运行」按钮执行代码',
+      position: 'left',
+    },
+    {
+      targetId: 'learn-code-output',
+      title: '输出结果',
+      content: '在下方查看代码执行结果，包括标准输出和错误信息',
+      position: 'left',
+    },
+    {
+      targetId: 'learn-steps',
+      title: '学习步骤',
+      content: '按照课程步骤学习，完成后可运行代码验证结果',
+      position: 'right',
+    },
+  ],
 };
 
 /**

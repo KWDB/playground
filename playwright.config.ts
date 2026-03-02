@@ -52,6 +52,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'code-terminal',
+      testMatch: ['tests/playwright/code-terminal.spec.ts'],
+      workers: 1,
+      fullyParallel: false,
+      dependencies: ['course-pause'],
+      timeout: 180_000,
+      retries: 0,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'onboarding',
       testMatch: ['tests/playwright/onboarding.spec.ts'],
       use: { ...devices['Desktop Chrome'] },
