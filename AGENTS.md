@@ -1,8 +1,8 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-25
-**Commit:** e423696
-**Branch:** main
+**Generated:** 2026-03-02
+**Commit:** 21d0029
+**Branch:** feat/python-courses
 
 ## OVERVIEW
 
@@ -12,112 +12,11 @@ Full-stack interactive learning platform: Go 1.24 backend (Gin, Docker SDK, WebS
 
 | Task | Command |
 |------|---------|
-| Install deps | `make install` (runs `pnpm install` & `go mod tidy`) |
-| Dev server | `make dev` (starts backend :3006 & frontend) |
+| Install deps | `make install` |
+| Dev server | `make dev` |
 | Run all Go tests | `go test ./...` |
-| Single Go test | `go test -v -run TestName ./package` |
-| Run all E2E tests | `make e2e-playwright` or `pnpm run test:pw` |
-| Single E2E test | `npx playwright test --project=quick-start -g "test name"` |
-| TypeScript check | `pnpm run check` |
-| Lint fix | `pnpm run lint:fix` |
-| Go format | `go fmt ./...` |
-| Build release | `make release` (creates single binary) |
-
-## Project Overview
-
-**KWDB Playground** - Full-stack interactive learning platform:
-- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
-- **Backend**: Go 1.24 (Gin), Docker SDK, WebSocket (xterm.js integration)
-- **Testing**: Playwright for E2E (primary), Go testing for backend logic
-- **Infrastructure**: Docker for running isolated course environments
-
-**Tech Stack**: pnpm, Node.js 20+, Go 1.24+
-
-## Code Style
-
-### TypeScript/React
-
-**Import Order**:
-```typescript
-// 1. React/external libs
-import { useState } from 'react';
-import { clsx } from 'clsx';
-
-// 2. Internal aliases (@/*)
-import { useStore } from '@/store/learnStore';
-import { Button } from '@/components/ui/button';
-
-// 3. Relative imports
-import { Props } from './types';
-```
-
-**Naming Conventions**:
-| Type | Pattern | Example |
-|------|---------|---------|
-| Components | PascalCase | `CourseList.tsx` |
-| Hooks | camelCase (prefix `use`) | `useCourseContainer.ts` |
-| Stores | camelCase (suffix `Store`) | `courseStore.ts` |
-| Types/Interfaces | PascalCase | `ContainerInfo`, `CourseProps` |
-| Constants | UPPER_SNAKE_CASE | `MAX_RETRY_COUNT` |
-| Files | kebab-case | `course-list.tsx`, `api-client.ts` |
-
-**Component Pattern**:
-```typescript
-interface MyComponentProps {
-  title: string;
-  onSubmit: () => void;
-}
-
-export const MyComponent: React.FC<MyComponentProps> = ({ title, onSubmit }) => {
-  // Logic here
-  return (
-    <div className="p-4">
-      <h1>{title}</h1>
-    </div>
-  );
-};
-```
-
-**Styling**:
-- Use Tailwind CSS for almost everything.
-- Use `cn()` helper (clsx + tailwind-merge) for dynamic classes.
-```typescript
-import { cn } from '@/lib/utils'; // or wherever cn is defined
-
-<div className={cn("base-class", isActive && "active-class")} />
-```
-
-### Go
-
-**Import Order** (grouped, std lib first):
-```go
-import (
-    "context"
-    "fmt"
-
-    "github.com/gin-gonic/gin"
-
-    "kwdb-playground/internal/logger"
-)
-```
-
-**Naming**:
-- **Packages**: lowercase, single word (e.g., `docker`, `course`).
-- **Exported**: PascalCase (e.g., `NewService`).
-- **Unexported**: camelCase (e.g., `createClient`).
-- **Interfaces**: Suffix `-er` if simple (e.g., `Reader`), or `Interface` if complex.
-
-**Error Handling**:
-- Wrap errors with context: `fmt.Errorf("action failed: %w", err)`
-- Don't panic unless startup critical.
-- Log errors in handlers, return clean errors to API.
-
-**Logging**:
-- Use structured logging (`slog` or custom `internal/logger`).
-- Log messages in Chinese for operations, identifiers in English.
-```go
-logger.Info("容器创建成功", "container_id", id, "image", image)
-```
+| Run all E2E tests | `make e2e-playwright` |
+| Build release | `make release` |
 
 ## Project Structure
 
@@ -125,100 +24,55 @@ logger.Info("容器创建成功", "container_id", id, "image", image)
 .
 ├── cmd/                # Main applications
 ├── internal/           # Private application code
-│   ├── api/            # HTTP handlers (Gin)
-│   ├── docker/         # Container orchestration
-│   ├── course/         # Course content & logic
-│   └── websocket/      # Terminal WebSocket handlers
-├── src/                # Frontend source
-│   ├── components/     # React components (ui/ & business/)
-│   ├── pages/          # Route pages
-│   ├── store/          # Zustand state management
-│   ├── hooks/          # Custom hooks
-│   └── lib/            # Utilities & API clients
-├── tests/              # E2E tests (Playwright)
-└── docker/             # Docker build & compose files
+│   ├── api/           # HTTP handlers (Gin)
+│   ├── docker/        # Container orchestration
+│   ├── course/        # Course content & logic
+│   └── websocket/     # Terminal WebSocket handlers
+├── src/               # Frontend source
+│   ├── components/    # React components
+│   ├── pages/         # Route pages
+│   ├── store/         # Zustand state
+│   └── hooks/         # Custom hooks
+├── tests/playwright/  # E2E tests
+└── courses/           # Course content (YAML+MD)
 ```
 
-## Common Tasks
+## Code Style
 
-### Add New API Endpoint
-1.  **Define Route**: In `internal/api/routes.go`.
-2.  **Implement Handler**: Create/update handler in `internal/api/`.
-3.  **Business Logic**: Implement core logic in `internal/{package}/`.
-4.  **Frontend Type**: Update `src/types/index.ts` with response shape.
-5.  **Frontend Client**: Add method to `src/lib/api/client.ts`.
+### TypeScript/React
+- Import order: React → @/* → relative
+- Components: PascalCase, Hooks: use*, Stores: *Store
+- Use `cn()` helper for Tailwind classes
 
-### Run Verification (Before Commit)
-```bash
-go fmt ./... && pnpm run lint:fix  # Format
-go test ./...                      # Backend tests
-pnpm run check                     # TS types
-pnpm run test:pw                   # E2E tests (if changing core flows)
-```
+### Go
+- Import: stdlib → external → internal
+- Error handling: `fmt.Errorf("action: %w", err)`
+- Logging: Chinese messages, English identifiers
 
-## Testing Strategy
-
--   **Backend**: Unit tests for logic in `internal/`. Mock Docker client if needed.
--   **Frontend**: Primarily E2E via Playwright (`tests/`).
-    -   Use `data-testid` attributes for selectors: `data-testid="submit-btn"`.
-    -   Focus on user flows (Start Course -> Terminal Interaction -> Success).
-    -   Mock API calls only if testing UI states; prefer real integration for E2E.
--   **Container Tests**: Ensure `docker/` package tests clean up containers.
-
-## ENVIRONMENT VARIABLES
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| SERVER_PORT | 3006 | HTTP server port |
-| DEBUG_PORT | 2345 | Debugger port |
-| LOG_LEVEL | info | debug/info/warn/error |
-| GIN_MODE | debug | Gin mode |
-| COURSES_USE_EMBED | false | Use embedded FS (release) |
-
-## ARCHITECTURE HOTSPOTS
+## Architecture Hotspots
 
 | Area | File | Lines | Risk |
 |------|------|-------|------|
-| Docker orchestration | internal/docker/controller.go | 2316 | Concurrency, polling races |
-| API routes | internal/api/routes.go | 2151 | Long handlers, error cleanup |
-| Learn page | src/pages/Learn.tsx | 1464 | Duplicate orchestration logic |
-| Terminal WS | internal/websocket/terminal.go | 368 | Session lifecycle |
+| Docker orchestration | internal/docker/controller.go | 2316 | Concurrency |
+| API routes | internal/api/routes.go | 2151 | Long handlers |
+| Learn page | src/pages/Learn.tsx | 1464 | Duplicate logic |
 
-## BUILD & CI PATTERNS
+## Known Bugs
 
-| Pattern | Location | Notes |
-|---------|----------|-------|
-| Multi-registry push | .github/workflows/docker-publish.yml | ghcr.io + Docker Hub + Aliyun ACR |
-| Homebrew auto-update | .github/workflows/release.yml | Auto-updates kwdb/homebrew-tap |
-| Aliyun mirror | docker/ubuntu-20.04/Dockerfile | Chinese apt mirror |
-| Embedded assets | Makefile + Dockerfile | dist/ + courses/ embedded in binary |
-| Dual E2E testing | .github/workflows/playwright.yml | Native + Docker deployment |
+- Port conflict detection fails (route mismatch)
+- Dev server needs proxy config for API
+- Container start race conditions in controller.go
 
-**Non-standard patterns found:**
-- Chinese market localization (Aliyun mirrors, ACR registry)
-- Single binary release with embedded frontend + courses
-- Docker-in-Docker (DinD) via socket mount
-- Automated Homebrew tap updates on release
+## Sub-AGENTS.md
 
-## KEY DEVIATIONS FOUND
-
-1. **API path mismatch**: `checkPortConflict` frontend expects `/port-conflict`, backend has `/check-port-conflict`
-2. **Cleanup endpoint mismatch**: frontend `/containers/cleanup`, backend `/courses/:id/cleanup-containers`
-3. **Vite dev proxy missing**: no `/api` proxy to backend :3006
-4. **tsconfig strict=false**: many type checks disabled
-5. **No ESLint config file**: scripts exist but no .eslintrc found
-
-## KNOWN BUGS TO FIX
-
-- Port conflict detection fails due to route mismatch
-- Dev server cannot reach API without proxy config
-- Container start race conditions in controller.go polling loops
-
-## BUILD & RELEASE
-
-```bash
-make install    # pnpm + go mod tidy
-make dev        # hot reload dev
-make release    # single binary with embedded assets
-make docker-build
-```
+| Path | Description |
+|------|-------------|
+| internal/api/ | HTTP handlers |
+| internal/docker/ | Container orchestration |
+| internal/course/ | Course service |
+| internal/websocket/ | WebSocket handlers |
+| src/components/business/ | UI components |
+| src/store/ | Zustand stores |
+| src/hooks/ | Custom hooks |
+| tests/playwright/ | E2E tests |
+| courses/ | Course content |
