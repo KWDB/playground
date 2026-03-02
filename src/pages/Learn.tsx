@@ -732,16 +732,18 @@ export function Learn() {
             console.warn('SQL Terminal组件未准备就绪')
           }
         } else if (course?.codeTerminal) {
-          // 代码终端类型：使用 CodeTerminal 执行 Python 代码
+          // 代码终端类型：使用 CodeTerminal 执行代码
           if (codeTerminalRef.current) {
-            // 从 data-command 中提取 Python 代码
+            // 从 data-command 中提取代码
             const codeMatch = command.match(/python3 - << 'PYTHON_EOF'\n([\s\S]*?)\nPYTHON_EOF$/)
-            const pythonCode = codeMatch ? codeMatch[1] : command
+            const code = codeMatch ? codeMatch[1] : command
+
+            // 获取语言类型
+            const execLanguage = button.getAttribute('data-language') || 'bash'
 
             // 先将代码填充到编辑器
-            codeTerminalRef.current.setCode(pythonCode)
-            // 然后执行代码
-            codeTerminalRef.current.executeCode(pythonCode, 'python')
+            codeTerminalRef.current.setCode(code)
+            codeTerminalRef.current.executeCode(code, execLanguage)
           } else {
             console.warn('CodeTerminal组件未准备就绪')
           }
@@ -839,8 +841,8 @@ export function Learn() {
               const hasExecInClass = langToken.includes('-exec')
               const language = langToken.replace(/-exec$/, '')
 
-              // 检测是否为 Python 代码块
-              const isPython = language === 'python'
+              // 检测是否为可执行代码块
+              const isExecutable = language === 'python' || language === 'bash'
 
               return match ? (
                 <div className="markdown-code-block">
@@ -854,13 +856,13 @@ export function Learn() {
                       <span className="markdown-code-language">{language}</span>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <div className="markdown-code-title">{(hasExecMeta || hasExecInClass || isPython) ? '可执行代码' : '代码块'}</div>
-                      {(hasExecMeta || hasExecInClass || isPython) && (
+                      <div className="markdown-code-title">{(hasExecMeta || hasExecInClass || isExecutable) ? '可执行代码' : '代码块'}</div>
+                      {(hasExecMeta || hasExecInClass || isExecutable) && (
                         <button
                           className="exec-btn"
-                          data-command={isPython ? `python3 - << 'PYTHON_EOF'\n${codeText}\nPYTHON_EOF` : codeText}
+                          data-command={language === 'python' ? `python3 - << 'PYTHON_EOF'\n${codeText}\nPYTHON_EOF` : codeText}
+                          data-language={language}
                           title="执行命令"
-                          aria-label="执行当前代码块命令"
                         >
                           Run
                         </button>
@@ -868,7 +870,7 @@ export function Learn() {
                     </div>
                   </div>
                   <div className="markdown-code-content">
-                    {isPython ? (
+                    {language === 'python' ? (
                       <CodeEditor
                         value={codeText}
                         readOnly
