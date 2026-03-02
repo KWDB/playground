@@ -1925,7 +1925,7 @@ func (d *dockerController) ExecCode(ctx context.Context, containerID string, opt
 	// 创建通道来协调复制操作和超时
 	doneChan := make(chan struct{})
 	go func() {
-		_, copyErr = io.Copy(&stdoutBuf, attachResp.Reader)
+		copyErr = newDemultiplexReader(attachResp.Reader).ReadDemux(&stdoutBuf, &stderrBuf)
 		close(doneChan)
 	}()
 

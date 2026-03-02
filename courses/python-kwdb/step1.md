@@ -6,6 +6,10 @@
 
 在运行代码前，确保已安装 `psycopg2-binary`：
 
+```bash
+pip install psycopg2-binary -q
+```
+
 ```python
 import subprocess
 import sys
