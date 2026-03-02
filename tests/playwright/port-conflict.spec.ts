@@ -9,7 +9,7 @@
  * 5. 验证清理后可以正常启动容器
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './test-setup';
 
 const BASE_URL = 'http://localhost:3006';
 
@@ -449,11 +449,6 @@ test.describe('端口冲突智能处理功能测试', () => {
     console.log('检查页面内容...');
     console.log('页面标题:', await page.title());
 
-    const tourTooltip = page.locator('[data-testid="tour-tooltip"]');
-    if (await tourTooltip.isVisible().catch(() => false)) {
-      await page.keyboard.press('Escape');
-      await expect(tourTooltip).not.toBeVisible({ timeout: 3000 });
-    }
     
     // 检查是否有课程卡片
     const courseCards = await page.locator('div[class*="group bg-white"]').count();

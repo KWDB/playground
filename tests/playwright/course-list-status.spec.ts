@@ -1,12 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
-
-const closeTourIfVisible = async (page: Page) => {
-  const tooltip = page.locator('[data-testid="tour-tooltip"]');
-  if (await tooltip.isVisible().catch(() => false)) {
-    await page.keyboard.press('Escape');
-    await expect(tooltip).not.toBeVisible({ timeout: 3000 });
-  }
-};
+import { test, expect } from './test-setup';
 
 test.describe('课程列表状态与交互测试', () => {
   // 测试前清理所有容器，确保环境干净
@@ -36,12 +28,11 @@ test.describe('课程列表状态与交互测试', () => {
   test('验证容器状态变更与清理功能', async ({ page, request }) => {
     // 1. 访问课程列表页
     await page.goto('/courses');
-    await closeTourIfVisible(page);
     
     // 使用 href 定位整个课程卡片（现在卡片本身就是链接）
     const courseCard = page.locator('a[href="/learn/quick-start"]');
     
-    // 验证初始状态：卡片可见，且不显示“运行中”状态
+    // 验证初始状态：卡片可见，且不显示"运行中"状态
     await expect(courseCard).toBeVisible();
     await expect(courseCard).not.toHaveText(/运行中/);
 
@@ -51,9 +42,8 @@ test.describe('课程列表状态与交互测试', () => {
     
     // 刷新页面获取最新状态
     await page.reload();
-    await closeTourIfVisible(page);
 
-    // 3. 验证状态变为“运行中”
+    // 3. 验证状态变为"运行中"
     await expect(courseCard).toHaveText(/运行中/);
 
     // 验证点击卡片直接跳转
@@ -62,7 +52,6 @@ test.describe('课程列表状态与交互测试', () => {
 
     // 返回课程列表页继续测试清理功能
     await page.goto('/courses');
-    await closeTourIfVisible(page);
     // 重新定位卡片（页面刷新后 DOM 元素更新）
     const courseCardAfterBack = page.locator('a[href="/learn/quick-start"]');
     await expect(courseCardAfterBack).toHaveText(/运行中/);
@@ -86,13 +75,12 @@ test.describe('课程列表状态与交互测试', () => {
     // 等待弹窗关闭表示清理完成
     await expect(page.getByText('确认清理环境')).toBeHidden({ timeout: 60000 });
     
-    // 5. 验证卡片恢复初始状态（不显示“运行中”）
+    // 5. 验证卡片恢复初始状态（不显示"运行中"）
     await expect(courseCard).not.toHaveText(/运行中/);
   });
 
   test('验证视图模式切换功能', async ({ page }) => {
     await page.goto('/courses');
-    await closeTourIfVisible(page);
 
     // 定位切换按钮
     const gridBtn = page.getByLabel('卡片模式');
