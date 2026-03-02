@@ -230,10 +230,10 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
         </div>
       </div>
 
-      {/* 主内容区域 - 分离布局 */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 上半部分：代码编辑器 */}
-        <div className="flex-[3] border-b border-[var(--color-border-light)]">
+      {/* 主内容区域 - 使用固定比例布局 */}
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* 上半部分：代码编辑器 - 55% 高度 */}
+        <div className="h-[55%] flex flex-col border-b border-[var(--color-border-light)] min-h-0">
           <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-default)]">
             <span className="text-xs text-[var(--color-text-tertiary)]">代码</span>
             <div className="flex items-center gap-2">
@@ -265,7 +265,7 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
               )}
             </div>
           </div>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-auto">
             <CodeEditor
               ref={editorRef}
               value={codeText}
@@ -275,18 +275,18 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
           </div>
         </div>
 
-        {/* 下半部分：终端输出 */}
-        <div className="flex-[2] flex flex-col overflow-hidden">
+        {/* 下半部分：终端输出 - 45% 高度 */}
+        <div className="h-[45%] flex flex-col min-h-0">
           <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-default)]">
             <span className="text-xs text-[var(--color-text-tertiary)]">输出</span>
             {executing && (
               <span className="text-xs text-[var(--color-warning)]">运行中...</span>
             )}
           </div>
-          <div className="flex-1 overflow-auto bg-[var(--color-bg-primary)]">
+          <div className="flex-1 overflow-auto bg-[var(--color-bg-primary)] p-3">
             {/* 错误提示 */}
             {error && (
-              <div className="p-3 border-b border-[var(--color-error)] bg-[var(--color-error)]/10">
+              <div className="mb-3 p-3 border border-[var(--color-error)] bg-[var(--color-error)]/10 rounded">
                 <div className="text-sm text-[var(--color-error)] font-mono">{error}</div>
               </div>
             )}
@@ -297,7 +297,7 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
             />
             {/* 状态信息 */}
             {result && (
-              <div className="px-3 py-2 text-xs text-[var(--color-text-tertiary)] flex items-center justify-between bg-[var(--color-bg-secondary)]">
+              <div className="mt-3 px-3 py-2 text-xs text-[var(--color-text-tertiary)] flex items-center justify-between bg-[var(--color-bg-secondary)] rounded">
                 <span>退出码: {result.exitCode}</span>
                 <span>耗时: {result.duration}ms</span>
               </div>
