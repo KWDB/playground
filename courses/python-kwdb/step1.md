@@ -1,5 +1,3 @@
-# 连接数据库
-
 首先，我们需要使用 Python 的 `psycopg2` 库连接到 KWDB 数据库。
 
 ## 安装依赖
@@ -8,15 +6,6 @@
 
 ```bash
 pip install psycopg2-binary -q
-```
-
-```python
-import subprocess
-import sys
-
-# 安装 psycopg2-binary
-subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary", "-q"])
-print("psycopg2-binary 安装成功！")
 ```
 
 ## 连接 KWDB
@@ -58,10 +47,6 @@ print("连接已关闭")
 | `database` | 数据库名称，`defaultdb` 是默认数据库 |
 | `user` | 用户名，`root` 是管理员用户 |
 | `password` | 密码，`--insecure` 模式下为空 |
-
-## 试一试
-
-在右侧代码编辑器中输入以上代码，点击「运行」执行。
 
 > 注意：
 > - 请确保容器已启动，KWDB 服务正在运行

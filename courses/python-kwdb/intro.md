@@ -1,5 +1,3 @@
-# Python 连接 KWDB
-
 欢迎学习使用 Python 连接 KWDB 数据库！本课程将带你了解如何使用 Python 程序连接 KWDB，并执行各种 SQL 操作。
 
 ## 课程目标
@@ -23,18 +21,3 @@
 ## 开始学习
 
 点击「下一步」开始第一课：连接数据库。
-
-```python
-import psycopg2
-
-# 连接到 KWDB
-conn = psycopg2.connect(
-    host="127.0.0.1",
-    host="localhost",
-    port=26257,
-    database="defaultdb",
-    user="root",
-    password=""
-)
-print("连接成功！")
-```

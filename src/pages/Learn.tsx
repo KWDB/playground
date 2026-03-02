@@ -59,15 +59,18 @@ export function Learn() {
 
   const { seenPages, startTour, nextStep, prevStep, skipTour, currentStep: tourCurrentStep, isActive: isTourActive, hasHydrated } = useTourStore();
 
+  // 根据课程类型选择不同的引导
+  const tourKey = course?.codeTerminal ? 'learn-code' : 'learn'
+
   useEffect(() => {
     if (!hasHydrated) return;
-    if (!seenPages?.learn && !isTourActive) {
-      startTour('learn');
+    if (!seenPages?.[tourKey] && !isTourActive) {
+      startTour(tourKey);
     }
-  }, [seenPages.learn, isTourActive, startTour, hasHydrated]);
+  }, [seenPages, isTourActive, startTour, hasHydrated, tourKey]);
 
-  const tourSteps = getStepsForPage('learn');
-  const totalTourSteps = getTotalSteps('learn');
+  const tourSteps = getStepsForPage(tourKey);
+  const totalTourSteps = getTotalSteps(tourKey);
   const activeTourStep = tourSteps[tourCurrentStep];
 
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)

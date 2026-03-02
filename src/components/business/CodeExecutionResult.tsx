@@ -13,6 +13,20 @@ const CodeExecutionResult: React.FC<CodeExecutionResultProps> = ({
   const hasStdout = stdout.trim().length > 0;
   const hasStderr = stderr.trim().length > 0;
 
+  // 检测 stderr 是否为警告（warning）而非错误（error）
+  // 警告通常包含 warning, warn, 注意, 建议 等关键词
+  const isWarning = hasStderr && (
+    stderr.toLowerCase().includes('warning') ||
+    stderr.toLowerCase().includes('warn') ||
+    stderr.includes('警告') ||
+    stderr.includes('注意') ||
+    stderr.includes('建议')
+  );
+
+  // 根据类型选择颜色
+  const stderrColor = isWarning ? 'text-[#d97706]' : 'text-[#dc2626]';  // 黄色 vs 红色
+  const stderrDotColor = isWarning ? 'bg-[#d97706]' : 'bg-[#dc2626]';
+
   return (
     <div
       className={`w-full h-full flex flex-col bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] rounded-lg overflow-hidden ${className}`}
@@ -34,8 +48,8 @@ const CodeExecutionResult: React.FC<CodeExecutionResultProps> = ({
             )}
             {hasStderr && (
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#dc2626]" />
-                <span className="text-[var(--color-text-secondary)]">stderr</span>
+                <span className={`w-2 h-2 rounded-full ${stderrDotColor}`} />
+                <span className="text-[var(--color-text-secondary)]">{isWarning ? 'warning' : 'stderr'}</span>
               </span>
             )}
           </div>
@@ -59,7 +73,7 @@ const CodeExecutionResult: React.FC<CodeExecutionResultProps> = ({
 
             {/* stderr 输出 */}
             {hasStderr && (
-              <pre className="whitespace-pre-wrap break-all text-[#dc2626]">
+              <pre className={`whitespace-pre-wrap break-all ${stderrColor}`}>
                 {stderr}
               </pre>
             )}

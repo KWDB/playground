@@ -1,5 +1,3 @@
-# 创建数据库和表
-
 连接成功后，我们可以创建自己的数据库和表。
 
 ## 创建数据库
@@ -85,9 +83,5 @@ conn.commit()
 cursor.close()
 conn.close()
 ```
-
-## 试一试
-
-在右侧编辑器中输入代码，创建 `shop` 数据库和 `products` 表。
 
 > 注意：如果数据库已存在，会报错。可以先删除再创建：`DROP DATABASE IF EXISTS shop`
