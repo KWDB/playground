@@ -41,7 +41,7 @@ type Handler struct {
 	dockerController docker.Controller
 	// terminalManager WebSocket终端管理器实例，用于终端会话管理
 	terminalManager *ws.TerminalManager
-	codeManager *ws.CodeManager
+	codeManager     *ws.CodeManager
 	// logger 日志记录器实例，用于统一日志管理
 	logger *logger.Logger
 
@@ -1376,8 +1376,8 @@ func (h *Handler) startCourse(c *gin.Context) {
 		Cmd:         cmd,                       // 根据课程配置的Cmd启动容器
 		Privileged:  course.Backend.Privileged, // 根据课程配置的Privileged启动容器
 		Ports:       map[string]string{"26257": fmt.Sprintf("%d", course.Backend.Port)},
-		Volumes:     volumes, // 课程定义的卷绑定
-		Env:         env,     // 课程定义的环境变量
+		Volumes:     volumes,           // 课程定义的卷绑定
+		Env:         env,               // 课程定义的环境变量
 		MemoryLimit: 512 * 1024 * 1024, // 512MB 内存限制
 	}
 

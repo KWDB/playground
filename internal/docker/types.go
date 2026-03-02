@@ -110,7 +110,7 @@ type ExecCodeResult struct {
 
 // ExecCodeOptions 代码执行选项
 type ExecCodeOptions struct {
-	Language CodeLanguage // 代码语言
-	Code     string       // 要执行的代码
+	Language CodeLanguage  // 代码语言
+	Code     string        // 要执行的代码
 	Timeout  time.Duration // 执行超时时间（默认30秒）
 }
