@@ -301,7 +301,7 @@ export function Learn() {
         }
 
         console.error('❌ 容器启动超时，已达到最大重试次数');
-        throw new Error('容器启动超时，请重试')
+        throw new Error('容器启动超时，可能原因：镜像拉取完成后容器创建/启动失败，或 Docker 资源不足。请检查 Docker 状态后重试。')
       }
 
       // 等待容器完全启动

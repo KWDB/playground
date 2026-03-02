@@ -14,9 +14,7 @@ details:
     text: finish.md
 backend:
   imageid: kwdb/kwdb-python:3.1.0
-  port: 26257
   workspace: /kaiwudb/bin
-  privileged: true
   cmd: ["/kaiwudb/bin/kwbase", "start-single-node", "--insecure", "--listen-addr=0.0.0.0:26257"]
 codeTerminal: true
 estimatedMinutes: 10
