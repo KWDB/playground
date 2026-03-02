@@ -36,7 +36,8 @@ cursor = conn.cursor()
 
 # 测试连接
 cursor.execute("SELECT 1 as result")
-print("连接测试结果:", cursor.fetchone())
+result = cursor.fetchone()
+print("连接测试结果:", result[0])
 
 # 关闭连接
 cursor.close()
