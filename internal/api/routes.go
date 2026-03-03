@@ -2426,8 +2426,8 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 		case "subscribe":
 			// 处理订阅消息，返回确认
 			_ = conn.WriteJSON(map[string]interface{}{"type": "subscribed"})
-		case "ping":
-		default:
+		case "ping":�
+			_ = conn.WriteJSON(map[string]interface{}{"type": "pong"})
 			_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "未知消息类型"})
 		}
 	}
