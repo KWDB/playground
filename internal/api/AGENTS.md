@@ -18,13 +18,11 @@ Gin HTTP handlers for courses, containers, images, progress, WebSocket terminals
 | Start course | startCourse | Multi-step, error cleanup |
 | Terminal WS | handleTerminalWebSocket | WS upgrade, message parsing |
 | SQL WS | handleSqlWebSocket | Query/result protocol |
-| Port conflict | checkPortConflict | Path mismatch w/ frontend |
+| Port conflict | checkPortConflict | Endpoint compatibility |
 
 ## KNOWN ISSUES
 
-1. **Route mismatch**: Frontend calls `/port-conflict`, backend has `/check-port-conflict`
-2. **Cleanup mismatch**: Frontend calls `/containers/cleanup`, backend has `/courses/:id/cleanup-containers`
-3. Long handlers with layered error handling
+1. Long handlers with layered error handling
 
 ## ENDPOINTS
 

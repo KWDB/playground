@@ -98,3 +98,22 @@ func TestFetchReleaseFromAtomGit(t *testing.T) {
 		t.Error("Expected to find kwdb-playground-darwin-arm64 asset")
 	}
 }
+
+func TestCourseStartInProgressGuard(t *testing.T) {
+	h := &Handler{}
+	courseID := "sql"
+
+	if ok := h.beginCourseStart(courseID); !ok {
+		t.Fatal("first beginCourseStart should return true")
+	}
+
+	if ok := h.beginCourseStart(courseID); ok {
+		t.Fatal("second beginCourseStart should return false while in progress")
+	}
+
+	h.finishCourseStart(courseID)
+
+	if ok := h.beginCourseStart(courseID); !ok {
+		t.Fatal("beginCourseStart should return true after finishCourseStart")
+	}
+}

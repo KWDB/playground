@@ -51,8 +51,10 @@ type Handler struct {
 	// sqlDriverManager KWDB 连接驱动管理器（按课程隔离）
 	sqlDriverManager *sql.DriverManager
 
-	upgradeMu         sync.Mutex
-	upgradeInProgress bool
+	upgradeMu             sync.Mutex
+	upgradeInProgress     bool
+	courseStartMu         sync.Mutex
+	courseStartInProgress map[string]bool
 }
 
 // NewHandler 创建新的API处理器
@@ -73,13 +75,14 @@ func NewHandler(
 	cfg *config.Config,
 ) *Handler {
 	return &Handler{
-		courseService:    courseService,
-		dockerController: dockerController,
-		terminalManager:  terminalManager,
-		codeManager:      codeManager,
-		logger:           logger,
-		cfg:              cfg,
-		sqlDriverManager: sql.NewDriverManager(),
+		courseService:         courseService,
+		dockerController:      dockerController,
+		terminalManager:       terminalManager,
+		codeManager:           codeManager,
+		logger:                logger,
+		cfg:                   cfg,
+		sqlDriverManager:      sql.NewDriverManager(),
+		courseStartInProgress: map[string]bool{},
 	}
 }
 
@@ -320,6 +323,32 @@ func (h *Handler) setUpgradeInProgress(value bool) {
 	h.upgradeMu.Lock()
 	defer h.upgradeMu.Unlock()
 	h.upgradeInProgress = value
+}
+
+func (h *Handler) beginCourseStart(courseID string) bool {
+	h.courseStartMu.Lock()
+	defer h.courseStartMu.Unlock()
+
+	if h.courseStartInProgress == nil {
+		h.courseStartInProgress = map[string]bool{}
+	}
+
+	if h.courseStartInProgress[courseID] {
+		return false
+	}
+
+	h.courseStartInProgress[courseID] = true
+	return true
+}
+
+func (h *Handler) finishCourseStart(courseID string) {
+	h.courseStartMu.Lock()
+	defer h.courseStartMu.Unlock()
+
+	if h.courseStartInProgress == nil {
+		return
+	}
+	delete(h.courseStartInProgress, courseID)
 }
 
 func (h *Handler) upgrade(c *gin.Context) {
@@ -1190,6 +1219,15 @@ func (h *Handler) startCourse(c *gin.Context) {
 		})
 		return
 	}
+
+	if !h.beginCourseStart(id) {
+		h.logger.Warn("[startCourse] 课程 %s 已有启动任务在进行中", id)
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "课程容器正在启动中，请稍后重试",
+		})
+		return
+	}
+	defer h.finishCourseStart(id)
 
 	// 解析请求体，获取可选的镜像参数
 	var requestBody struct {
