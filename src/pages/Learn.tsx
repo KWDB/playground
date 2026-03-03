@@ -135,6 +135,20 @@ export function Learn() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 镜像拉取完成后的回调 - 检查容器状态并更新UI
+  const handleImagePullComplete = useCallback(async () => {
+    console.log('镜像拉取完成，检查容器状态...')
+    if (containerId) {
+      // 检查容器状态，如果已经是 running 状态会自动更新
+      const statusData = await checkContainerStatus(containerId, true)
+      if (statusData) {
+        console.log('容器状态:', statusData.status)
+      }
+    } else {
+      console.log('暂无容器ID，可能需要重新启动容器')
+    }
+  }, [containerId, checkContainerStatus])
+
   // WebSocket 连接处理
   const connectToTerminal = useCallback((id: string) => {
     if (!id) {
@@ -1428,7 +1442,7 @@ export function Learn() {
                     )}
                     {course?.sqlTerminal && course?.backend?.port && course?.id && (
                       // 将容器状态传入 SQL 终端，驱动其自动连接/停止逻辑
-                      <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} imagePullProgress={imagePullProgress} showImagePullProgress={showProgress} />
+                      <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} imagePullProgress={imagePullProgress} showImagePullProgress={showProgress} onImagePullComplete={handleImagePullComplete} />
                     )}
                     {course?.codeTerminal && (
                       <CodeTerminal 
@@ -1438,6 +1452,7 @@ export function Learn() {
                         containerStatus={containerStatus} 
                         imagePullProgress={imagePullProgress} 
                         showImagePullProgress={showProgress} 
+                        onImagePullComplete={handleImagePullComplete}
                       />
                     )}
                   </div>

@@ -9,6 +9,7 @@ type Props = {
   containerStatus?: string
   imagePullProgress?: ImagePullProgressMessageOverlay | null
   showImagePullProgress?: boolean
+  onImagePullComplete?: () => void
 }
 
 type ExecutionResult = {
@@ -25,7 +26,7 @@ export interface CodeTerminalRef {
   setCode: (code: string) => void
 }
 
-const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus, imagePullProgress, showImagePullProgress }, ref) => {
+const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus, imagePullProgress, showImagePullProgress, onImagePullComplete }, ref) => {
   const [error, setError] = useState<string | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
   const [codeText, setCodeText] = useState<string>('')
@@ -151,6 +152,10 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
             setTimeout(() => {
               setShowProgress(false)
               setLocalImagePullProgress(null)
+              // 通知父组件镜像拉取完成
+              if (onImagePullComplete) {
+                onImagePullComplete()
+              }
             }, 1200)
           }
         }

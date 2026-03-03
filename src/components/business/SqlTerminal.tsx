@@ -9,6 +9,7 @@ type Props = {
   containerStatus?: string
   imagePullProgress?: ImagePullProgressMessageOverlay | null
   showImagePullProgress?: boolean
+  onImagePullComplete?: () => void
 }
 
 type SqlInfo = {
@@ -84,7 +85,7 @@ const formatCellValue = (value: unknown, columnName: string, tzMode: TzMode): st
   return String(value)
 }
 
-const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus, imagePullProgress, showImagePullProgress }, ref) => {
+const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus, imagePullProgress, showImagePullProgress, onImagePullComplete }, ref) => {
   const [info, setInfo] = useState<SqlInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -228,6 +229,10 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
             setTimeout(() => {
               setShowProgress(false)
               setLocalImagePullProgress(null)
+              // 通知父组件镜像拉取完成
+              if (onImagePullComplete) {
+                onImagePullComplete()
+              }
             }, 1200)
           }
         }
