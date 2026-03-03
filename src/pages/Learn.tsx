@@ -86,6 +86,9 @@ export function Learn() {
   // 确认弹窗模式：区分来源以动态文案
   // const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
   const [showResetDialog, setShowResetDialog] = useState(false)
+  // 镜像拉取进度状态（用于 SQL/Code 终端）
+  const [imagePullProgress, setImagePullProgress] = useState<ImagePullProgressMessageOverlay | null>(null)
+  const [showProgress, setShowProgress] = useState(false)
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const statusAbortControllerRef = useRef<AbortController | null>(null)
   const startAbortControllerRef = useRef<AbortController | null>(null)
@@ -1425,7 +1428,7 @@ export function Learn() {
                     )}
                     {course?.sqlTerminal && course?.backend?.port && course?.id && (
                       // 将容器状态传入 SQL 终端，驱动其自动连接/停止逻辑
-                      <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} />
+                      <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} imagePullProgress={imagePullProgress} showImagePullProgress={showProgress} />
                     )}
                     {course?.codeTerminal && (
                       <CodeTerminal 
@@ -1433,6 +1436,8 @@ export function Learn() {
                         courseId={course.id} 
                         containerId={containerId} 
                         containerStatus={containerStatus} 
+                        imagePullProgress={imagePullProgress} 
+                        showImagePullProgress={showProgress} 
                       />
                     )}
                   </div>

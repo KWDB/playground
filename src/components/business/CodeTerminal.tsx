@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import CodeEditor from './CodeEditor'
 import CodeExecutionResult from './CodeExecutionResult'
+import ImagePullProgressOverlay, { ImagePullProgressMessageOverlay } from './terminal/ImagePullProgressOverlay'
 
 type Props = {
   courseId: string
   containerId: string
   containerStatus?: string
+  imagePullProgress?: ImagePullProgressMessageOverlay | null
+  showImagePullProgress?: boolean
 }
 
 type ExecutionResult = {
@@ -22,7 +25,7 @@ export interface CodeTerminalRef {
   setCode: (code: string) => void
 }
 
-const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus }, ref) => {
+const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus, imagePullProgress, showImagePullProgress }, ref) => {
   const [error, setError] = useState<string | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
   const [codeText, setCodeText] = useState<string>('')
@@ -308,6 +311,16 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
           </div>
         </div>
       </div>
+
+      {/* 镜像拉取进度覆盖层 */}
+      {showImagePullProgress && imagePullProgress && (
+        <div className="absolute inset-0 z-50">
+          <ImagePullProgressOverlay
+            show={showImagePullProgress}
+            imagePullProgress={imagePullProgress}
+          />
+        </div>
+      )}
     </div>
   )
 })
