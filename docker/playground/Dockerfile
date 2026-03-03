@@ -20,7 +20,7 @@ RUN pnpm run build
 # ============================================================
 # Stage 2: Go 编译
 # ============================================================
-FROM golang:1.24-alpine AS backend
+FROM golang:1.25-alpine AS backend
 
 WORKDIR /build
 
