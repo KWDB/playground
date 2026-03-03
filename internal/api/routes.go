@@ -2423,8 +2423,10 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 			}
 
 			_ = conn.WriteJSON(map[string]interface{}{"type": "complete", "queryId": qid})
+		case "subscribe":
+			// 处理订阅消息，返回确认
+			_ = conn.WriteJSON(map[string]interface{}{"type": "subscribed"})
 		case "ping":
-			_ = conn.WriteJSON(map[string]interface{}{"type": "pong"})
 		default:
 			_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "未知消息类型"})
 		}
