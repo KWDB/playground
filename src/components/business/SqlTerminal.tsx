@@ -85,7 +85,7 @@ const formatCellValue = (value: unknown, columnName: string, tzMode: TzMode): st
   return String(value)
 }
 
-const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus, imagePullProgress, showImagePullProgress, onImagePullComplete }, ref) => {
+const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus, onImagePullComplete }, ref) => {
   const [info, setInfo] = useState<SqlInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -96,7 +96,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   const [rows, setRows] = useState<Cell[][]>([])
   const [executing, setExecuting] = useState(false)
   const [lastExecutionResult, setLastExecutionResult] = useState<ExecutionResult | null>(null)
-  const [tzMode, setTzMode] = useState<TzMode>('UTC')
+  const [tzMode] = useState<TzMode>('UTC')
   const [justCleared, setJustCleared] = useState(false)
   // 镜像拉取进度状态
   const [showProgress, setShowProgress] = useState(false)
@@ -108,9 +108,6 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
 
   const wsRef = useRef<WebSocket | null>(null)
   const wsProgressRef = useRef<WebSocket | null>(null)
-  const infoAbortControllerRef = useRef<AbortController | null>(null)
-
-  const infoUrl = useMemo(() => `/api/sql/info?courseId=${encodeURIComponent(courseId)}`, [courseId])
 
   const wsUrl = useMemo(() => {
     const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -277,8 +274,8 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
 
     ws.onopen = () => {
       setWsConnected(true)
-      // 发送订阅消息
-      ws.send(JSON.stringify({ type: 'subscribe', courseId }))
+      // 发送初始化消息
+      ws.send(JSON.stringify({ type: 'init', courseId }))
     }
 
     ws.onmessage = (event) => {
@@ -286,15 +283,29 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
         const msg = JSON.parse(event.data)
         if (msg.type === 'result') {
           setExecuting(false)
-          const result = msg.data as ExecutionResult
+          const isQuery = msg.columns && msg.columns.length > 0
+          const result: ExecutionResult = {
+            type: isQuery ? 'query' : 'success',
+            message: isQuery ? undefined : `操作成功，影响 ${msg.rowCount} 行数据`,
+            columns: msg.columns || [],
+            rows: msg.rows || [],
+            rowsAffected: msg.rowCount
+          }
           setLastExecutionResult(result)
-          if (result.type === 'query') {
-            setColumns(result.columns || [])
-            setRows(result.rows || [])
+          if (isQuery) {
+            setColumns(msg.columns || [])
+            setRows(msg.rows || [])
           }
         } else if (msg.type === 'error') {
           setExecuting(false)
-          setError(msg.message || '执行错误')
+          if (msg.queryId) {
+            setLastExecutionResult({
+              type: 'error',
+              message: msg.message || 'SQL 执行出错'
+            })
+          } else {
+            setError(msg.message || '执行错误')
+          }
         }
       } catch (e) {
         console.error('解析 WebSocket 消息失败:', e)
@@ -341,10 +352,6 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     setQueryText('')
     setJustCleared(true)
     setTimeout(() => setJustCleared(false), 1500)
-  }, [])
-
-  const toggleTz = useCallback(() => {
-    setTzMode((prev) => prev === 'UTC' ? 'LOCAL' : 'UTC')
   }, [])
 
   return (
