@@ -43,6 +43,24 @@ type dockerController struct {
 	networkName     string                    // Docker 网络名称，用于课程容器网络隔离
 }
 
+func (d *dockerController) resolveStartedAt(raw string, fallback time.Time, containerName string) time.Time {
+	if strings.TrimSpace(raw) == "" {
+		return fallback
+	}
+
+	parsedTime, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		d.logger.Warn("无法解析容器 %s 的启动时间 %s: %v", containerName, raw, err)
+		return fallback
+	}
+
+	if parsedTime.IsZero() {
+		return fallback
+	}
+
+	return parsedTime
+}
+
 // createDockerClient 创建Docker客户端，支持多种socket路径
 func createDockerClient(log *logger.Logger) (*client.Client, error) {
 	// 定义要尝试的Docker socket路径
@@ -257,14 +275,7 @@ func (d *dockerController) loadExistingContainers(ctx context.Context) error {
 			}
 		}
 
-		startedAt := time.Now()
-		if inspect.State.StartedAt != "" {
-			if parsedTime, err := time.Parse(time.RFC3339, inspect.State.StartedAt); err == nil {
-				startedAt = parsedTime
-			} else {
-				d.logger.Warn("无法解析容器 %s 的启动时间 %s: %v", containerName, inspect.State.StartedAt, err)
-			}
-		}
+		startedAt := d.resolveStartedAt(inspect.State.StartedAt, time.Now(), containerName)
 
 		containerInfo := &ContainerInfo{
 			ID:        containerName,
@@ -421,6 +432,13 @@ func (d *dockerController) StartContainer(ctx context.Context, containerID strin
 		}
 
 		if inspect.State.Running {
+			startedAt := d.resolveStartedAt(inspect.State.StartedAt, time.Now(), containerID)
+			d.mu.Lock()
+			if info, ok := d.containers[containerID]; ok {
+				info.StartedAt = startedAt
+			}
+			d.mu.Unlock()
+
 			d.logger.Info("容器 %s 启动成功，Docker状态: Running=%v, ExitCode=%d", containerID, inspect.State.Running, inspect.State.ExitCode)
 			d.updateContainerState(containerID, StateRunning, "")
 			return nil
@@ -1079,12 +1097,8 @@ func (d *dockerController) CreateContainerWithProgress(ctx context.Context, cour
 
 	inspect, err := d.client.ContainerInspect(ctx, resp.ID)
 	startedAt := time.Now()
-	if err == nil && inspect.State.StartedAt != "" {
-		if parsedTime, err := time.Parse(time.RFC3339, inspect.State.StartedAt); err == nil {
-			startedAt = parsedTime
-		} else {
-			d.logger.Warn("无法解析容器 %s 的启动时间 %s: %v", containerName, inspect.State.StartedAt, err)
-		}
+	if err == nil {
+		startedAt = d.resolveStartedAt(inspect.State.StartedAt, startedAt, containerName)
 	} else if err != nil {
 		d.logger.Warn("无法检查容器 %s 以获取启动时间: %v", containerName, err)
 	}
@@ -1221,6 +1235,7 @@ func (d *dockerController) ListContainers(ctx context.Context) ([]*ContainerInfo
 		// 创建副本并更新状态
 		info := *containerInfo
 		info.State = d.mapDockerState(inspect.State)
+		info.StartedAt = d.resolveStartedAt(inspect.State.StartedAt, info.StartedAt, info.ID)
 		if inspect.State.ExitCode != 0 {
 			info.ExitCode = &inspect.State.ExitCode
 		}

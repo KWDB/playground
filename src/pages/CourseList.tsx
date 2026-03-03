@@ -172,13 +172,16 @@ export function CourseList() {
 
   const formatDuration = (startedAt: string): string => {
     const start = new Date(startedAt).getTime();
+    if (!Number.isFinite(start) || start <= 0) return '刚刚';
+
     const now = Date.now();
-    const diff = now - start;
+    const diff = Math.max(0, now - start);
     
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
     
+    if (minutes < 1) return '刚刚';
     if (days > 0) return `${days}天 ${hours % 24}小时`;
     if (hours > 0) return `${hours}小时 ${minutes % 60}分钟`;
     return `${minutes}分钟`;
