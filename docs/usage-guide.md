@@ -10,7 +10,7 @@ KWDB Playground 提供了一个实践环境，以便用户可以轻松地探索 
 
 请先安装以下基础环境：
 - Go 1.25
-- Node.js ≥ 18 与 pnpm ≥ 8
+- Node.js ≥ 20 与 pnpm ≥ 8
 - Docker
 
 安装项目依赖：
@@ -70,7 +70,7 @@ make build
 ### 1. 编译所需工具与环境
 
 - Go 1.25（建议 `go env` 验证）
-- Node.js ≥ 18 与 pnpm ≥ 8
+- Node.js ≥ 20 与 pnpm ≥ 8
 - macOS / Linux / Windows（编译平台，对应交叉编译目标见发布流程）
 
 ### 2. 分步骤编译过程
@@ -93,7 +93,7 @@ make build
 - 构建后运行报错：找不到前端资源或课程
   - 解决：确保已执行 `pnpm run build` 并生成 `dist/`；开发模式下确认 `COURSE_DIR` 指向 `./courses`。
 - `pnpm` 命令不存在或版本过低
-  - 解决：安装或升级 pnpm 确保 Node.js 版本 ≥ 18。
+  - 解决：安装或升级 pnpm 确保 Node.js 版本 ≥ 20。
 - Go 版本不匹配
   - 解决：安装 Go 1.25，并使用 `go env` 确认环境。必要时调整 `PATH` 指向正确的 Go 安装目录。
 - 端口被占用（3006）
@@ -154,7 +154,7 @@ sha256sum -c distribution-checksums.txt | grep linux-amd64
 
 #### 注意事项
 
-- 工作流使用 `Go 1.25` 与 `Node.js 18 + pnpm 8`，确保依赖版本兼容。
+- 工作流使用 `Go 1.25` 与 `Node.js 20 + pnpm 8`，确保依赖版本兼容。
 - 构建过程启用 `COURSES_USE_EMBED=true` 与 `CGO_ENABLED=0`，可在 Linux Runner 上跨平台生成 macOS/Windows 二进制。
 
 ### 2. 手动发布（本地）

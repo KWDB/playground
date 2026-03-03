@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-Full-stack interactive learning platform: Go 1.24 backend (Gin, Docker SDK, WebSocket) + React 18 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
+Full-stack interactive learning platform: Go 1.24 backend (Gin, Docker SDK, WebSocket) + React 20 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
 
 ## Quick Commands
 

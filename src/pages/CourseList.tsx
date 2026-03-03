@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, Code, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, Circle } from 'lucide-react';
+import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, Code, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, Circle, ArrowRight } from 'lucide-react';
 import { ContainerInfo } from '@/types';
 import { api } from '@/lib/api/client';
 import { UserProgress } from '@/lib/api/types';
@@ -30,6 +30,12 @@ interface FilterState {
   difficulty: string[];
   tags: string[];
   timeRange: [number, number];
+}
+
+interface RecentLearningEntry {
+  course: Course;
+  progress: UserProgress;
+  timestamp: number;
 }
 
 export function CourseList() {
@@ -132,6 +138,63 @@ export function CourseList() {
     if (filters.timeRange[0] > 0 || filters.timeRange[1] < maxDuration) count++;
     return count;
   }, [filters, maxDuration]);
+
+  const overallProgress = useMemo(() => {
+    const totalCourses = filteredCourses.length;
+    const completedCourses = filteredCourses.filter((course) => progressMap[course.id]?.completed).length;
+    const inProgressCourses = filteredCourses.filter((course) => {
+      const progress = progressMap[course.id];
+      return !!progress && !progress.completed;
+    }).length;
+    const pendingCourses = Math.max(0, totalCourses - completedCourses - inProgressCourses);
+
+    const totalSteps = filteredCourses.reduce((sum, course) => sum + Math.max(course.totalSteps ?? 0, 0), 0);
+    const finishedSteps = filteredCourses.reduce((sum, course) => {
+      const progress = progressMap[course.id];
+      const stepCount = Math.max(course.totalSteps ?? 0, 0);
+      if (!progress || stepCount === 0) return sum;
+      if (progress.completed) return sum + stepCount;
+      const current = Math.min(Math.max(progress.stepIndex + 1, 0), stepCount);
+      return sum + current;
+    }, 0);
+
+    const percentByCourse = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
+    const percentByStep = totalSteps > 0 ? Math.round((finishedSteps / totalSteps) * 100) : percentByCourse;
+
+    return {
+      totalCourses,
+      completedCourses,
+      inProgressCourses,
+      pendingCourses,
+      finishedSteps,
+      totalSteps,
+      percent: percentByStep,
+    };
+  }, [filteredCourses, progressMap]);
+
+  const recentLearningEntry = useMemo(() => {
+    const entries: RecentLearningEntry[] = courses
+      .map((course) => {
+        const progress = progressMap[course.id];
+        if (!progress) return null;
+        const updatedAt = new Date(progress.updatedAt).getTime();
+        const createdAt = new Date(progress.createdAt).getTime();
+        const timestamp = Number.isFinite(updatedAt) && updatedAt > 0
+          ? updatedAt
+          : Number.isFinite(createdAt) && createdAt > 0
+          ? createdAt
+          : 0;
+        return { course, progress, timestamp };
+      })
+      .filter((item): item is RecentLearningEntry => item !== null)
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    return entries[0] ?? null;
+  }, [courses, progressMap]);
+
+  const suggestedCourse = useMemo(() => {
+    return filteredCourses[0] ?? courses[0] ?? null;
+  }, [filteredCourses, courses]);
 
   const handleResetFilters = () => {
     setFilters({ type: 'all', difficulty: [], tags: [], timeRange: [0, maxDuration] });
@@ -354,6 +417,92 @@ export function CourseList() {
             )}
           </div>
         </header>
+
+        <div className="mb-6 p-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-bg-primary)]">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="min-w-[220px]">
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">当前筛选学习进度</p>
+                  <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                    已完成 {overallProgress.completedCourses}/{overallProgress.totalCourses} 门课程
+                    {overallProgress.totalSteps > 0 && (
+                      <span className="ml-2">
+                        ({overallProgress.finishedSteps}/{overallProgress.totalSteps} 步)
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-semibold tabular-nums text-[var(--color-text-primary)]">
+                    {overallProgress.percent}%
+                  </p>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">总体完成度</p>
+                </div>
+              </div>
+
+              <div className="mt-3 h-2 w-full rounded-full bg-[var(--color-bg-secondary)] overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-[var(--color-accent-primary)] transition-all duration-200 ease-out"
+                  style={{ width: `${overallProgress.percent}%` }}
+                />
+              </div>
+
+              <div className="mt-3 flex items-center gap-2 flex-wrap text-xs">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  已完成 {overallProgress.completedCourses}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                  进行中 {overallProgress.inProgressCourses}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                  <Circle className="w-3.5 h-3.5" />
+                  待学习 {overallProgress.pendingCourses}
+                </span>
+              </div>
+            </div>
+
+            <div className="lg:w-[360px] lg:shrink-0">
+              {recentLearningEntry ? (
+                <Link
+                  to={`/learn/${recentLearningEntry.course.id}`}
+                  className="group h-full flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-default)] transition-colors duration-200"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs text-[var(--color-text-tertiary)]">最近学习课程</p>
+                    <p className="mt-1 text-sm font-medium text-[var(--color-text-primary)] truncate">
+                      {recentLearningEntry.course.title}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                      {recentLearningEntry.progress.completed
+                        ? '学习状态：已完成'
+                        : `学习状态：进行中 (${recentLearningEntry.course.totalSteps ? Math.round((recentLearningEntry.progress.stepIndex + 1) / recentLearningEntry.course.totalSteps * 100) : 0}%)`}
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-xs text-[var(--color-accent-primary)] shrink-0">
+                    继续学习
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </Link>
+              ) : (
+                <div className="h-full p-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] flex items-center justify-between gap-3">
+                  <p className="text-sm text-[var(--color-text-secondary)]">暂无学习记录，开始第一门课程吧</p>
+                  {suggestedCourse && (
+                    <Link
+                      to={`/learn/${suggestedCourse.id}`}
+                      className="inline-flex items-center gap-1.5 text-xs text-[var(--color-accent-primary)] shrink-0"
+                    >
+                      去学习
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div className="mb-6 p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)]">
           <div className="flex flex-col md:flex-row gap-3">
