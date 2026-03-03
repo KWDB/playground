@@ -22,6 +22,7 @@ import CodeEditor from '../components/business/CodeEditor'
 import CodeTerminal, { CodeTerminalRef } from '../components/business/CodeTerminal'
 import { getStepsForPage, getTotalSteps } from '../config/tourSteps'
 import { api } from '../lib/api/client'
+import { ImagePullProgressMessageOverlay } from '../components/business/terminal/ImagePullProgressOverlay'
 
 export function Learn() {
   const { courseId } = useParams<{ courseId: string }>()

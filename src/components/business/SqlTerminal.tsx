@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import EnhancedSqlEditor from './EnhancedSqlEditor'
 import { api } from '@/lib/api/client'
+import ImagePullProgressOverlay, { ImagePullProgressMessageOverlay } from './terminal/ImagePullProgressOverlay'
 
 type Props = {
   courseId: string
   port: number
   containerStatus?: string
+  imagePullProgress?: ImagePullProgressMessageOverlay | null
+  showImagePullProgress?: boolean
 }
 
 type SqlInfo = {
@@ -81,7 +84,7 @@ const formatCellValue = (value: unknown, columnName: string, tzMode: TzMode): st
   return String(value)
 }
 
-const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus }, ref) => {
+const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus, imagePullProgress, showImagePullProgress }, ref) => {
   const [info, setInfo] = useState<SqlInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -150,129 +153,82 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     } finally {
       setLoading(false)
     }
-  }, [infoUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [courseId])
 
+  // 使用 ref 存储 fetchInfo 的最新版本
+  const fetchInfoRef = useRef(fetchInfo)
+  fetchInfoRef.current = fetchInfo
+
+  // 启动时和课程变化时自动获取信息
   useEffect(() => {
-    infoAbortControllerRef.current?.abort()
-    const controller = new AbortController()
-    infoAbortControllerRef.current = controller
-    fetchInfo(controller.signal)
-
-    return () => {
-      infoAbortControllerRef.current?.abort()
-      infoAbortControllerRef.current = null
+    if (courseId) {
+      fetchInfoRef.current()
     }
-  }, [fetchInfo])
+  }, [courseId])
 
+  // 定期刷新连接状态
   useEffect(() => {
+    const timer = setInterval(() => {
+      if (courseId && containerStatus === 'running') {
+        fetchInfoRef.current()
+      }
+    }, 10000)
+    return () => clearInterval(timer)
+  }, [courseId, containerStatus])
+
+  // WebSocket 连接处理
+  useEffect(() => {
+    // 只有容器在 running 状态才连接 WebSocket
     if (containerStatus !== 'running') {
       if (wsRef.current) {
-        try { wsRef.current.close() } catch { /* ignore close errors */ }
+        wsRef.current.close()
         wsRef.current = null
+        setWsConnected(false)
       }
-      setWsConnected(false)
-      infoAbortControllerRef.current?.abort()
-      infoAbortControllerRef.current = null
       return
     }
 
-    if (wsRef.current) return
+    // 防止重复连接
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      return
+    }
+
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
       setWsConnected(true)
-      const initMsg = { type: 'init', courseId }
-      ws.send(JSON.stringify(initMsg))
+      // 发送订阅消息
+      ws.send(JSON.stringify({ type: 'subscribe', courseId }))
     }
 
-    ws.onmessage = (ev) => {
+    ws.onmessage = (event) => {
       try {
-        type WsMessage = { type: string;[key: string]: unknown }
-        const msg: WsMessage = JSON.parse(ev.data)
-
-        if (msg.type === 'ready') {
-          fetchInfoRef.current()
-          return
-        }
-
-        if (msg.type === 'info') {
-          setInfo({
-            version: typeof msg.version === 'string' ? msg.version : undefined,
-            port: typeof msg.port === 'number' ? msg.port : undefined,
-            connected: Boolean(msg.connected),
-          })
-          setLoading(false)
-          setError(null)
-          return
-        }
-
+        const msg = JSON.parse(event.data)
         if (msg.type === 'result') {
-          const cols = Array.isArray(msg.columns) ? msg.columns : []
-          const rws = Array.isArray(msg.rows) ? msg.rows : []
-          const rowCount = typeof msg.rowCount === 'number' ? msg.rowCount : 0
-
-          const hasCols = cols.length > 0
-          const hasRws = rws.length > 0
-
-          if (hasCols) {
-            setColumns(cols)
-            setRows(rws)
-            setLastExecutionResult({
-              type: 'query',
-              columns: cols,
-              rows: rws,
-              message: `查询完成，返回 ${hasRws ? rws.length : 0} 行数据`
-            })
-          } else {
-            setColumns([])
-            setRows([])
-            setLastExecutionResult({
-              type: 'success',
-              message: rowCount > 0 ? `操作成功，影响 ${rowCount} 行数据` : '操作成功',
-              rowsAffected: rowCount
-            })
+          setExecuting(false)
+          const result = msg.data as ExecutionResult
+          setLastExecutionResult(result)
+          if (result.type === 'query') {
+            setColumns(result.columns || [])
+            setRows(result.rows || [])
           }
+        } else if (msg.type === 'error') {
           setExecuting(false)
-          return
-        }
-
-        if (msg.type === 'success') {
-          setExecuting(false)
-          const rowsAffected = typeof msg.rowsAffected === 'number' ? msg.rowsAffected : undefined
-          const message = typeof msg.message === 'string' ? msg.message : '操作成功'
-          setColumns([])
-          setRows([])
-          setLastExecutionResult({
-            type: 'success',
-            message,
-            rowsAffected
-          })
-          return
-        }
-
-        if (msg.type === 'error') {
-          setExecuting(false)
-          const message = typeof (msg as { message?: unknown }).message === 'string'
-            ? (msg as { message?: string }).message
-            : '执行错误'
-          setError(message)
-          setLastExecutionResult({
-            type: 'error',
-            message
-          })
-          return
+          setError(msg.message || '执行错误')
         }
       } catch (e) {
-        console.error('WS 消息解析失败:', e)
-        setExecuting(false)
+        console.error('解析 WebSocket 消息失败:', e)
       }
+    }
+
+    ws.onerror = () => {
+      setWsConnected(false)
     }
 
     ws.onclose = () => {
       setWsConnected(false)
       wsRef.current = null
-      setExecuting(false)
     }
 
     return () => {
@@ -281,63 +237,39 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     }
   }, [wsUrl, courseId, containerStatus])
 
-  useEffect(() => {
-    if (containerStatus !== 'running' || info?.connected) return
-
-    const timer = setInterval(() => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        const initMsg = { type: 'init', courseId }
-        wsRef.current.send(JSON.stringify(initMsg))
-        fetchInfoRef.current()
-      }
-    }, 1200)
-
-    return () => { clearInterval(timer) }
-  }, [courseId, info?.connected, containerStatus])
-
-  useEffect(() => {
-    return () => {
-      infoAbortControllerRef.current?.abort()
-      infoAbortControllerRef.current = null
-    }
-  }, [])
-
-  const runQuery = (sqlOverride?: string) => {
-    setError(null)
-    setLastExecutionResult(null)
-    setColumns([])
-    setRows([])
+  const runQuery = useCallback((text?: string) => {
+    const sql = text ?? queryText
+    if (!sql.trim() || executing) return
 
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      setError('WS 未连接，无法执行')
+      setError('WebSocket 未连接')
       return
     }
 
     setExecuting(true)
+    setLastExecutionResult(null)
+    setError(null)
+    setColumns([])
+    setRows([])
 
-    const qid = `q_${Date.now()}`
-    const msg = { type: 'query', queryId: qid, sql: (sqlOverride ?? queryText) }
-    wsRef.current.send(JSON.stringify(msg))
-  }
+    wsRef.current.send(JSON.stringify({
+      type: 'query',
+      sql: sql.trim()
+    }))
+  }, [queryText, executing])
 
-  const handleClearInput = () => {
+  const handleClearInput = useCallback(() => {
     setQueryText('')
     setJustCleared(true)
-    setTimeout(() => setJustCleared(false), 1000)
-  }
+    setTimeout(() => setJustCleared(false), 1500)
+  }, [])
 
-  const fetchInfoRef = useRef<() => void>(() => { })
-  useEffect(() => {
-    fetchInfoRef.current = () => {
-      infoAbortControllerRef.current?.abort()
-      const controller = new AbortController()
-      infoAbortControllerRef.current = controller
-      fetchInfo(controller.signal)
-    }
-  }, [fetchInfo])
+  const toggleTz = useCallback(() => {
+    setTzMode((prev) => prev === 'UTC' ? 'LOCAL' : 'UTC')
+  }, [])
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-primary)]">
+    <div className="h-full flex flex-col bg-[var(--color-bg-primary)] relative">
       {/* 顶部状态栏 */}
       <div className="flex items-center justify-between p-3 border-b border-[var(--color-border-light)] bg-[var(--color-bg-secondary)]">
         <div className="flex items-center gap-3 text-sm">
@@ -433,63 +365,45 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
 
                 {lastExecutionResult.type === 'error' && (
                   <div className="rounded border border-[var(--color-error)] bg-[var(--color-error)]/10 p-3">
-                    <div className="text-sm text-[var(--color-error)]">{lastExecutionResult.message}</div>
+                    <div className="text-sm text-[var(--color-error)]">
+                      {lastExecutionResult.message || '执行出错'}
+                    </div>
                   </div>
                 )}
-              </div>
-            )}
 
-            {columns.length > 0 && (
-              <div className="mt-3 overflow-auto">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs text-[var(--color-text-tertiary)]">查询结果</div>
-                  {hasTimestampColumn && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-[var(--color-text-tertiary)]">时区</span>
-                      <div className="inline-flex rounded border border-[var(--color-border-default)] overflow-hidden">
-                        <button
-                          className={`px-2 py-1 text-xs ${tzMode === 'UTC' ? 'bg-[var(--color-accent-primary)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'}`}
-                          onClick={() => setTzMode('UTC')}
-                          aria-pressed={tzMode === 'UTC'}
-                        >UTC</button>
-                        <button
-                          className={`px-2 py-1 text-xs ${tzMode === 'LOCAL' ? 'bg-[var(--color-accent-primary)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'}`}
-                          onClick={() => setTzMode('LOCAL')}
-                          aria-pressed={tzMode === 'LOCAL'}
-                        >UTC+8</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr>
-                      {columns.map((col) => {
-                        const isTs = isTimestampColumnName(col)
-                        const tzLabel = tzMode === 'UTC' ? 'UTC' : 'UTC+8'
-                        const headerText = isTs ? `${col} (${tzLabel})` : col
-                        return (
-                          <th key={col} className="px-3 py-1 text-left text-[var(--color-text-primary)] border-b border-[var(--color-border-light)]">{headerText}</th>
-                        )
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, idx) => (
-                      <tr key={idx} className="border-b border-[var(--color-border-light)]">
-                        {r.map((cell, cidx) => (
-                          <td key={cidx} className="px-3 py-1 text-[var(--color-text-primary)]">
-                            {formatCellValue(cell, columns[cidx] || '', tzMode)}
-                          </td>
+                {lastExecutionResult.type === 'query' && (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm border border-[var(--color-border-default)] rounded">
+                      <thead className="bg-[var(--color-bg-secondary)]">
+                        <tr>
+                          {(lastExecutionResult.columns || []).map((col) => {
+                            const isTs = isTimestampColumnName(col)
+                            const tzLabel = tzMode === 'UTC' ? 'UTC' : 'Local'
+                            const headerText = isTs ? `${col} (${tzLabel})` : col
+                            return (
+                              <th key={col} className="px-3 py-1 text-left text-[var(--color-text-primary)] border-b border-[var(--color-border-light)]">{headerText}</th>
+                            )
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r, idx) => (
+                          <tr key={idx} className="border-b border-[var(--color-border-light)]">
+                            {r.map((cell, cidx) => (
+                              <td key={cidx} className="px-3 py-1 text-[var(--color-text-primary)]">
+                                {formatCellValue(cell, columns[cidx] || '', tzMode)}
+                              </td>
+                            ))}
+                          </tr>
                         ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {hasTimestampColumn && (
-                  <div className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-                    时间戳默认以 <span className="text-[var(--color-text-secondary)]">UTC</span> 显示。可切换查看 <span className="text-[var(--color-text-secondary)]">Asia/Shanghai(+8)</span>。
-                    该设置仅影响显示，不影响数据的查询与存储。
+                      </tbody>
+                    </table>
+                    {hasTimestampColumn && (
+                      <div className="mt-2 text-xs text-[var(--color-text-tertiary)]">
+                        时间戳默认以 <span className="text-[var(--color-text-secondary)]">UTC</span> 显示。可切换查看 <span className="text-[var(--color-text-secondary)]">Asia/Shanghai(+8)</span>。
+                        该设置仅影响显示，不影响数据的查询与存储。
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -497,6 +411,16 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
           </div>
         )}
       </div>
+
+      {/* 镜像拉取进度覆盖层 */}
+      {showImagePullProgress && imagePullProgress && (
+        <div className="absolute inset-0 z-50">
+          <ImagePullProgressOverlay
+            show={showImagePullProgress}
+            imagePullProgress={imagePullProgress}
+          />
+        </div>
+      )}
     </div>
   )
 })
