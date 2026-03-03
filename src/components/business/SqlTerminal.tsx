@@ -96,7 +96,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   const [rows, setRows] = useState<Cell[][]>([])
   const [executing, setExecuting] = useState(false)
   const [lastExecutionResult, setLastExecutionResult] = useState<ExecutionResult | null>(null)
-  const [tzMode] = useState<TzMode>('UTC')
+  const [tzMode, setTzMode] = useState<TzMode>('UTC')
   const [justCleared, setJustCleared] = useState(false)
   // 镜像拉取进度状态
   const [showProgress, setShowProgress] = useState(false)
@@ -280,35 +280,88 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
 
     ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data)
+        type WsMessage = { type: string;[key: string]: unknown }
+        const msg: WsMessage = JSON.parse(event.data)
+
+        if (msg.type === 'ready') {
+          fetchInfoRef.current()
+          return
+        }
+
+        if (msg.type === 'info') {
+          setInfo({
+            version: typeof msg.version === 'string' ? msg.version : undefined,
+            port: typeof msg.port === 'number' ? msg.port : undefined,
+            connected: Boolean(msg.connected),
+          })
+          setLoading(false)
+          setError(null)
+          return
+        }
+
         if (msg.type === 'result') {
-          setExecuting(false)
-          const isQuery = msg.columns && msg.columns.length > 0
-          const result: ExecutionResult = {
-            type: isQuery ? 'query' : 'success',
-            message: isQuery ? undefined : `操作成功，影响 ${msg.rowCount} 行数据`,
-            columns: msg.columns || [],
-            rows: msg.rows || [],
-            rowsAffected: msg.rowCount
+          const cols = Array.isArray(msg.columns) ? msg.columns : []
+          const rws = Array.isArray(msg.rows) ? msg.rows : []
+          const rowCount = typeof msg.rowCount === 'number' ? msg.rowCount : 0
+
+          const hasCols = cols.length > 0
+          const hasRws = rws.length > 0
+
+          if (hasCols) {
+            setColumns(cols as string[])
+            setRows(rws as Cell[][])
+            setLastExecutionResult({
+              type: 'query',
+              columns: cols as string[],
+              rows: rws as Cell[][],
+              message: `查询完成，返回 ${hasRws ? rws.length : 0} 行数据`
+            })
+          } else {
+            setColumns([])
+            setRows([])
+            setLastExecutionResult({
+              type: 'success',
+              message: rowCount > 0 ? `操作成功，影响 ${rowCount} 行数据` : '操作成功',
+              rowsAffected: rowCount
+            })
           }
-          setLastExecutionResult(result)
-          if (isQuery) {
-            setColumns(msg.columns || [])
-            setRows(msg.rows || [])
-          }
-        } else if (msg.type === 'error') {
           setExecuting(false)
+          return
+        }
+
+        if (msg.type === 'success') {
+          setExecuting(false)
+          const rowsAffected = typeof msg.rowsAffected === 'number' ? msg.rowsAffected : undefined
+          const message = typeof msg.message === 'string' ? msg.message : '操作成功'
+          setColumns([])
+          setRows([])
+          setLastExecutionResult({
+            type: 'success',
+            message,
+            rowsAffected
+          })
+          return
+        }
+
+        if (msg.type === 'error') {
+          setExecuting(false)
+          const message = typeof (msg as { message?: unknown }).message === 'string'
+            ? (msg as { message?: string }).message
+            : '执行错误'
+          
           if (msg.queryId) {
             setLastExecutionResult({
               type: 'error',
-              message: msg.message || 'SQL 执行出错'
+              message
             })
           } else {
-            setError(msg.message || '执行错误')
+            setError(message)
           }
+          return
         }
       } catch (e) {
-        console.error('解析 WebSocket 消息失败:', e)
+        console.error('WS 消息解析失败:', e)
+        setExecuting(false)
       }
     }
 
@@ -451,45 +504,63 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
 
                 {lastExecutionResult.type === 'error' && (
                   <div className="rounded border border-[var(--color-error)] bg-[var(--color-error)]/10 p-3">
-                    <div className="text-sm text-[var(--color-error)]">
-                      {lastExecutionResult.message || '执行出错'}
-                    </div>
+                    <div className="text-sm text-[var(--color-error)]">{lastExecutionResult.message}</div>
                   </div>
                 )}
+              </div>
+            )}
 
-                {lastExecutionResult.type === 'query' && (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm border border-[var(--color-border-default)] rounded">
-                      <thead className="bg-[var(--color-bg-secondary)]">
-                        <tr>
-                          {(lastExecutionResult.columns || []).map((col) => {
-                            const isTs = isTimestampColumnName(col)
-                            const tzLabel = tzMode === 'UTC' ? 'UTC' : 'Local'
-                            const headerText = isTs ? `${col} (${tzLabel})` : col
-                            return (
-                              <th key={col} className="px-3 py-1 text-left text-[var(--color-text-primary)] border-b border-[var(--color-border-light)]">{headerText}</th>
-                            )
-                          })}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((r, idx) => (
-                          <tr key={idx} className="border-b border-[var(--color-border-light)]">
-                            {r.map((cell, cidx) => (
-                              <td key={cidx} className="px-3 py-1 text-[var(--color-text-primary)]">
-                                {formatCellValue(cell, columns[cidx] || '', tzMode)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {hasTimestampColumn && (
-                      <div className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-                        时间戳默认以 <span className="text-[var(--color-text-secondary)]">UTC</span> 显示。可切换查看 <span className="text-[var(--color-text-secondary)]">Asia/Shanghai(+8)</span>。
-                        该设置仅影响显示，不影响数据的查询与存储。
+            {columns.length > 0 && (
+              <div className="mt-3 overflow-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-[var(--color-text-tertiary)]">查询结果</div>
+                  {hasTimestampColumn && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[var(--color-text-tertiary)]">时区</span>
+                      <div className="inline-flex rounded border border-[var(--color-border-default)] overflow-hidden">
+                        <button
+                          className={`px-2 py-1 text-xs ${tzMode === 'UTC' ? 'bg-[var(--color-accent-primary)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'}`}
+                          onClick={() => setTzMode('UTC')}
+                          aria-pressed={tzMode === 'UTC'}
+                        >UTC</button>
+                        <button
+                          className={`px-2 py-1 text-xs ${tzMode === 'LOCAL' ? 'bg-[var(--color-accent-primary)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'}`}
+                          onClick={() => setTzMode('LOCAL')}
+                          aria-pressed={tzMode === 'LOCAL'}
+                        >UTC+8</button>
                       </div>
-                    )}
+                    </div>
+                  )}
+                </div>
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      {columns.map((col) => {
+                        const isTs = isTimestampColumnName(col)
+                        const tzLabel = tzMode === 'UTC' ? 'UTC' : 'UTC+8'
+                        const headerText = isTs ? `${col} (${tzLabel})` : col
+                        return (
+                          <th key={col} className="px-3 py-1 text-left text-[var(--color-text-primary)] border-b border-[var(--color-border-light)]">{headerText}</th>
+                        )
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, idx) => (
+                      <tr key={idx} className="border-b border-[var(--color-border-light)]">
+                        {r.map((cell, cidx) => (
+                          <td key={cidx} className="px-3 py-1 text-[var(--color-text-primary)]">
+                            {formatCellValue(cell, columns[cidx] || '', tzMode)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {hasTimestampColumn && (
+                  <div className="mt-2 text-xs text-[var(--color-text-tertiary)]">
+                    时间戳默认以 <span className="text-[var(--color-text-secondary)]">UTC</span> 显示。可切换查看 <span className="text-[var(--color-text-secondary)]">Asia/Shanghai(+8)</span>。
+                    该设置仅影响显示，不影响数据的查询与存储。
                   </div>
                 )}
               </div>
