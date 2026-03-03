@@ -33,6 +33,7 @@ const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
   const readOnlyCompartment = useRef(new Compartment())
+  const languageExtension = language === 'python' ? python() : python()
 
   useImperativeHandle(ref, () => ({
     getValue: () => viewRef.current?.state.doc.toString() || ''
@@ -225,7 +226,7 @@ const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
       bracketMatching(),
       highlightActiveLine(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-      python(),
+      languageExtension,
       pythonTheme,
       keymap.of([
         ...defaultKeymap,

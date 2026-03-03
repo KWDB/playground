@@ -217,7 +217,7 @@ CodeTerminal 显示结果
 
 已创建的示例课程：
 
-- **Python 入门** (`courses/python-hello/`) - 基础 Python 语法学习
+- **Python 入门** (`courses/python-kwdb/`) - 基础 Python 语法与 KWDB 数据库操作学习
 
 ## 常见问题
 

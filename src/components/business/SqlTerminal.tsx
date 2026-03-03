@@ -250,7 +250,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
       ws.close()
       wsProgressRef.current = null
     }
-  }, [containerStatus])
+  }, [containerStatus, onImagePullComplete, showProgress])
 
   // WebSocket 连接处理
   useEffect(() => {

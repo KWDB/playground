@@ -26,7 +26,7 @@ export interface CodeTerminalRef {
   setCode: (code: string) => void
 }
 
-const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus, imagePullProgress, showImagePullProgress, onImagePullComplete }, ref) => {
+const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ containerId, containerStatus, onImagePullComplete }, ref) => {
   const [error, setError] = useState<string | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
   const [codeText, setCodeText] = useState<string>('')
@@ -176,7 +176,7 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
       ws.close()
       wsProgressRef.current = null
     }
-  }, [containerStatus])
+  }, [containerStatus, onImagePullComplete, showProgress])
 
   // WebSocket connection
   useEffect(() => {

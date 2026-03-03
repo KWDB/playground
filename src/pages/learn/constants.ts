@@ -1,0 +1,3 @@
+export const STATUS_CHECK_INTERVAL_MS = 30000
+export const WAIT_RETRY_MAX = 15
+export const WAIT_RETRY_INTERVAL_MS = 1500
