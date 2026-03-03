@@ -19,7 +19,7 @@
     "pw:codegen": "npx playwright codegen --output=tests/playwright/new-test.ts http://localhost:3006"
   },
   "dependencies": {
-    "@base-ui/react": "^1.1.0",
+    "@base-ui/react": "^1.2.0",
     "@codemirror/autocomplete": "^6.19.0",
     "@codemirror/commands": "^6.10.2",
     "@codemirror/highlight": "^0.19.8",
