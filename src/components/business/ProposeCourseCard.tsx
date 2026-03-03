@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import { Button } from '@/components/ui/Button';
 
 interface ProposeCourseCardProps {
@@ -7,8 +9,18 @@ interface ProposeCourseCardProps {
   mode?: 'grid' | 'list';
 }
 
+type IssueTarget = 'atomgit' | 'github';
+
+function cn(...inputs: (string | undefined | null | false)[]) {
+  return twMerge(clsx(inputs));
+}
+
 const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode = 'grid' }) => {
+  const atomgitIssueBaseUrl = 'https://atomgit.com/kwdb/playground/issues/new';
+  const githubIssueBaseUrl = 'https://github.com/KWDB/playground/issues/new';
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [issueTarget, setIssueTarget] = useState<IssueTarget>('atomgit');
   const [formData, setFormData] = useState({
     courseName: '',
     description: '',
@@ -21,22 +33,48 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
       ...prev,
       [name]: value
     }));
+    if (submitError) setSubmitError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSubmitError(null);
+  };
+
+  const openModal = () => {
+    setIsModalOpen(true);
+    setSubmitError(null);
+    setIssueTarget('atomgit');
+  };
+
+  const canSubmit = formData.courseName.trim().length > 0 && formData.description.trim().length > 0;
+
+  const submitIssue = (target: IssueTarget) => {
+    if (!canSubmit) {
+      setSubmitError('请填写课程名称和需求描述');
+      return;
+    }
 
     const title = '新课程需求';
-    const body = `
-课程名称：${formData.courseName}
-需求描述：${formData.description}
-联系方式：${formData.contact}
-`.trim();
+    const body = [
+      `课程名称：${formData.courseName.trim()}`,
+      `需求描述：${formData.description.trim()}`,
+      `联系方式：${formData.contact.trim() || '未提供'}`
+    ].join('\n');
+    const params = new URLSearchParams({
+      title,
+      body,
+    });
+    const issueBaseUrl = target === 'atomgit' ? atomgitIssueBaseUrl : githubIssueBaseUrl;
+    const issueUrl = `${issueBaseUrl}?${params.toString()}`;
+    const issueWindow = window.open(issueUrl, '_blank', 'noopener,noreferrer');
 
-    const githubIssueUrl = `https://github.com/KWDB/playground/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+    if (!issueWindow) {
+      setSubmitError('未能打开新窗口，请检查浏览器弹窗设置后重试');
+      return;
+    }
 
-    window.open(githubIssueUrl, '_blank');
-    setIsModalOpen(false);
+    closeModal();
     setFormData({ courseName: '', description: '', contact: '' });
   };
 
@@ -44,7 +82,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
     <>
       {mode === 'grid' ? (
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openModal}
           className={`
             group block p-5 rounded-xl 
             border border-dashed border-[var(--color-border-default)]
@@ -78,7 +116,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
         </button>
       ) : (
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openModal}
           className={`
             group flex items-center gap-4 p-5 rounded-xl
             border border-dashed border-[var(--color-border-default)]
@@ -110,19 +148,63 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+          <div className="fixed inset-0 bg-black/40" onClick={closeModal} />
           <div className="relative z-10 w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl overflow-hidden animate-fade-in">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)]">
-              <h3 className="text-sm font-medium text-[var(--color-text-primary)]">提议新课程</h3>
+              <div>
+                <h3 className="text-sm font-medium text-[var(--color-text-primary)]">提议新课程</h3>
+                <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">反馈您的课程建议</p>
+              </div>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
+                aria-label="关闭提议新课程弹窗"
                 className="p-1 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitIssue(issueTarget);
+              }}
+              className="p-4 space-y-4"
+            >
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-[var(--color-text-secondary)]">提交渠道</p>
+                <div role="tablist" aria-label="Issue 提交渠道" className="grid grid-cols-2 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] p-1">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={issueTarget === 'atomgit'}
+                    className={cn(
+                      'px-3 py-1.5 text-xs font-medium rounded-sm transition-colors duration-150',
+                      issueTarget === 'atomgit'
+                        ? 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-sm'
+                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                    )}
+                    onClick={() => setIssueTarget('atomgit')}
+                  >
+                    AtomGit
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={issueTarget === 'github'}
+                    className={cn(
+                      'px-3 py-1.5 text-xs font-medium rounded-sm transition-colors duration-150',
+                      issueTarget === 'github'
+                        ? 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-sm'
+                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                    )}
+                    onClick={() => setIssueTarget('github')}
+                  >
+                    GitHub
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label htmlFor="courseName" className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
                   课程名称
@@ -132,6 +214,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                   id="courseName"
                   name="courseName"
                   required
+                  maxLength={80}
                   value={formData.courseName}
                   onChange={handleInputChange}
                   className="input"
@@ -147,6 +230,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                   id="description"
                   name="description"
                   required
+                  maxLength={1000}
                   rows={3}
                   value={formData.description}
                   onChange={handleInputChange}
@@ -163,6 +247,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                   type="text"
                   id="contact"
                   name="contact"
+                  maxLength={120}
                   value={formData.contact}
                   onChange={handleInputChange}
                   className="input"
@@ -170,12 +255,20 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                 />
               </div>
 
-              <div className="pt-2">
-                <Button type="submit" variant="primary" className="w-full">
-                  提交反馈
+              <div className="flex items-center justify-between text-xs text-[var(--color-text-tertiary)] tabular-nums">
+                <span>需求描述</span>
+                <span>{formData.description.length}/1000</span>
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <Button type="submit" variant="primary" className="w-full" disabled={!canSubmit}>
+                  {issueTarget === 'atomgit' ? '提交到 AtomGit' : '提交到 GitHub'}
                 </Button>
+                {submitError && (
+                  <p className="text-xs text-[var(--color-error)] text-center mt-2">{submitError}</p>
+                )}
                 <p className="text-xs text-[var(--color-text-tertiary)] text-center mt-3">
-                  点击后将跳转至 GitHub Issue
+                  点击后将跳转至对应平台的新建 Issue 页面
                 </p>
               </div>
             </form>
