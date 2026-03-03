@@ -97,12 +97,16 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   const [lastExecutionResult, setLastExecutionResult] = useState<ExecutionResult | null>(null)
   const [tzMode, setTzMode] = useState<TzMode>('UTC')
   const [justCleared, setJustCleared] = useState(false)
+  // 镜像拉取进度状态
+  const [showProgress, setShowProgress] = useState(false)
+  const [localImagePullProgress, setLocalImagePullProgress] = useState<ImagePullProgressMessageOverlay | null>(null)
 
   const hasTimestampColumn = useMemo(() => {
     return columns.some((c) => isTimestampColumnName(c))
   }, [columns])
 
   const wsRef = useRef<WebSocket | null>(null)
+  const wsProgressRef = useRef<WebSocket | null>(null)
   const infoAbortControllerRef = useRef<AbortController | null>(null)
 
   const infoUrl = useMemo(() => `/api/sql/info?courseId=${encodeURIComponent(courseId)}`, [courseId])
@@ -175,6 +179,76 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     }, 10000)
     return () => clearInterval(timer)
   }, [courseId, containerStatus])
+
+  // 镜像拉取进度 WebSocket 连接
+  useEffect(() => {
+    if (containerStatus !== 'starting') {
+      if (wsProgressRef.current) {
+        wsProgressRef.current.close()
+        wsProgressRef.current = null
+      }
+      // 进度结束后隐藏
+      if (showProgress) {
+        setShowProgress(false)
+        setLocalImagePullProgress(null)
+      }
+      return
+    }
+
+    // 防止重复连接
+    if (wsProgressRef.current?.readyState === WebSocket.OPEN) {
+      return
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${protocol}//${window.location.host}/ws/terminal?progress_only=true`
+    const ws = new WebSocket(wsUrl)
+    wsProgressRef.current = ws
+
+    ws.onopen = () => {
+      console.log('SQL终端: 进度专用WebSocket连接已建立')
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data)
+        if (msg.type === 'image_pull_progress') {
+          const payload = msg.data || {}
+          setShowProgress(true)
+          setLocalImagePullProgress({
+            imageName: payload.imageName || '',
+            status: payload.status,
+            progress: payload.progress,
+            error: payload.error,
+            progressPercent: payload.progressPercent
+          })
+          
+          // 拉取完成
+          if (payload.status === 'done' || payload.status === 'complete') {
+            setTimeout(() => {
+              setShowProgress(false)
+              setLocalImagePullProgress(null)
+            }, 1200)
+          }
+        }
+      } catch (error) {
+        console.warn('SQL终端: 解析进度专用WebSocket消息失败:', error)
+      }
+    }
+
+    ws.onclose = () => {
+      console.log('SQL终端: 进度专用WebSocket连接已关闭')
+    }
+
+    ws.onerror = (error) => {
+      console.error('SQL终端: 进度专用WebSocket连接错误:', error)
+    }
+
+    return () => {
+      ws.close()
+      wsProgressRef.current = null
+    }
+  }, [containerStatus])
 
   // WebSocket 连接处理
   useEffect(() => {
@@ -413,11 +487,11 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
       </div>
 
       {/* 镜像拉取进度覆盖层 */}
-      {showImagePullProgress && imagePullProgress && (
+      {showProgress && localImagePullProgress && (
         <div className="absolute inset-0 z-50">
           <ImagePullProgressOverlay
-            show={showImagePullProgress}
-            imagePullProgress={imagePullProgress}
+            show={showProgress}
+            imagePullProgress={localImagePullProgress}
           />
         </div>
       )}
