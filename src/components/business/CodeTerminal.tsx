@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import CodeEditor from './CodeEditor'
 import CodeExecutionResult from './CodeExecutionResult'
+import ImagePullProgressOverlay, { ImagePullProgressMessageOverlay } from './terminal/ImagePullProgressOverlay'
 
 type Props = {
   courseId: string
   containerId: string
   containerStatus?: string
+  imagePullProgress?: ImagePullProgressMessageOverlay | null
+  showImagePullProgress?: boolean
+  onImagePullComplete?: () => void
 }
 
 type ExecutionResult = {
@@ -22,7 +26,7 @@ export interface CodeTerminalRef {
   setCode: (code: string) => void
 }
 
-const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus }, ref) => {
+const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus, imagePullProgress, showImagePullProgress, onImagePullComplete }, ref) => {
   const [error, setError] = useState<string | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
   const [codeText, setCodeText] = useState<string>('')
@@ -30,8 +34,12 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
   const [executing, setExecuting] = useState(false)
   const [result, setResult] = useState<ExecutionResult | null>(null)
   const [executionId, setExecutionId] = useState<string | null>(null)
+  // 镜像拉取进度状态
+  const [showProgress, setShowProgress] = useState(false)
+  const [localImagePullProgress, setLocalImagePullProgress] = useState<ImagePullProgressMessageOverlay | null>(null)
 
   const wsRef = useRef<WebSocket | null>(null)
+  const wsProgressRef = useRef<WebSocket | null>(null)
   const editorRef = useRef<{ getValue: () => string } | null>(null)
 
   const wsUrl = useMemo(() => {
@@ -95,6 +103,80 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
     getCode: () => editorRef.current?.getValue() || codeText,
     setCode
   }), [executeCode, cancelExecution, codeText, setCode])
+
+  // 镜像拉取进度 WebSocket 连接
+  useEffect(() => {
+    if (containerStatus !== 'starting') {
+      if (wsProgressRef.current) {
+        wsProgressRef.current.close()
+        wsProgressRef.current = null
+      }
+      // 进度结束后隐藏
+      if (showProgress) {
+        setShowProgress(false)
+        setLocalImagePullProgress(null)
+      }
+      return
+    }
+
+    // 防止重复连接
+    if (wsProgressRef.current?.readyState === WebSocket.OPEN) {
+      return
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${protocol}//${window.location.host}/ws/terminal?progress_only=true`
+    const ws = new WebSocket(wsUrl)
+    wsProgressRef.current = ws
+
+    ws.onopen = () => {
+      console.log('CodeTerminal: 进度专用WebSocket连接已建立')
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data)
+        if (msg.type === 'image_pull_progress') {
+          const payload = msg.data || {}
+          setShowProgress(true)
+          setLocalImagePullProgress({
+            imageName: payload.imageName || '',
+            status: payload.status,
+            progress: payload.progress,
+            error: payload.error,
+            progressPercent: payload.progressPercent
+          })
+          
+          // 拉取完成
+          if (payload.status === 'done' || payload.status === 'complete') {
+            setTimeout(() => {
+              setShowProgress(false)
+              setLocalImagePullProgress(null)
+              // 通知父组件镜像拉取完成
+              if (onImagePullComplete) {
+                onImagePullComplete()
+              }
+            }, 1200)
+          }
+        }
+      } catch (error) {
+        console.warn('CodeTerminal: 解析进度专用WebSocket消息失败:', error)
+      }
+    }
+
+    ws.onclose = () => {
+      console.log('CodeTerminal: 进度专用WebSocket连接已关闭')
+    }
+
+    ws.onerror = (error) => {
+      console.error('CodeTerminal: 进度专用WebSocket连接错误:', error)
+    }
+
+    return () => {
+      ws.close()
+      wsProgressRef.current = null
+    }
+  }, [containerStatus])
 
   // WebSocket connection
   useEffect(() => {
@@ -308,6 +390,16 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
           </div>
         </div>
       </div>
+
+      {/* 镜像拉取进度覆盖层 */}
+      {showProgress && localImagePullProgress && (
+        <div className="absolute inset-0 z-50">
+          <ImagePullProgressOverlay
+            show={showProgress}
+            imagePullProgress={localImagePullProgress}
+          />
+        </div>
+      )}
     </div>
   )
 })

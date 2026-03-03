@@ -22,6 +22,7 @@ import CodeEditor from '../components/business/CodeEditor'
 import CodeTerminal, { CodeTerminalRef } from '../components/business/CodeTerminal'
 import { getStepsForPage, getTotalSteps } from '../config/tourSteps'
 import { api } from '../lib/api/client'
+import { ImagePullProgressMessageOverlay } from '../components/business/terminal/ImagePullProgressOverlay'
 
 export function Learn() {
   const { courseId } = useParams<{ courseId: string }>()
@@ -85,6 +86,9 @@ export function Learn() {
   // 确认弹窗模式：区分来源以动态文案
   // const [confirmDialogMode, setConfirmDialogMode] = useState<'back' | 'exit'>('back')
   const [showResetDialog, setShowResetDialog] = useState(false)
+  // 镜像拉取进度状态（用于 SQL/Code 终端）
+  const [imagePullProgress, setImagePullProgress] = useState<ImagePullProgressMessageOverlay | null>(null)
+  const [showProgress, setShowProgress] = useState(false)
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const statusAbortControllerRef = useRef<AbortController | null>(null)
   const startAbortControllerRef = useRef<AbortController | null>(null)
@@ -130,6 +134,20 @@ export function Learn() {
       return null
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 镜像拉取完成后的回调 - 检查容器状态并更新UI
+  const handleImagePullComplete = useCallback(async () => {
+    console.log('镜像拉取完成，检查容器状态...')
+    if (containerId) {
+      // 检查容器状态，如果已经是 running 状态会自动更新
+      const statusData = await checkContainerStatus(containerId, true)
+      if (statusData) {
+        console.log('容器状态:', statusData.status)
+      }
+    } else {
+      console.log('暂无容器ID，可能需要重新启动容器')
+    }
+  }, [containerId, checkContainerStatus])
 
   // WebSocket 连接处理
   const connectToTerminal = useCallback((id: string) => {
@@ -301,7 +319,7 @@ export function Learn() {
         }
 
         console.error('❌ 容器启动超时，已达到最大重试次数');
-        throw new Error('容器启动超时，请重试')
+        throw new Error('容器启动超时，可能原因：镜像拉取完成后容器创建/启动失败，或 Docker 资源不足。请检查 Docker 状态后重试。')
       }
 
       // 等待容器完全启动
@@ -1424,7 +1442,7 @@ export function Learn() {
                     )}
                     {course?.sqlTerminal && course?.backend?.port && course?.id && (
                       // 将容器状态传入 SQL 终端，驱动其自动连接/停止逻辑
-                      <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} />
+                      <SqlTerminal ref={sqlTerminalRef} courseId={course.id} port={course.backend.port} containerStatus={containerStatus} imagePullProgress={imagePullProgress} showImagePullProgress={showProgress} onImagePullComplete={handleImagePullComplete} />
                     )}
                     {course?.codeTerminal && (
                       <CodeTerminal 
@@ -1432,6 +1450,9 @@ export function Learn() {
                         courseId={course.id} 
                         containerId={containerId} 
                         containerStatus={containerStatus} 
+                        imagePullProgress={imagePullProgress} 
+                        showImagePullProgress={showProgress} 
+                        onImagePullComplete={handleImagePullComplete}
                       />
                     )}
                   </div>

@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import EnhancedSqlEditor from './EnhancedSqlEditor'
 import { api } from '@/lib/api/client'
+import ImagePullProgressOverlay, { ImagePullProgressMessageOverlay } from './terminal/ImagePullProgressOverlay'
 
 type Props = {
   courseId: string
   port: number
   containerStatus?: string
+  imagePullProgress?: ImagePullProgressMessageOverlay | null
+  showImagePullProgress?: boolean
+  onImagePullComplete?: () => void
 }
 
 type SqlInfo = {
@@ -81,7 +85,7 @@ const formatCellValue = (value: unknown, columnName: string, tzMode: TzMode): st
   return String(value)
 }
 
-const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus }, ref) => {
+const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, containerStatus, onImagePullComplete }, ref) => {
   const [info, setInfo] = useState<SqlInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,15 +98,16 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   const [lastExecutionResult, setLastExecutionResult] = useState<ExecutionResult | null>(null)
   const [tzMode, setTzMode] = useState<TzMode>('UTC')
   const [justCleared, setJustCleared] = useState(false)
+  // 镜像拉取进度状态
+  const [showProgress, setShowProgress] = useState(false)
+  const [localImagePullProgress, setLocalImagePullProgress] = useState<ImagePullProgressMessageOverlay | null>(null)
 
   const hasTimestampColumn = useMemo(() => {
     return columns.some((c) => isTimestampColumnName(c))
   }, [columns])
 
   const wsRef = useRef<WebSocket | null>(null)
-  const infoAbortControllerRef = useRef<AbortController | null>(null)
-
-  const infoUrl = useMemo(() => `/api/sql/info?courseId=${encodeURIComponent(courseId)}`, [courseId])
+  const wsProgressRef = useRef<WebSocket | null>(null)
 
   const wsUrl = useMemo(() => {
     const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -150,46 +155,133 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     } finally {
       setLoading(false)
     }
-  }, [infoUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [courseId])
 
+  // 使用 ref 存储 fetchInfo 的最新版本
+  const fetchInfoRef = useRef(fetchInfo)
+  fetchInfoRef.current = fetchInfo
+
+  // 启动时和课程变化时自动获取信息
   useEffect(() => {
-    infoAbortControllerRef.current?.abort()
-    const controller = new AbortController()
-    infoAbortControllerRef.current = controller
-    fetchInfo(controller.signal)
-
-    return () => {
-      infoAbortControllerRef.current?.abort()
-      infoAbortControllerRef.current = null
+    if (courseId) {
+      fetchInfoRef.current()
     }
-  }, [fetchInfo])
+  }, [courseId])
 
+  // 定期刷新连接状态
   useEffect(() => {
-    if (containerStatus !== 'running') {
-      if (wsRef.current) {
-        try { wsRef.current.close() } catch { /* ignore close errors */ }
-        wsRef.current = null
+    const timer = setInterval(() => {
+      if (courseId && containerStatus === 'running') {
+        fetchInfoRef.current()
       }
-      setWsConnected(false)
-      infoAbortControllerRef.current?.abort()
-      infoAbortControllerRef.current = null
+    }, 10000)
+    return () => clearInterval(timer)
+  }, [courseId, containerStatus])
+
+  // 镜像拉取进度 WebSocket 连接
+  useEffect(() => {
+    if (containerStatus !== 'starting') {
+      if (wsProgressRef.current) {
+        wsProgressRef.current.close()
+        wsProgressRef.current = null
+      }
+      // 进度结束后隐藏
+      if (showProgress) {
+        setShowProgress(false)
+        setLocalImagePullProgress(null)
+      }
       return
     }
 
-    if (wsRef.current) return
+    // 防止重复连接
+    if (wsProgressRef.current?.readyState === WebSocket.OPEN) {
+      return
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${protocol}//${window.location.host}/ws/terminal?progress_only=true`
+    const ws = new WebSocket(wsUrl)
+    wsProgressRef.current = ws
+
+    ws.onopen = () => {
+      console.log('SQL终端: 进度专用WebSocket连接已建立')
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data)
+        if (msg.type === 'image_pull_progress') {
+          const payload = msg.data || {}
+          setShowProgress(true)
+          setLocalImagePullProgress({
+            imageName: payload.imageName || '',
+            status: payload.status,
+            progress: payload.progress,
+            error: payload.error,
+            progressPercent: payload.progressPercent
+          })
+          
+          // 拉取完成
+          if (payload.status === 'done' || payload.status === 'complete') {
+            setTimeout(() => {
+              setShowProgress(false)
+              setLocalImagePullProgress(null)
+              // 通知父组件镜像拉取完成
+              if (onImagePullComplete) {
+                onImagePullComplete()
+              }
+            }, 1200)
+          }
+        }
+      } catch (error) {
+        console.warn('SQL终端: 解析进度专用WebSocket消息失败:', error)
+      }
+    }
+
+    ws.onclose = () => {
+      console.log('SQL终端: 进度专用WebSocket连接已关闭')
+    }
+
+    ws.onerror = (error) => {
+      console.error('SQL终端: 进度专用WebSocket连接错误:', error)
+    }
+
+    return () => {
+      ws.close()
+      wsProgressRef.current = null
+    }
+  }, [containerStatus])
+
+  // WebSocket 连接处理
+  useEffect(() => {
+    // 只有容器在 running 状态才连接 WebSocket
+    if (containerStatus !== 'running') {
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+        setWsConnected(false)
+      }
+      return
+    }
+
+    // 防止重复连接
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      return
+    }
+
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
       setWsConnected(true)
-      const initMsg = { type: 'init', courseId }
-      ws.send(JSON.stringify(initMsg))
+      // 发送初始化消息
+      ws.send(JSON.stringify({ type: 'init', courseId }))
     }
 
-    ws.onmessage = (ev) => {
+    ws.onmessage = (event) => {
       try {
         type WsMessage = { type: string;[key: string]: unknown }
-        const msg: WsMessage = JSON.parse(ev.data)
+        const msg: WsMessage = JSON.parse(event.data)
 
         if (msg.type === 'ready') {
           fetchInfoRef.current()
@@ -216,12 +308,12 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
           const hasRws = rws.length > 0
 
           if (hasCols) {
-            setColumns(cols)
-            setRows(rws)
+            setColumns(cols as string[])
+            setRows(rws as Cell[][])
             setLastExecutionResult({
               type: 'query',
-              columns: cols,
-              rows: rws,
+              columns: cols as string[],
+              rows: rws as Cell[][],
               message: `查询完成，返回 ${hasRws ? rws.length : 0} 行数据`
             })
           } else {
@@ -256,11 +348,15 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
           const message = typeof (msg as { message?: unknown }).message === 'string'
             ? (msg as { message?: string }).message
             : '执行错误'
-          setError(message)
-          setLastExecutionResult({
-            type: 'error',
-            message
-          })
+          
+          if (msg.queryId) {
+            setLastExecutionResult({
+              type: 'error',
+              message
+            })
+          } else {
+            setError(message)
+          }
           return
         }
       } catch (e) {
@@ -269,10 +365,13 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
       }
     }
 
+    ws.onerror = () => {
+      setWsConnected(false)
+    }
+
     ws.onclose = () => {
       setWsConnected(false)
       wsRef.current = null
-      setExecuting(false)
     }
 
     return () => {
@@ -281,63 +380,35 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
     }
   }, [wsUrl, courseId, containerStatus])
 
-  useEffect(() => {
-    if (containerStatus !== 'running' || info?.connected) return
-
-    const timer = setInterval(() => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        const initMsg = { type: 'init', courseId }
-        wsRef.current.send(JSON.stringify(initMsg))
-        fetchInfoRef.current()
-      }
-    }, 1200)
-
-    return () => { clearInterval(timer) }
-  }, [courseId, info?.connected, containerStatus])
-
-  useEffect(() => {
-    return () => {
-      infoAbortControllerRef.current?.abort()
-      infoAbortControllerRef.current = null
-    }
-  }, [])
-
-  const runQuery = (sqlOverride?: string) => {
-    setError(null)
-    setLastExecutionResult(null)
-    setColumns([])
-    setRows([])
+  const runQuery = useCallback((text?: string) => {
+    const sql = text ?? queryText
+    if (!sql.trim() || executing) return
 
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      setError('WS 未连接，无法执行')
+      setError('WebSocket 未连接')
       return
     }
 
     setExecuting(true)
+    setLastExecutionResult(null)
+    setError(null)
+    setColumns([])
+    setRows([])
 
-    const qid = `q_${Date.now()}`
-    const msg = { type: 'query', queryId: qid, sql: (sqlOverride ?? queryText) }
-    wsRef.current.send(JSON.stringify(msg))
-  }
+    wsRef.current.send(JSON.stringify({
+      type: 'query',
+      sql: sql.trim()
+    }))
+  }, [queryText, executing])
 
-  const handleClearInput = () => {
+  const handleClearInput = useCallback(() => {
     setQueryText('')
     setJustCleared(true)
-    setTimeout(() => setJustCleared(false), 1000)
-  }
-
-  const fetchInfoRef = useRef<() => void>(() => { })
-  useEffect(() => {
-    fetchInfoRef.current = () => {
-      infoAbortControllerRef.current?.abort()
-      const controller = new AbortController()
-      infoAbortControllerRef.current = controller
-      fetchInfo(controller.signal)
-    }
-  }, [fetchInfo])
+    setTimeout(() => setJustCleared(false), 1500)
+  }, [])
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-primary)]">
+    <div className="h-full flex flex-col bg-[var(--color-bg-primary)] relative">
       {/* 顶部状态栏 */}
       <div className="flex items-center justify-between p-3 border-b border-[var(--color-border-light)] bg-[var(--color-bg-secondary)]">
         <div className="flex items-center gap-3 text-sm">
@@ -497,6 +568,16 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
           </div>
         )}
       </div>
+
+      {/* 镜像拉取进度覆盖层 */}
+      {showProgress && localImagePullProgress && (
+        <div className="absolute inset-0 z-50">
+          <ImagePullProgressOverlay
+            show={showProgress}
+            imagePullProgress={localImagePullProgress}
+          />
+        </div>
+      )}
     </div>
   )
 })
