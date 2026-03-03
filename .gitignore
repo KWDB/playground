@@ -32,6 +32,7 @@ test-results
 tmp
 node_modules
 bin
+kwdb-playground
 e2e_test_env
 e2e_testdata
 
