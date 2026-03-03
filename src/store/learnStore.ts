@@ -35,6 +35,7 @@ interface LearnState {
   loading: boolean;
   error: string | null;
   showConfirmDialog: boolean;
+  showResetDialog: boolean;
   containerId: string | null;
   containerStatus: ContainerStatus;
   isStartingContainer: boolean;
@@ -55,6 +56,7 @@ interface LearnActions {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setShowConfirmDialog: (show: boolean) => void;
+  setShowResetDialog: (show: boolean) => void;
   setContainerId: (id: string | null) => void;
   setContainerStatus: (status: ContainerStatus) => void;
   setIsStartingContainer: (isStarting: boolean) => void;
@@ -86,6 +88,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         loading: true,
         error: null,
         showConfirmDialog: false,
+        showResetDialog: false,
         containerId: null,
         containerStatus: 'stopped',
         isStartingContainer: false,
@@ -110,6 +113,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         setLoading: (loading) => set({ loading }),
         setError: (error) => set({ error, connectionError: error }),
         setShowConfirmDialog: (showConfirmDialog) => set({ showConfirmDialog }),
+        setShowResetDialog: (showResetDialog) => set({ showResetDialog }),
         setContainerId: (containerId) => set({ containerId }),
         setContainerStatus: (containerStatus) => set({ containerStatus }),
         setIsStartingContainer: (isStartingContainer) => set({ isStartingContainer }),
@@ -179,6 +183,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
           loading: true,
           error: null,
           showConfirmDialog: false,
+          showResetDialog: false,
           containerId: null,
           containerStatus: 'stopped',
           isStartingContainer: false,
