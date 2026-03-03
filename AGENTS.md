@@ -100,9 +100,6 @@ Learn.tsx
 
 ## Known Bugs
 
-- Port conflict detection fails (route mismatch)
-- Dev server needs proxy config for API
-- Container start race conditions in controller.go
 
 ## Sub-AGENTS.md
 

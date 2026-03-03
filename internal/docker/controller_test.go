@@ -2,6 +2,9 @@ package docker
 
 import (
 	"testing"
+	"time"
+
+	"kwdb-playground/internal/logger"
 )
 
 // TestParseCourseIDFromContainerName 测试从容器名称解析课程ID的功能
@@ -179,5 +182,50 @@ func TestLabelConstants(t *testing.T) {
 	}
 	if LabelCreatedAt != "kwdb-playground.created-at" {
 		t.Errorf("LabelCreatedAt = %s, want kwdb-playground.created-at", LabelCreatedAt)
+	}
+}
+
+func TestResolveStartedAt(t *testing.T) {
+	controller := &dockerController{
+		logger: logger.NewLogger(logger.ERROR),
+	}
+
+	fallback := time.Date(2026, 3, 3, 8, 0, 0, 0, time.UTC)
+	validStartedAt := "2026-03-03T09:10:11.123456789Z"
+
+	tests := []struct {
+		name     string
+		raw      string
+		expected time.Time
+	}{
+		{
+			name:     "valid_rfc3339_nano",
+			raw:      validStartedAt,
+			expected: time.Date(2026, 3, 3, 9, 10, 11, 123456789, time.UTC),
+		},
+		{
+			name:     "empty_started_at_uses_fallback",
+			raw:      "",
+			expected: fallback,
+		},
+		{
+			name:     "zero_value_started_at_uses_fallback",
+			raw:      "0001-01-01T00:00:00Z",
+			expected: fallback,
+		},
+		{
+			name:     "invalid_started_at_uses_fallback",
+			raw:      "invalid-time",
+			expected: fallback,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := controller.resolveStartedAt(tt.raw, fallback, "kwdb-playground-sql-1")
+			if !got.Equal(tt.expected) {
+				t.Fatalf("resolveStartedAt(%q) = %s, want %s", tt.raw, got.Format(time.RFC3339Nano), tt.expected.Format(time.RFC3339Nano))
+			}
+		})
 	}
 }

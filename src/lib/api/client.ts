@@ -130,7 +130,7 @@ export const api = {
       request<void>(`/courses/${id}/resume`, { method: 'POST', signal }),
 
     checkPortConflict: (id: string, port: number, signal?: AbortSignal): Promise<PortConflictInfo> =>
-      request<PortConflictInfo>(`/courses/${id}/port-conflict?port=${port}`, { signal }),
+      request<PortConflictInfo>(`/courses/${id}/check-port-conflict?port=${port}`, { signal }),
 
     getProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<GetProgressResponse> => {
       const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
@@ -174,7 +174,7 @@ export const api = {
       request<void>(`/containers/${id}`, { method: 'DELETE', signal }),
 
     cleanup: (courseId: string, signal?: AbortSignal): Promise<CleanupResult> =>
-      request<CleanupResult>(`/containers/cleanup?courseId=${courseId}`, { method: 'POST', signal }),
+      request<CleanupResult>(`/courses/${courseId}/cleanup-containers`, { method: 'POST', signal }),
   },
 
   sql: {
