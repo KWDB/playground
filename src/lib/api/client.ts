@@ -152,6 +152,11 @@ export const api = {
       const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
       return request<void>(`/progress/${id}/reset${query}`, { method: 'POST', signal })
     },
+
+    resetAllProgress: (userId?: string, signal?: AbortSignal): Promise<void> => {
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
+      return request<void>(`/progress/reset-all${query}`, { method: 'POST', signal })
+    },
   },
 
   containers: {

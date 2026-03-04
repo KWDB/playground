@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -168,6 +169,44 @@ func (pm *ProgressManager) ResetProgress(userID, courseID string) error {
 		pm.logger.Debug("重置用户进度: 进度记录不存在，userID=%s, courseID=%s", userID, courseID)
 	}
 
+	return nil
+}
+
+// ResetAllProgress 重置用户的全部课程进度
+// 参数:
+//
+//	userID: 用户ID
+//
+// 返回: 错误信息
+func (pm *ProgressManager) ResetAllProgress(userID string) error {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	store, err := pm.readProgressFile()
+	if err != nil {
+		return err
+	}
+
+	prefix := fmt.Sprintf("%s:", userID)
+	removed := 0
+	for key := range store.Progress {
+		if strings.HasPrefix(key, prefix) {
+			delete(store.Progress, key)
+			removed++
+		}
+	}
+
+	if removed == 0 {
+		pm.logger.Debug("重置全部用户进度: 无可删除记录，userID=%s", userID)
+		return nil
+	}
+
+	store.UpdatedAt = time.Now()
+	if err := pm.writeProgressFile(store); err != nil {
+		return err
+	}
+
+	pm.logger.Debug("重置全部用户进度成功: userID=%s, removed=%d", userID, removed)
 	return nil
 }
 

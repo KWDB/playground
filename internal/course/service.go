@@ -603,3 +603,16 @@ func (s *Service) ResetProgress(userID, courseID string) error {
 	}
 	return s.progressManager.ResetProgress(userID, courseID)
 }
+
+// ResetAllProgress 重置用户的全部课程进度
+// 参数:
+//
+//	userID: 用户ID（如果为空则使用默认用户"default-user"）
+//
+// 返回: 错误信息
+func (s *Service) ResetAllProgress(userID string) error {
+	if userID == "" {
+		userID = "default-user"
+	}
+	return s.progressManager.ResetAllProgress(userID)
+}
