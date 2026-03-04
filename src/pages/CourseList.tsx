@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, Code, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, Circle, ArrowRight } from 'lucide-react';
 import { ContainerInfo } from '@/types';
 import { api } from '@/lib/api/client';
@@ -39,6 +39,7 @@ interface RecentLearningEntry {
 }
 
 export function CourseList() {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, UserProgress>>({});
   const [containers, setContainers] = useState<ContainerInfo[]>([]);
@@ -466,9 +467,10 @@ export function CourseList() {
 
             <div className="lg:w-[360px] lg:shrink-0">
               {recentLearningEntry ? (
-                <Link
-                  to={`/learn/${recentLearningEntry.course.id}`}
-                  className="group h-full flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-default)] transition-colors duration-200"
+                <button
+                  type="button"
+                  onClick={() => navigate(`/learn/${recentLearningEntry.course.id}?entry=recent`)}
+                  className="group w-full h-full flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-default)] transition-colors duration-200"
                 >
                   <div className="min-w-0">
                     <p className="text-xs text-[var(--color-text-tertiary)]">最近学习课程</p>
@@ -485,18 +487,19 @@ export function CourseList() {
                     继续学习
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
-                </Link>
+                </button>
               ) : (
                 <div className="h-full p-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] flex items-center justify-between gap-3">
                   <p className="text-sm text-[var(--color-text-secondary)]">暂无学习记录，开始第一门课程吧</p>
                   {suggestedCourse && (
-                    <Link
-                      to={`/learn/${suggestedCourse.id}`}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/learn/${suggestedCourse.id}?entry=suggested`)}
                       className="inline-flex items-center gap-1.5 text-xs text-[var(--color-accent-primary)] shrink-0"
                     >
                       去学习
                       <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
+                    </button>
                   )}
                 </div>
               )}
