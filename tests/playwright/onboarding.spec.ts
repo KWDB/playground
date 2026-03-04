@@ -134,6 +134,87 @@ test.describe('Onboarding Tour', () => {
     await expect(envPanel).toBeVisible({ timeout: 3000 });
   });
 
+  test('升级流程展示说明动画并在恢复后提示成功', async ({ page }) => {
+    let upgraded = false;
+    let healthCheckCount = 0;
+
+    await page.route('**/api/version', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          version: upgraded ? '0.4.3' : '0.4.2',
+        }),
+      });
+    });
+
+    await page.route('**/api/upgrade/check', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          currentVersion: upgraded ? '0.4.3' : '0.4.2',
+          latestVersion: '0.4.3',
+          hasUpdate: !upgraded,
+          canUpgrade: !upgraded,
+          message: upgraded ? '当前已是最新版本' : '发现新版本 v0.4.3，可执行升级',
+          dockerDeploy: false,
+        }),
+      });
+    });
+
+    await page.route('**/api/upgrade', async (route) => {
+      upgraded = true;
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          message: '升级已开始，服务即将重启',
+        }),
+      });
+    });
+
+    await page.route('**/health', async (route) => {
+      healthCheckCount += 1;
+      const status = healthCheckCount < 3 ? 503 : 200;
+      await route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: status === 200 ? 'ok' : 'restarting' }),
+      });
+    });
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const tooltip = page.locator('[data-testid="tour-tooltip"]');
+    if (await tooltip.isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await expect(tooltip).not.toBeVisible({ timeout: 3000 });
+    }
+
+    const upgradeButton = page.locator('[data-tour-id="home-upgrade"]');
+    await expect(upgradeButton).toBeVisible({ timeout: 5000 });
+    await upgradeButton.click();
+
+    await expect(page.locator('text=版本与升级')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('text=当前版本 v0.4.2')).toBeVisible({ timeout: 3000 });
+
+    const startUpgradeButton = page.getByRole('button', { name: '立即升级' });
+    await expect(startUpgradeButton).toBeVisible({ timeout: 3000 });
+    await startUpgradeButton.click();
+
+    await page.getByRole('button', { name: '开始升级' }).click();
+
+    await expect(page.locator('text=正在升级，服务即将自动重启')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('text=页面可能短暂不可用')).toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('button', { name: '升级中' })).toBeVisible({ timeout: 3000 });
+
+    await expect(page.locator('text=升级成功，服务已恢复')).toBeVisible({ timeout: 12000 });
+    await expect(page.locator('text=当前版本 v0.4.3')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=已是最新')).toBeVisible({ timeout: 5000 });
+  });
+
   test('键盘导航', async ({ page }) => {
     await page.goto('/');
     const tooltip = page.locator('[data-testid="tour-tooltip"]');

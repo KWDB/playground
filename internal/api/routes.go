@@ -524,6 +524,19 @@ func resolveStartArgs() []string {
 	return startArgs
 }
 
+func withUpgradeRestartEnv(env []string) []string {
+	envKey := "KWDB_UPGRADE_RESTART"
+	envPrefix := envKey + "="
+	merged := make([]string, 0, len(env)+1)
+	for _, item := range env {
+		if strings.HasPrefix(item, envPrefix) {
+			continue
+		}
+		merged = append(merged, item)
+	}
+	return append(merged, envPrefix+"1")
+}
+
 func isBrewInstall(exePath string) bool {
 	return strings.Contains(exePath, "/Cellar/kwdb-playground/")
 }
@@ -541,7 +554,7 @@ func performBrewUpgrade(ctx context.Context, startArgs []string, env []string) e
 	}
 
 	startCmd := exec.Command("kwdb-playground", startArgs...)
-	startCmd.Env = env
+	startCmd.Env = withUpgradeRestartEnv(env)
 	if err := startCmd.Start(); err != nil {
 		return fmt.Errorf("启动新版本失败: %w", err)
 	}
@@ -1097,7 +1110,7 @@ func performUpgrade(ctx context.Context, downloadURL, exePath string, startArgs 
 	}
 
 	cmd := exec.Command(exePath, startArgs...)
-	cmd.Env = env
+	cmd.Env = withUpgradeRestartEnv(env)
 	if err := cmd.Start(); err != nil {
 		_ = os.Rename(backupPath, exePath)
 		return fmt.Errorf("启动新版本失败: %w", err)

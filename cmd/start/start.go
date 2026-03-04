@@ -205,10 +205,7 @@ func Run(staticFiles embed.FS, args []string) error {
 	}
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			appLogger.Error("Failed to start server: %v", err)
-			os.Exit(1)
-		}
+		serveWithRetry(srv, appLogger)
 	}()
 
 	// 自动打开浏览器（仅在非守护进程模式且需要打开浏览器时）
@@ -231,6 +228,29 @@ func Run(staticFiles embed.FS, args []string) error {
 	}
 	appLogger.Info("Server exited")
 	return nil
+}
+
+func serveWithRetry(srv *http.Server, appLogger *logger.Logger) {
+	if os.Getenv("KWDB_UPGRADE_RESTART") != "1" {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			appLogger.Error("Failed to start server: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		err := srv.ListenAndServe()
+		if err == nil || err == http.ErrServerClosed {
+			return
+		}
+		if !strings.Contains(strings.ToLower(err.Error()), "address already in use") || time.Now().After(deadline) {
+			appLogger.Error("Failed to start server after upgrade restart: %v", err)
+			os.Exit(1)
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
 }
 
 // ----------------------------
