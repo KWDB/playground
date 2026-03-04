@@ -172,6 +172,11 @@ SOURCE="github"
 LATEST_RELEASE=""
 if [ -n "$REQUESTED_VERSION" ]; then
     LATEST_RELEASE="$REQUESTED_VERSION"
+    if [ "$SOURCE_PREFERENCE" = "atomgit" ]; then
+        SOURCE="atomgit"
+    elif [ "$SOURCE_PREFERENCE" = "github" ]; then
+        SOURCE="github"
+    fi
     echo -e "Using specified release: ${GREEN}${LATEST_RELEASE}${NC}"
 else
     if [ "$SOURCE_PREFERENCE" != "atomgit" ]; then

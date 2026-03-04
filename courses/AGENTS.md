@@ -16,7 +16,8 @@ courses/
 │   ├── step1.md
 │   └── finish.md
 ├── sql/
-├── python-kwdb/      # Code terminal course
+├── python-kwdb/      # Code terminal course (Python)
+├── java-kwdb/       # Code terminal course (Java)
 ├── smart-meter/
 ├── multi-mode/
 ├── install/
@@ -29,7 +30,7 @@ courses/
 |------|----------|---------|
 | `shell` | Shell (xterm.js) | quick-start, install |
 | `sql` | SQL (CodeMirror) | sql |
-| `code` | Code (Python/Bash) | python-kwdb |
+| `code` | Code (Python/Bash/Java) | python-kwdb, java-kwdb |
 
 ## YAML SCHEMA
 

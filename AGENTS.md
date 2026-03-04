@@ -89,6 +89,9 @@ make e2e-playwright  # Run E2E tests
 - **No explicit TODOs/FIXMEs** in codebase (clean)
 - **No eslintrc/prettierrc** - relies on editor defaults
 - **No golangci.yml** - Go linting uses defaults
+- **Type safety issue**: `as never` in src/pages/Learn.tsx (lines 64-65) bypasses TypeScript
+- **Chinese comments in Makefile** - unusual for English projects (`# 安装依赖`, `# 构建前端`)
+- **AtomGit sync workflow** - custom sync to Chinese Git alternative (intentional)
 
 ## Known Bugs
 
