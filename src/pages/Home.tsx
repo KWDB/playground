@@ -38,7 +38,7 @@ export function Home() {
     {
       icon: Terminal,
       title: '交互式终端',
-      description: 'Shell 和 SQL 双终端实时交互',
+      description: 'Shell 、SQL 和 Code 三终端实时交互',
     },
     {
       icon: Zap,

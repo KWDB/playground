@@ -8,7 +8,7 @@ Gin HTTP handlers for courses, containers, images, progress, WebSocket terminals
 
 ## KEY FILES
 
-- `routes.go` (2151 lines) - All HTTP handlers
+- `routes.go` (2151 lines) - All HTTP handler
 - Handler struct wires: course service, docker controller, terminal manager
 
 ## WHERE TO LOOK
@@ -18,6 +18,7 @@ Gin HTTP handlers for courses, containers, images, progress, WebSocket terminals
 | Start course | startCourse | Multi-step, error cleanup |
 | Terminal WS | handleTerminalWebSocket | WS upgrade, message parsing |
 | SQL WS | handleSqlWebSocket | Query/result protocol |
+| Code WS | handleCodeWebSocket | Code execution protocol |
 | Port conflict | checkPortConflict | Endpoint compatibility |
 
 ## KNOWN ISSUES
@@ -42,6 +43,10 @@ Containers:
   GET    /api/containers/:id/logs
   DELETE /api/containers/:id
   POST   /api/containers/cleanup
+  POST   /api/containers/:id/restart
+  POST   /api/containers/:id/stop
+  POST   /api/containers/:id/pause
+  POST   /api/containers/:id/unpause
 
 Progress:
   GET    /api/progress/:courseId
@@ -51,4 +56,23 @@ Progress:
 WebSocket:
   GET    /ws/terminal
   GET    /ws/sql
+  GET    /ws/code
+
+System:
+  GET    /health
+  GET    /api/version
+  GET    /api/env-check
+
+Upgrade:
+  POST   /api/upgrade
+  GET    /api/check-upgrade
+  POST   /api/upgrade-docker
+
+Images:
+  GET    /api/images/:name/check
+  GET    /api/images/sources
+
+SQL:
+  GET    /api/sql/info
+  GET    /api/sql/health
 ```
