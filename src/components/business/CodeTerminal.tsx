@@ -19,6 +19,23 @@ type ExecutionResult = {
   duration: number
 }
 
+type LanguageOption = {
+  value: string
+  label: string
+}
+
+const ALL_LANGUAGE_OPTIONS: LanguageOption[] = [
+  { value: 'python', label: 'Python' },
+  { value: 'bash', label: 'Bash' },
+  { value: 'node', label: 'Node.js' },
+  { value: 'java', label: 'Java' }
+]
+
+const COURSE_LANGUAGE_MAP: Record<string, string[]> = {
+  'python-kwdb': ['python', 'bash'],
+  'java-kwdb': ['java', 'bash']
+}
+
 export interface CodeTerminalRef {
   executeCode: (code: string, language?: string) => void
   cancelExecution: () => void
@@ -26,7 +43,7 @@ export interface CodeTerminalRef {
   setCode: (code: string) => void
 }
 
-const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ containerId, containerStatus, onImagePullComplete }, ref) => {
+const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus, onImagePullComplete }, ref) => {
   const [error, setError] = useState<string | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
   const [codeText, setCodeText] = useState<string>('')
@@ -47,6 +64,20 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ containerId, containe
     return `${scheme}://${window.location.host}/ws/code`
   }, [])
 
+  const availableLanguageOptions = useMemo(() => {
+    const allowed = COURSE_LANGUAGE_MAP[courseId]
+    if (!allowed || allowed.length === 0) {
+      return ALL_LANGUAGE_OPTIONS
+    }
+    return ALL_LANGUAGE_OPTIONS.filter((option) => allowed.includes(option.value))
+  }, [courseId])
+
+  useEffect(() => {
+    if (!availableLanguageOptions.some((option) => option.value === language)) {
+      setLanguage(availableLanguageOptions[0]?.value || 'python')
+    }
+  }, [availableLanguageOptions, language])
+
   const executeCode = useCallback((code: string, lang?: string) => {
     setError(null)
     setResult(null)
@@ -60,7 +91,13 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ containerId, containe
       const execId = `exec_${Date.now()}`
       setExecutionId(execId)
 
-      const langToUse = lang || language
+      const requestedLang = (lang || language).toLowerCase()
+      const langToUse = availableLanguageOptions.some((option) => option.value === requestedLang)
+        ? requestedLang
+        : (availableLanguageOptions[0]?.value || 'python')
+      if (langToUse !== language) {
+        setLanguage(langToUse)
+      }
       const msg = {
         type: 'execute',
         data: {
@@ -75,7 +112,7 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ containerId, containe
     } else if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       setError('WS 未连接，无法执行代码')
     }
-  }, [containerId, language])
+  }, [availableLanguageOptions, containerId, language])
 
   const cancelExecution = useCallback(() => {
     if (wsRef.current &&
@@ -300,9 +337,9 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ containerId, containe
             disabled={executing}
             className="text-xs bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] rounded px-2 py-1 text-[var(--color-text-secondary)]"
           >
-            <option value="python">Python</option>
-            <option value="bash">Bash</option>
-            <option value="node">Node.js</option>
+            {availableLanguageOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
         <div className="flex items-center gap-3">

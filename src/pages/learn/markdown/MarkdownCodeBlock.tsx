@@ -18,7 +18,7 @@ export const MarkdownCodeBlock = ({ className, children, node, ...props }: CodeP
   const hasExecMeta = !!(metaValue && String(metaValue).includes('exec'))
   const hasExecInClass = langToken.includes('-exec')
   const language = langToken.replace(/-exec$/, '')
-  const isExecutable = language === 'python' || language === 'bash'
+  const isExecutable = language === 'python' || language === 'bash' || language === 'java'
 
   if (!match) {
     return (

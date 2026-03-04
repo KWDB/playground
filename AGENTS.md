@@ -1,12 +1,12 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-03-03
-**Commit:** 21d0029
-**Branch:** feat/python-courses
+**Generated:** 2026-03-04
+**Commit:** c40e1ff
+**Branch:** feat/code-java
 
 ## OVERVIEW
 
-Full-stack interactive learning platform: Go 1.24 backend (Gin, Docker SDK, WebSocket) + React 20 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
+Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebSocket) + React 20 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
 
 ## Quick Commands
 
@@ -14,32 +14,29 @@ Full-stack interactive learning platform: Go 1.24 backend (Gin, Docker SDK, WebS
 |------|---------|
 | Install deps | `make install` |
 | Dev server | `make dev` |
-| Run all Go tests | `go test ./...` |
-| Run all E2E tests | `make e2e-playwright` |
+| Run Go tests | `go test ./...` |
+| Run E2E tests | `make e2e-playwright` |
 | Build release | `make release` |
 
 ## Project Structure
 
 ```
 .
-├── cmd/                # Main applications
-├── internal/           # Private application code
+├── cmd/                # CLI commands (start, stop, check)
+├── internal/           # Private Go code
 │   ├── api/           # HTTP handlers (Gin)
 │   ├── docker/        # Container orchestration
-│   ├── course/        # Course content & logic
-│   └── websocket/     # Terminal WebSocket handlers
-├── src/               # Frontend source
-│   ├── components/    # React components
-│   ├── pages/         # Route pages
+│   ├── course/        # Course service
+│   └── websocket/     # Terminal WebSocket
+├── src/               # Frontend React source
+│   ├── pages/         # Route pages (Home, CourseList, Learn)
+│   ├── components/    # UI components (business, ui, layout)
 │   ├── store/         # Zustand state
 │   ├── hooks/         # Custom hooks
-│   └── lib/          # Shared utilities
-│   ├── components/    # React components
-│   ├── pages/         # Route pages
-│   ├── store/         # Zustand state
-│   └── hooks/         # Custom hooks
+│   └── lib/           # Shared utilities
 ├── tests/playwright/  # E2E tests
-└── courses/           # Course content (YAML+MD)
+├── courses/           # Course content (YAML+MD)
+└── docker/            # Runtime images
 ```
 
 ## Code Style
@@ -62,44 +59,38 @@ Full-stack interactive learning platform: Go 1.24 backend (Gin, Docker SDK, WebS
 | API routes | internal/api/routes.go | 2151 | Long handlers |
 | Learn page | src/pages/Learn.tsx | 1464 | Duplicate logic |
 
-## Learn Page Architecture
+## Testing
 
-Modular architecture with hooks + components. See `src/pages/learn/AGENTS.md` for details.
+| Type | Config | Command |
+|------|--------|---------|
+| Go unit | `*_test.go` | `go test ./...` |
+| Vitest | `vitest.config.ts` | `pnpm run test:unit` |
+| Playwright | `playwright.config.ts` | `make e2e-playwright` |
 
-## Known Bugs
-## Learn 页面模块化架构
+## CI/CD
 
-`src/pages/Learn.tsx` 已重构为“页面编排 + hooks 业务逻辑 + 子组件渲染”的分层结构：
+- **Unit tests**: `.github/workflows/unit-tests.yml`
+- **E2E tests**: `.github/workflows/playwright.yml`
+- **Release**: `.github/workflows/release.yml`
+- **Docker**: `.github/workflows/docker-publish.yml`
 
-- `src/pages/learn/hooks/`：容器生命周期、课程初始化、步骤导航、命令执行等逻辑
-- `src/pages/learn/components/`：顶部状态栏、终端区、错误态、弹窗等 UI 组件
-- `src/pages/learn/utils/`：错误映射、Markdown 预处理、容器等待与判定逻辑
-- `src/pages/learn/constants.ts` / `types.ts`：常量与类型定义
-- `src/pages/learn/index.ts`：barrel export，统一导出 learn 子模块
+## Commands
 
-架构图（简化）：
-
-```text
-Learn.tsx
-  ├─ hooks
-  │   ├─ useLearnContainer
-  │   ├─ useLearnCourse
-  │   ├─ useLearnActions
-  │   ├─ useCourseProgress
-  │   └─ useExecCommand / useLearnMarkdown
-  ├─ components
-  │   ├─ LearnTopBar
-  │   ├─ LearnTerminalPanel
-  │   ├─ LearnDialogs
-  │   └─ LearnLoadingState / LearnErrorState
-  └─ utils
-      ├─ errors.ts
-      ├─ markdown.ts
-      └─ container.ts
+```bash
+make install      # Install all deps
+make dev          # Hot reload dev (air + vite)
+make build        # Production build
+make release      # Release binaries
+make e2e-playwright  # Run E2E tests
 ```
 
-## Known Bugs
+## Anti-Patrons
 
+- **No explicit TODOs/FIXMEs** in codebase (clean)
+- **No eslintrc/prettierrc** - relies on editor defaults
+- **No golangci.yml** - Go linting uses defaults
+
+## Known Bugs
 
 ## Sub-AGENTS.md
 

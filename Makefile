@@ -29,7 +29,7 @@ LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.Git
 # 环境变量文件
 ENV_FILE ?= .env
 
-.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-linux-arm64 release-darwin-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist playwright e2e-playwright e2e-docker docker-build docker-up docker-down
+.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-linux-arm64 release-darwin-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist playwright e2e-playwright e2e-docker docker-build docker-build-java-kwdb docker-up docker-down
 
 # 默认目标
 all: build
@@ -257,6 +257,16 @@ docker-build:
 		-t kwdb/playground:$(VERSION) .
 	@echo "✅ Docker image built: kwdb/playground:$(VERSION)"
 
+docker-build-java-kwdb:
+	@echo "🐳 Building Java course Docker image..."
+	docker build \
+		$(if $(DOCKER_PLATFORM),--platform $(DOCKER_PLATFORM),) \
+		-f docker/java-kwdb/Dockerfile \
+		-t kwdb/kwdb-java:latest \
+		-t kwdb/kwdb-java:3.1.0 \
+		docker/java-kwdb
+	@echo "✅ Docker image built: kwdb/kwdb-java:3.1.0"
+
 docker-up:
 	@echo "🐳 Starting Docker deployment..."
 	docker compose -f docker/playground/docker-compose.yml up -d
@@ -317,6 +327,7 @@ help:
 	@echo ""
 	@echo "🐳 Docker 部署:"
 	@echo "  docker-build  - 构建 Docker 镜像"
+	@echo "  docker-build-java-kwdb - 构建 Java 课程镜像"
 	@echo "  docker-up     - 启动 Docker 部署 (docker compose up)"
 	@echo "  docker-down   - 停止 Docker 部署 (docker compose down)"
 	@echo "  e2e-docker    - Docker 部署 E2E 测试（自动启停 docker compose）"

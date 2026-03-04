@@ -187,7 +187,7 @@ COURSES_USE_EMBED=1 make release-all
 
 ## 守护进程模式
 
-项目支持通过 `--daemon` 或 `-d` 以守护进程模式运行（**类 Unix 系统默认启用**），自动 fork + detach、管理 PID 文件，标准输出与错误重定向到守护日志文件。
+项目默认采用守护进程模式运行，自动 fork + detach、管理 PID 文件，标准输出与错误重定向到守护日志文件。
 
 ### 使用方法
 
