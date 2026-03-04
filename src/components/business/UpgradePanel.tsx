@@ -106,7 +106,7 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
         await Promise.all([loadVersion(), loadUpgradeCheck(true)]);
         if (unmountedRef.current) return;
         setUpgradeStage('success');
-        setUpgradeMessage('升级成功，服务已恢复');
+        setUpgradeMessage(null);
       } else {
         setUpgradeStage('idle');
         setUpgradeMessage('升级已触发，服务重启时间较长，请稍后刷新页面确认');
