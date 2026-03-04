@@ -470,9 +470,9 @@ export function CourseList() {
                 <button
                   type="button"
                   onClick={() => navigate(`/learn/${recentLearningEntry.course.id}?entry=recent`)}
-                  className="group w-full h-full flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-default)] transition-colors duration-200"
+                  className="group w-full h-full flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-default)] transition-colors duration-200 text-left"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1 text-left">
                     <p className="text-xs text-[var(--color-text-tertiary)]">最近学习课程</p>
                     <p className="mt-1 text-sm font-medium text-[var(--color-text-primary)] truncate">
                       {recentLearningEntry.course.title}
