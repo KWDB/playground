@@ -10,6 +10,7 @@ import (
 	checkcmd "kwdb-playground/cmd/check"
 	startcmd "kwdb-playground/cmd/start"
 	"kwdb-playground/cmd/stop"
+	"kwdb-playground/internal/config"
 )
 
 //go:embed dist/* courses/*
@@ -55,8 +56,15 @@ func newRootCmd() *cobra.Command {
 }
 
 func main() {
+	syncRuntimeVersion()
 	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+}
+
+func syncRuntimeVersion() {
+	if config.Version == "" || config.Version == "dev" {
+		config.Version = Version
 	}
 }
