@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
 
@@ -53,10 +53,12 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
+  const [upgradeStage, setUpgradeStage] = useState<'idle' | 'in_progress' | 'success'>('idle');
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
   const [upgradeCheck, setUpgradeCheck] = useState<UpgradeCheck | null>(null);
   const [upgradeCheckLoading, setUpgradeCheckLoading] = useState(false);
   const [upgradeCheckError, setUpgradeCheckError] = useState<string | null>(null);
+  const unmountedRef = useRef(false);
 
   const loadVersion = async () => {
     try {
@@ -70,10 +72,27 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
     }
   };
 
+  const waitForServiceRestore = async () => {
+    const deadline = Date.now() + 90 * 1000;
+    while (Date.now() < deadline) {
+      try {
+        const healthResp = await fetch('/health', { cache: 'no-store' });
+        if (healthResp.ok) {
+          return true;
+        }
+      } catch (error) {
+        void error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    return false;
+  };
+
   const startUpgrade = async () => {
     setUpgradeLoading(true);
     setUpgradeError(null);
     setUpgradeMessage(null);
+    setUpgradeStage('in_progress');
     try {
       const resp = await fetch('/api/upgrade', { method: 'POST' });
       const json = await resp.json().catch(() => ({}));
@@ -81,10 +100,24 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
         throw new Error(json.error || '升级失败');
       }
       setUpgradeMessage(json.message || '升级已开始，服务即将重启');
+      const restored = await waitForServiceRestore();
+      if (unmountedRef.current) return;
+      if (restored) {
+        await Promise.all([loadVersion(), loadUpgradeCheck(true)]);
+        if (unmountedRef.current) return;
+        setUpgradeStage('success');
+        setUpgradeMessage(null);
+      } else {
+        setUpgradeStage('idle');
+        setUpgradeMessage('升级已触发，服务重启时间较长，请稍后刷新页面确认');
+      }
     } catch (e: unknown) {
       setUpgradeError(e instanceof Error ? e.message : '升级失败');
+      setUpgradeStage('idle');
     } finally {
-      setUpgradeLoading(false);
+      if (!unmountedRef.current) {
+        setUpgradeLoading(false);
+      }
     }
   };
 
@@ -126,7 +159,13 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
   useEffect(() => {
     loadVersion();
     loadUpgradeCheck();
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
   }, []);
+
+  const isUpgradeInProgress = upgradeLoading || upgradeStage === 'in_progress';
 
   return (
     <>
@@ -165,16 +204,38 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
                   variant="secondary"
                   size="sm"
                   onClick={() => setShowUpgradeConfirm(true)}
-                  disabled={upgradeLoading || !!upgradeMessage || !upgradeCheck?.canUpgrade}
+                  disabled={isUpgradeInProgress || !upgradeCheck?.canUpgrade}
                   className="gap-1.5"
                 >
-                  <RefreshCw className={`w-4 h-4 ${upgradeLoading ? 'animate-spin' : ''}`} />
-                  {upgradeLoading ? '升级中' : '立即升级'}
+                  <RefreshCw className={`w-4 h-4 ${isUpgradeInProgress ? 'animate-spin' : ''}`} />
+                  {isUpgradeInProgress ? '升级中' : '立即升级'}
                 </Button>
               </div>
             </div>
 
             <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] px-3 py-2 space-y-1">
+              {upgradeStage === 'in_progress' && (
+                <div className="rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-primary)] p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-[var(--color-text-primary)]">
+                    <RefreshCw className="size-3.5 animate-spin" />
+                    <span className="font-medium">正在升级，服务即将自动重启</span>
+                  </div>
+                  <p className="text-xs text-[var(--color-text-secondary)] text-pretty">
+                    正在下载并替换最新版本，页面可能短暂不可用。请保持当前页面开启，升级完成后会自动提示。
+                  </p>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+                    <div className="h-full w-full rounded-full bg-[var(--color-accent-primary)] animate-pulse" />
+                  </div>
+                </div>
+              )}
+              {upgradeStage === 'success' && (
+                <div className="rounded-md border border-[var(--color-success)]/30 bg-[var(--color-success-subtle)] p-3">
+                  <div className="flex items-center gap-2 text-xs text-[var(--color-success)]">
+                    <CheckCircle2 className="size-3.5" />
+                    <span className="font-medium">升级成功，服务已恢复</span>
+                  </div>
+                </div>
+              )}
               {upgradeCheck && (
                 <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-secondary)]">
                   <span className="text-[var(--color-text-tertiary)]">最新版本</span>
