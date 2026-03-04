@@ -1,4 +1,20 @@
 import { test, expect } from './test-setup';
+import type { Page } from '@playwright/test';
+
+const gotoWithRetry = async (page: Page) => {
+  const maxAttempts = 5;
+  let lastError: unknown;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      await page.goto('/');
+      return;
+    } catch (error) {
+      lastError = error;
+      await page.waitForTimeout(1000);
+    }
+  }
+  throw lastError;
+};
 
 test.describe('Onboarding Tour', () => {
   test.beforeEach(async ({ page }) => {
@@ -202,6 +218,7 @@ test.describe('Onboarding Tour', () => {
 
     const startUpgradeButton = page.getByRole('button', { name: '立即升级' });
     await expect(startUpgradeButton).toBeVisible({ timeout: 3000 });
+    await expect(startUpgradeButton).toBeEnabled({ timeout: 5000 });
     await startUpgradeButton.click();
 
     await page.getByRole('button', { name: '开始升级' }).click();
@@ -211,12 +228,13 @@ test.describe('Onboarding Tour', () => {
     await expect(page.getByRole('button', { name: '升级中' })).toBeVisible({ timeout: 3000 });
 
     await expect(page.getByText('升级成功，服务已恢复').first()).toBeVisible({ timeout: 12000 });
-    await expect(page.locator('text=当前版本 v0.4.3')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('升级成功，当前版本 v0.4.3').first()).toBeVisible({ timeout: 12000 });
+    await expect(page.getByText('当前版本 v0.4.3', { exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('已是最新', { exact: true })).toBeVisible({ timeout: 5000 });
   });
 
   test('键盘导航', async ({ page }) => {
-    await page.goto('/');
+    await gotoWithRetry(page);
     const tooltip = page.locator('[data-testid="tour-tooltip"]');
     await expect(tooltip).toBeVisible({ timeout: 5000 });
 
