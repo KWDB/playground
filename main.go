@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	checkcmd "kwdb-playground/cmd/check"
+	"kwdb-playground/internal/config"
 	startcmd "kwdb-playground/cmd/start"
 	"kwdb-playground/cmd/stop"
 )
@@ -55,8 +56,15 @@ func newRootCmd() *cobra.Command {
 }
 
 func main() {
+	syncRuntimeVersion()
 	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+}
+
+func syncRuntimeVersion() {
+	if config.Version == "" || config.Version == "dev" {
+		config.Version = Version
 	}
 }

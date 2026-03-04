@@ -72,6 +72,29 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
     }
   };
 
+  const normalizeVersion = (value: unknown) => String(value || '').replace(/^v/, '').trim();
+
+  const waitForUpgradedVersion = async (expectedVersion?: string) => {
+    const expected = normalizeVersion(expectedVersion || '');
+    const deadline = Date.now() + 90 * 1000;
+    while (Date.now() < deadline) {
+      try {
+        const versionResp = await fetch('/api/version', { cache: 'no-store' });
+        if (versionResp.ok) {
+          const versionJson = await versionResp.json();
+          const current = normalizeVersion(versionJson.version || '');
+          if (current && (!expected || current === expected)) {
+            return current;
+          }
+        }
+      } catch (error) {
+        void error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    return '';
+  };
+
   const waitForServiceRestore = async () => {
     const deadline = Date.now() + 90 * 1000;
     while (Date.now() < deadline) {
@@ -96,6 +119,7 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
     try {
       const resp = await fetch('/api/upgrade', { method: 'POST' });
       const json = await resp.json().catch(() => ({}));
+      const expectedLatestVersion = normalizeVersion(json.latestVersion || upgradeCheck?.latestVersion || '');
       if (!resp.ok) {
         throw new Error(json.error || '升级失败');
       }
@@ -103,10 +127,24 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
       const restored = await waitForServiceRestore();
       if (unmountedRef.current) return;
       if (restored) {
-        await Promise.all([loadVersion(), loadUpgradeCheck(true)]);
+        const upgradedVersion = await waitForUpgradedVersion(expectedLatestVersion);
         if (unmountedRef.current) return;
-        setUpgradeStage('success');
-        setUpgradeMessage(null);
+        await loadUpgradeCheck(true);
+        if (unmountedRef.current) return;
+        if (upgradedVersion) {
+          setVersion(upgradedVersion);
+          setUpgradeStage('success');
+          setUpgradeMessage(`升级成功，当前版本 v${upgradedVersion}`);
+        } else {
+          await loadVersion();
+          if (unmountedRef.current) return;
+          setUpgradeStage('idle');
+          if (expectedLatestVersion) {
+            setUpgradeMessage(`服务已恢复，但升级后版本自检未通过（目标版本 v${expectedLatestVersion}），请稍后重试检查更新`);
+          } else {
+            setUpgradeMessage('服务已恢复，但升级后版本自检未通过，请稍后重试检查更新');
+          }
+        }
       } else {
         setUpgradeStage('idle');
         setUpgradeMessage('升级已触发，服务重启时间较长，请稍后刷新页面确认');
