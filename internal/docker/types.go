@@ -97,6 +97,8 @@ const (
 	LanguageBash CodeLanguage = "bash"
 	// LanguageNode JavaScript/Node.js
 	LanguageNode CodeLanguage = "node"
+	// LanguageJava Java语言
+	LanguageJava CodeLanguage = "java"
 )
 
 // ExecCodeResult 代码执行结果

@@ -1,0 +1,25 @@
+title: Java 连接 KWDB
+description: 学习使用 Java JDBC 连接 KWDB 数据库，执行 SQL 操作。
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: 连接数据库
+      text: step1.md
+    - title: 创建数据库和表
+      text: step2.md
+    - title: 插入和查询数据
+      text: step3.md
+  finish:
+    text: finish.md
+backend:
+  imageid: kwdb/kwdb-java:3.1.0
+  workspace: /kaiwudb/bin
+  cmd: ["/kaiwudb/bin/kwbase", "start-single-node", "--insecure", "--listen-addr=0.0.0.0:26257"]
+codeTerminal: true
+estimatedMinutes: 12
+difficulty: beginner
+tags:
+  - Java
+  - JDBC
+  - KWDB

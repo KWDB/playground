@@ -1886,6 +1886,34 @@ func (d *dockerController) ExecCode(ctx context.Context, containerID string, opt
 	case LanguageNode:
 		codeFile = "/tmp/user_code.js"
 		cmd = []string{"node", codeFile}
+	case LanguageJava:
+		codeFile = "/tmp/user_code.java"
+		cmd = []string{
+			"sh",
+			"-lc",
+			`set -e
+JDBC_JAR=""
+for p in /tmp/kaiwudb-jdbc.jar /kaiwudb/lib/kaiwudb-jdbc.jar /kaiwudb/bin/kaiwudb-jdbc.jar /usr/share/java/kaiwudb-jdbc.jar; do
+  if [ -f "$p" ]; then
+    JDBC_JAR="$p"
+    break
+  fi
+done
+if [ -z "$JDBC_JAR" ]; then
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o /tmp/kaiwudb-jdbc.jar https://repo1.maven.org/maven2/com/kaiwudb/kaiwudb-jdbc/2.2.0/kaiwudb-jdbc-2.2.0.jar
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O /tmp/kaiwudb-jdbc.jar https://repo1.maven.org/maven2/com/kaiwudb/kaiwudb-jdbc/2.2.0/kaiwudb-jdbc-2.2.0.jar
+  else
+    echo "kaiwudb jdbc jar not found and curl/wget unavailable" >&2
+    exit 1
+  fi
+  JDBC_JAR=/tmp/kaiwudb-jdbc.jar
+fi
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+java -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8 -cp "$JDBC_JAR:/tmp" /tmp/user_code.java`,
+		}
 	default:
 		codeFile = "/tmp/user_code.py"
 		cmd = []string{"python3", codeFile}

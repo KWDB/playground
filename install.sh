@@ -31,6 +31,7 @@ echo -e "${BLUE}Installing KWDB Playground...${NC}"
 
 MIN_SUPPORTED_VERSION="v0.6.0"
 REQUESTED_VERSION="${INSTALL_VERSION:-}"
+SOURCE_PREFERENCE="auto"
 
 normalize_version() {
     local version="$1"
@@ -51,16 +52,18 @@ version_gte() {
 }
 
 print_usage() {
-    echo "Usage: $0 [--version <version>]"
-    echo "       $0 <version>"
+    echo "Usage: bash install.sh [--version <version>] [--source <auto|github|atomgit>]"
+    echo "       bash install.sh <version>"
+    echo "       curl -fsSL https://kwdb.tech/playground.sh | bash -s -- [--version <version>] [--source <auto|github|atomgit>]"
     echo ""
     echo "Examples:"
-    echo "  $0 --version v0.6.0"
-    echo "  $0 0.6.1"
+    echo "  bash install.sh --version v0.6.0"
+    echo "  bash install.sh 0.6.1"
+    echo "  bash install.sh --version v0.6.0 --source atomgit"
+    echo "  curl -fsSL https://kwdb.tech/playground.sh | bash -s -- --version v0.6.0 --source atomgit"
     echo ""
     echo "Environment:"
     echo "  INSTALL_VERSION   Specify version to install"
-    echo "  FORCE_ATOMGIT=1   Skip GitHub release API check"
 }
 
 while [ $# -gt 0 ]; do
@@ -77,6 +80,28 @@ while [ $# -gt 0 ]; do
         -h|--help)
             print_usage
             exit 0
+            ;;
+        --source)
+            if [ -z "${2:-}" ]; then
+                echo -e "${RED}Missing source after $1${NC}"
+                print_usage
+                exit 1
+            fi
+            case "$2" in
+                auto|github|atomgit)
+                    SOURCE_PREFERENCE="$2"
+                    ;;
+                *)
+                    echo -e "${RED}Unsupported source: $2${NC}"
+                    print_usage
+                    exit 1
+                    ;;
+            esac
+            shift 2
+            ;;
+        --atomgit)
+            SOURCE_PREFERENCE="atomgit"
+            shift
             ;;
         *)
             if [ -z "$REQUESTED_VERSION" ]; then
@@ -149,21 +174,28 @@ if [ -n "$REQUESTED_VERSION" ]; then
     LATEST_RELEASE="$REQUESTED_VERSION"
     echo -e "Using specified release: ${GREEN}${LATEST_RELEASE}${NC}"
 else
-    if [ -z "${FORCE_ATOMGIT:-}" ]; then
+    if [ "$SOURCE_PREFERENCE" != "atomgit" ]; then
         LATEST_RELEASE=$(curl -s "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
-    else
-        echo -e "${YELLOW}Skipping GitHub check (FORCE_ATOMGIT is set)...${NC}"
     fi
 
     if [ -z "$LATEST_RELEASE" ]; then
-        echo -e "${YELLOW}GitHub API failed, trying AtomGit...${NC}"
+        if [ "$SOURCE_PREFERENCE" = "github" ]; then
+            echo -e "${RED}Failed to fetch the latest release version from GitHub.${NC}"
+            exit 1
+        fi
+
+        if [ "$SOURCE_PREFERENCE" = "atomgit" ]; then
+            echo -e "${YELLOW}Using AtomGit source by parameter...${NC}"
+        else
+            echo -e "${YELLOW}GitHub API failed, trying AtomGit...${NC}"
+        fi
         if command -v git >/dev/null 2>&1; then
             echo -e "${YELLOW}Attempting to fetch latest tag via git ls-remote...${NC}"
             LATEST_RELEASE=$(git ls-remote --tags --refs --sort='-v:refname' "https://atomgit.com/${ATOMGIT_REPO}.git" | head -n 1 | awk -F/ '{print $NF}')
         fi
 
         if [ -z "$LATEST_RELEASE" ]; then
-            echo -e "${RED}Failed to fetch the latest release version from both GitHub and AtomGit. Please check your internet connection and try again.${NC}"
+            echo -e "${RED}Failed to fetch the latest release version from AtomGit. Please check your internet connection and try again.${NC}"
             exit 1
         fi
         SOURCE="atomgit"
@@ -184,8 +216,7 @@ TMP_FILE="${TMP_DIR}/kwdb-playground${EXT}"
 
 echo -e "Downloading ${DOWNLOAD_URL}..."
 if ! curl -# -f -L -o "$TMP_FILE" "$DOWNLOAD_URL"; then
-    # If GitHub download failed, try AtomGit as fallback
-    if [ "$SOURCE" = "github" ]; then
+    if [ "$SOURCE" = "github" ] && [ "$SOURCE_PREFERENCE" != "github" ]; then
         echo -e "${YELLOW}GitHub download failed, trying AtomGit...${NC}"
         DOWNLOAD_URL="https://atomgit.com/${REPO}/releases/download/${LATEST_RELEASE}/${BINARY_NAME}"
         if ! curl -# -f -L -o "$TMP_FILE" "$DOWNLOAD_URL"; then

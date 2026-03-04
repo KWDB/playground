@@ -94,13 +94,13 @@ export const tourSteps: Record<string, TourStep[]> = {
     {
       targetId: 'learn-code-editor',
       title: '代码编辑器',
-      content: '在左侧编辑器中编写 Python 或 Bash 代码',
+      content: '在左侧编辑器中编写 Python、Bash 或 Java 代码',
       position: 'left',
     },
     {
       targetId: 'learn-code-run',
       title: '运行代码',
-      content: '选择代码语言（Python/Bash），点击「运行」按钮执行代码',
+      content: '选择代码语言（Python/Bash/Java），点击「运行」按钮执行代码',
       position: 'left',
     },
     {
