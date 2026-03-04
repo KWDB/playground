@@ -298,6 +298,59 @@ func TestResetProgress_NonexistentProgress(t *testing.T) {
 	}
 }
 
+func TestResetAllProgress_RemovesOnlyTargetUserEntries(t *testing.T) {
+	tmpDir := t.TempDir()
+	progressFile := filepath.Join(tmpDir, "progress.json")
+
+	loggerInstance := logger.NewLogger(logger.INFO)
+	manager := NewProgressManager(progressFile, loggerInstance)
+
+	err := manager.SaveProgress("user1", "course1", 1, false)
+	if err != nil {
+		t.Fatalf("SaveProgress() error: %v", err)
+	}
+	err = manager.SaveProgress("user1", "course2", 2, false)
+	if err != nil {
+		t.Fatalf("SaveProgress() error: %v", err)
+	}
+	err = manager.SaveProgress("user2", "course1", 3, false)
+	if err != nil {
+		t.Fatalf("SaveProgress() error: %v", err)
+	}
+
+	err = manager.ResetAllProgress("user1")
+	if err != nil {
+		t.Fatalf("ResetAllProgress() error: %v", err)
+	}
+
+	_, exists, err := manager.GetProgress("user1", "course1")
+	if err != nil {
+		t.Fatalf("GetProgress() error: %v", err)
+	}
+	if exists {
+		t.Error("GetProgress() user1:course1 should be removed")
+	}
+
+	_, exists, err = manager.GetProgress("user1", "course2")
+	if err != nil {
+		t.Fatalf("GetProgress() error: %v", err)
+	}
+	if exists {
+		t.Error("GetProgress() user1:course2 should be removed")
+	}
+
+	p, exists, err := manager.GetProgress("user2", "course1")
+	if err != nil {
+		t.Fatalf("GetProgress() error: %v", err)
+	}
+	if !exists {
+		t.Error("GetProgress() user2:course1 should remain")
+	}
+	if p.CurrentStep != 3 {
+		t.Errorf("GetProgress() user2:course1 CurrentStep=%d, want 3", p.CurrentStep)
+	}
+}
+
 func TestSaveProgress_PreservesOtherUserData(t *testing.T) {
 	tmpDir := t.TempDir()
 	progressFile := filepath.Join(tmpDir, "progress.json")

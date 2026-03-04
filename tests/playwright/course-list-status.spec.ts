@@ -1,15 +1,16 @@
 import { test, expect } from './test-setup';
 
 test.describe('课程列表状态与交互测试', () => {
-  // 测试前清理所有容器，确保环境干净
   test.beforeEach(async ({ request, page }) => {
     const res = await request.delete('/api/containers');
     expect(res.ok()).toBeTruthy();
-    
-    // 再次确认容器已清空
+
     const listRes = await request.get('/api/containers');
     const containers = await listRes.json();
     expect(containers.length).toBe(0);
+
+    const resetProgressRes = await request.post('/api/progress/reset-all');
+    expect(resetProgressRes.ok()).toBeTruthy();
 
     await page.addInitScript(() => {
       localStorage.setItem('hasSeenTour', JSON.stringify({
@@ -112,5 +113,44 @@ test.describe('课程列表状态与交互测试', () => {
     // Check button is active by looking at its visual state (bg color indicates active)
     // 验证容器恢复 grid 布局
     await expect(container).toHaveClass(/grid-cols-1/);
+  });
+
+  test('验证学习状态筛选功能', async ({ page, request }) => {
+    const inProgressRes = await request.post('/api/progress/quick-start', {
+      data: { currentStep: 0, completed: false },
+    });
+    expect(inProgressRes.ok()).toBeTruthy();
+
+    const completedRes = await request.post('/api/progress/install', {
+      data: { currentStep: 0, completed: true },
+    });
+    expect(completedRes.ok()).toBeTruthy();
+
+    await page.goto('/courses');
+
+    const quickStartCard = page.locator('a[href="/learn/quick-start"]');
+    const installCard = page.locator('a[href="/learn/install"]');
+    const sqlCard = page.locator('a[href="/learn/sql"]');
+
+    await expect(quickStartCard).toBeVisible();
+    await expect(installCard).toBeVisible();
+    await expect(sqlCard).toBeVisible();
+
+    await page.getByRole('button', { name: '筛选' }).click();
+
+    await page.getByRole('button', { name: '已完成', exact: true }).click();
+    await expect(installCard).toBeVisible();
+    await expect(quickStartCard).toBeHidden();
+    await expect(sqlCard).toBeHidden();
+
+    await page.getByRole('button', { name: '进行中', exact: true }).click();
+    await expect(quickStartCard).toBeVisible();
+    await expect(installCard).toBeHidden();
+    await expect(sqlCard).toBeHidden();
+
+    await page.getByRole('button', { name: '待学习', exact: true }).click();
+    await expect(sqlCard).toBeVisible();
+    await expect(quickStartCard).toBeHidden();
+    await expect(installCard).toBeHidden();
   });
 });

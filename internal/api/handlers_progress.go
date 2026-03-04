@@ -112,3 +112,21 @@ func (h *Handler) resetProgress(c *gin.Context) {
 		"courseId": courseID,
 	})
 }
+
+func (h *Handler) resetAllProgress(c *gin.Context) {
+	userID := c.DefaultQuery("userId", "")
+
+	err := h.courseService.ResetAllProgress(userID)
+	if err != nil {
+		h.logger.Error("[resetAllProgress] 重置全部进度失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("重置全部进度失败: %v", err),
+		})
+		return
+	}
+
+	h.logger.Info("[resetAllProgress] 全部进度已重置")
+	c.JSON(http.StatusOK, gin.H{
+		"message": "全部进度已重置",
+	})
+}

@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, Code, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, Circle, ArrowRight } from 'lucide-react';
+import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, Code, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, Circle, ArrowRight, RotateCcw } from 'lucide-react';
 import { ContainerInfo } from '@/types';
 import { api } from '@/lib/api/client';
 import { UserProgress } from '@/lib/api/types';
 import ProposeCourseCard from '../components/business/ProposeCourseCard';
 import { useDebounce } from '../hooks/useDebounce';
 import PinyinMatch from 'pinyin-match';
-import { Button, Dialog, DialogContent, DialogTitle } from '@/components/ui/Button';
+import { AlertDialog, Button, Dialog, DialogContent, DialogTitle } from '@/components/ui/Button';
 import { useTourStore } from '@/store/tourStore';
 import { TourTooltip } from '@/components/ui/TourTooltip';
 import { getStepsForPage, getTotalSteps } from '@/config/tourSteps';
@@ -27,6 +27,7 @@ interface Course {
 
 interface FilterState {
   type: 'all' | 'sql' | 'shell' | 'code';
+  learningStatus: 'all' | 'pending' | 'in-progress' | 'completed';
   difficulty: string[];
   tags: string[];
   timeRange: [number, number];
@@ -47,6 +48,9 @@ export function CourseList() {
   const [error, setError] = useState<string | null>(null);
   const [showCleanupModal, setShowCleanupModal] = useState(false);
   const [cleaning, setCleaning] = useState(false);
+  const [showResetProgressModal, setShowResetProgressModal] = useState(false);
+  const [resettingProgress, setResettingProgress] = useState(false);
+  const [resetProgressError, setResetProgressError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     return (localStorage.getItem('courseViewMode') as 'grid' | 'list') || 'grid';
   });
@@ -54,6 +58,7 @@ export function CourseList() {
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [filters, setFilters] = useState<FilterState>({
     type: 'all',
+    learningStatus: 'all',
     difficulty: [],
     tags: [],
     timeRange: [0, 1000],
@@ -121,6 +126,10 @@ export function CourseList() {
       if (filters.type === 'sql' && !course.sqlTerminal) return false;
       if (filters.type === 'code' && !course.codeTerminal) return false;
       if (filters.type === 'shell' && (course.sqlTerminal || course.codeTerminal)) return false;
+      const progress = progressMap[course.id];
+      if (filters.learningStatus === 'completed' && !progress?.completed) return false;
+      if (filters.learningStatus === 'in-progress' && (!progress || progress.completed)) return false;
+      if (filters.learningStatus === 'pending' && !!progress) return false;
       if (filters.difficulty.length > 0 && !filters.difficulty.includes(course.difficulty)) return false;
       if (filters.tags.length > 0) {
         const hasTag = course.tags.some(tag => filters.tags.includes(tag));
@@ -129,11 +138,12 @@ export function CourseList() {
       if (course.estimatedMinutes < filters.timeRange[0] || course.estimatedMinutes > filters.timeRange[1]) return false;
       return true;
     });
-  }, [courses, debouncedSearchQuery, filters]);
+  }, [courses, debouncedSearchQuery, filters, progressMap]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.type !== 'all') count++;
+    if (filters.learningStatus !== 'all') count++;
     count += filters.difficulty.length;
     count += filters.tags.length;
     if (filters.timeRange[0] > 0 || filters.timeRange[1] < maxDuration) count++;
@@ -197,8 +207,10 @@ export function CourseList() {
     return filteredCourses[0] ?? courses[0] ?? null;
   }, [filteredCourses, courses]);
 
+  const hasAnyProgress = useMemo(() => Object.keys(progressMap).length > 0, [progressMap]);
+
   const handleResetFilters = () => {
-    setFilters({ type: 'all', difficulty: [], tags: [], timeRange: [0, maxDuration] });
+    setFilters({ type: 'all', learningStatus: 'all', difficulty: [], tags: [], timeRange: [0, maxDuration] });
     setSearchQuery('');
   };
 
@@ -270,6 +282,21 @@ export function CourseList() {
     } finally {
       setCleaning(false);
     }
+  };
+
+  const handleConfirmResetAllProgress = () => {
+    setResetProgressError(null);
+    setResettingProgress(true);
+    api.courses.resetAllProgress()
+      .then(() => {
+        setProgressMap({});
+      })
+      .catch((err) => {
+        setResetProgressError(err instanceof Error ? err.message : '重置全部课程进度失败');
+      })
+      .finally(() => {
+        setResettingProgress(false);
+      });
   };
 
   const fetchCourses = async () => {
@@ -384,37 +411,57 @@ export function CourseList() {
             <h1 className="text-xl font-medium text-[var(--color-text-primary)]">课程列表</h1>
             <p className="text-sm text-[var(--color-text-tertiary)]">{filteredCourses.length} 门课程</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div 
-              className="flex items-center border border-[var(--color-border-default)] rounded-lg overflow-hidden"
-              data-tour-id="course-view-toggle"
-            >
-              <button
-                onClick={() => handleViewModeChange('grid')}
-                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}`}
-                aria-label="卡片模式"
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <div 
+                className="flex items-center border border-[var(--color-border-default)] rounded-lg overflow-hidden"
+                data-tour-id="course-view-toggle"
               >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleViewModeChange('list')}
-                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}`}
-                aria-label="列表模式"
-              >
-                <ListIcon className="w-4 h-4" />
-              </button>
+                <button
+                  onClick={() => handleViewModeChange('grid')}
+                  className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}`}
+                  aria-label="卡片模式"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleViewModeChange('list')}
+                  className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}`}
+                  aria-label="列表模式"
+                >
+                  <ListIcon className="w-4 h-4" />
+                </button>
+              </div>
+              {hasAnyProgress && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setResetProgressError(null);
+                    setShowResetProgressModal(true);
+                  }}
+                  className="text-[var(--color-error)]"
+                  disabled={resettingProgress}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  {resettingProgress ? '重置中...' : '重置全部进度'}
+                </Button>
+              )}
+              {containers.length > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowCleanupModal(true)} 
+                  className="text-[var(--color-error)]"
+                  data-tour-id="course-cleanup"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  清理 ({containers.length})
+                </Button>
+              )}
             </div>
-            {containers.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowCleanupModal(true)} 
-                className="text-[var(--color-error)]"
-                data-tour-id="course-cleanup"
-              >
-                <Trash2 className="w-4 h-4" />
-                清理 ({containers.length})
-              </Button>
+            {resetProgressError && (
+              <p className="text-xs text-[var(--color-error)]">{resetProgressError}</p>
             )}
           </div>
         </header>
@@ -571,6 +618,38 @@ export function CourseList() {
                     >
                       {type.icon && <type.icon className="w-4 h-4" />}
                       {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3 block">
+                  学习状态
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {([
+                    { value: 'all', label: '全部' },
+                    { value: 'pending', label: '待学习' },
+                    { value: 'in-progress', label: '进行中' },
+                    { value: 'completed', label: '已完成' },
+                  ] as const).map((status) => (
+                    <button
+                      key={status.value}
+                      onClick={() => setFilters({ ...filters, learningStatus: status.value })}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 border ${
+                        filters.learningStatus === status.value
+                          ? status.value === 'completed'
+                            ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)] border-[var(--color-success)] shadow-sm'
+                            : status.value === 'in-progress'
+                            ? 'bg-[rgba(59,130,246,0.1)] text-[#3b82f6] border-[#3b82f6] shadow-sm'
+                            : status.value === 'pending'
+                            ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] border-[var(--color-text-tertiary)] shadow-sm'
+                            : 'bg-[var(--color-text-primary)] text-white border-[var(--color-text-primary)] shadow-sm'
+                          : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)]'
+                      }`}
+                    >
+                      {status.label}
                     </button>
                   ))}
                 </div>
@@ -1079,6 +1158,17 @@ export function CourseList() {
           </DialogContent>
         </Dialog>
       )}
+
+      <AlertDialog
+        open={showResetProgressModal}
+        onOpenChange={setShowResetProgressModal}
+        title="确认重置全部课程进度"
+        description="此操作会清空当前用户所有课程的学习进度，且无法恢复。"
+        confirmText="确认重置"
+        cancelText="取消"
+        variant="danger"
+        onConfirm={handleConfirmResetAllProgress}
+      />
 
       {step && isActive && currentPage === 'courses' && (
         <TourTooltip

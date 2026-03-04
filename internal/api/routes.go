@@ -132,6 +132,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		// 用户进度相关路由
 		progress := api.Group("/progress")
 		{
+			progress.POST("/reset-all", h.resetAllProgress)
 			progress.GET("/:courseId", h.getProgress)
 			progress.POST("/:courseId", h.saveProgress)
 			progress.POST("/:courseId/reset", h.resetProgress)
