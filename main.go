@@ -8,9 +8,9 @@ import (
 	"github.com/spf13/cobra"
 
 	checkcmd "kwdb-playground/cmd/check"
-	"kwdb-playground/internal/config"
 	startcmd "kwdb-playground/cmd/start"
 	"kwdb-playground/cmd/stop"
+	"kwdb-playground/internal/config"
 )
 
 //go:embed dist/* courses/*
