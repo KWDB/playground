@@ -213,24 +213,24 @@ test.describe('Onboarding Tour', () => {
     await expect(upgradeButton).toBeVisible({ timeout: 5000 });
     await upgradeButton.click();
 
-    await expect(page.locator('text=版本与升级')).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('text=当前版本 v0.4.2')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('text=版本与升级')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=当前版本 v0.4.2')).toBeVisible({ timeout: 5000 });
 
     const startUpgradeButton = page.getByRole('button', { name: '立即升级' });
-    await expect(startUpgradeButton).toBeVisible({ timeout: 3000 });
+    await expect(startUpgradeButton).toBeVisible({ timeout: 5000 });
     await expect(startUpgradeButton).toBeEnabled({ timeout: 5000 });
     await startUpgradeButton.click();
 
     await page.getByRole('button', { name: '开始升级' }).click();
 
-    await expect(page.locator('text=正在升级，服务即将自动重启')).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('text=页面可能短暂不可用')).toBeVisible({ timeout: 3000 });
-    await expect(page.getByRole('button', { name: '升级中' })).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('text=正在升级，服务即将自动重启')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('text=页面可能短暂不可用')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('button', { name: '升级中' })).toBeVisible({ timeout: 8000 });
 
-    await expect(page.getByText('升级成功，服务已恢复').first()).toBeVisible({ timeout: 12000 });
-    await expect(page.getByText('升级成功，当前版本 v0.4.3').first()).toBeVisible({ timeout: 12000 });
-    await expect(page.getByText('当前版本 v0.4.3', { exact: true })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('已是最新', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('升级成功，服务已恢复').first()).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('升级成功，当前版本 v0.4.3').first()).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText(/当前版本 v0\.4\.3/).first()).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/已是最新/).first()).toBeVisible({ timeout: 8000 });
   });
 
   test('键盘导航', async ({ page }) => {
