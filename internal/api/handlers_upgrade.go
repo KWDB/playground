@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"kwdb-playground/internal/config"
+	upgradepkg "kwdb-playground/internal/upgrade"
 
 	"github.com/gin-gonic/gin"
 	"github.com/moby/moby/api/types/container"
@@ -63,112 +64,43 @@ func (h *Handler) upgrade(c *gin.Context) {
 		return
 	}
 
-	if runtime.GOOS == "windows" {
-		h.setUpgradeInProgress(false)
-		c.JSON(http.StatusConflict, gin.H{"error": "Windows 暂不支持在线升级"})
-		return
-	}
-
-	currentVersion := strings.TrimPrefix(config.Version, "v")
-	if currentVersion == "dev" {
-		h.setUpgradeInProgress(false)
-		c.JSON(http.StatusConflict, gin.H{"error": "开发模式不支持在线升级"})
-		return
-	}
-
-	exePath, err := resolveExecutablePath()
-	if err != nil {
-		h.setUpgradeInProgress(false)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("获取当前可执行文件失败: %v", err)})
-		return
-	}
-
-	if isBrewInstall(exePath) {
-		if !isBrewAvailable() {
-			h.setUpgradeInProgress(false)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "检测到 Homebrew 安装，但未找到 brew 命令"})
-			return
-		}
-
-		startArgs := resolveStartArgs()
-		c.JSON(http.StatusAccepted, gin.H{
-			"message":        "已触发 Homebrew 升级，服务即将重启",
-			"currentVersion": currentVersion,
-		})
-
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					h.logger.Error("升级过程异常: %v", r)
-					h.setUpgradeInProgress(false)
-				}
-			}()
-
-			time.Sleep(800 * time.Millisecond)
-
-			upgradeCtx, cancelUpgrade := context.WithTimeout(context.Background(), 10*time.Minute)
-			defer cancelUpgrade()
-
-			if err := performBrewUpgrade(upgradeCtx, startArgs, os.Environ()); err != nil {
-				h.logger.Error("Homebrew 升级失败: %v", err)
-				h.setUpgradeInProgress(false)
-				return
-			}
-
-			time.Sleep(800 * time.Millisecond)
-			os.Exit(0)
-		}()
-		return
-	}
-
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 
-	release, err := fetchLatestRelease(ctx)
+	plan, err := upgradepkg.Prepare(ctx, config.Version)
 	if err != nil {
 		h.setUpgradeInProgress(false)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("获取最新版本失败: %v", err)})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
-	if latestVersion == "" {
+	if plan.Mode == upgradepkg.ModeUnsupported {
 		h.setUpgradeInProgress(false)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "最新版本号为空"})
+		c.JSON(http.StatusConflict, gin.H{"error": plan.Message})
 		return
 	}
 
-	if currentVersion == latestVersion {
+	if plan.Mode == upgradepkg.ModeNoUpdate {
 		h.setUpgradeInProgress(false)
 		c.JSON(http.StatusOK, gin.H{
-			"message":        "当前已是最新版本",
-			"currentVersion": currentVersion,
-			"latestVersion":  latestVersion,
+			"message":        plan.Message,
+			"currentVersion": plan.CurrentVersion,
+			"latestVersion":  plan.LatestVersion,
 		})
-		return
-	}
-
-	osName, archName, ext, err := resolveRuntimeTarget()
-	if err != nil {
-		h.setUpgradeInProgress(false)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	assetName := fmt.Sprintf("kwdb-playground-%s-%s%s", osName, archName, ext)
-	downloadURL, err := findAssetDownloadURL(release, assetName)
-	if err != nil {
-		h.setUpgradeInProgress(false)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	startArgs := resolveStartArgs()
 
+	message := "升级已开始，服务即将重启"
+	if plan.Mode == upgradepkg.ModeBrew {
+		message = "已触发 Homebrew 升级，服务即将重启"
+	}
+
 	c.JSON(http.StatusAccepted, gin.H{
-		"message":        "升级已开始，服务即将重启",
-		"currentVersion": currentVersion,
-		"latestVersion":  latestVersion,
+		"message":        message,
+		"currentVersion": plan.CurrentVersion,
+		"latestVersion":  plan.LatestVersion,
 	})
 
 	go func() {
@@ -181,11 +113,25 @@ func (h *Handler) upgrade(c *gin.Context) {
 
 		time.Sleep(800 * time.Millisecond)
 
-		upgradeCtx, cancelUpgrade := context.WithTimeout(context.Background(), 5*time.Minute)
+		timeout := 5 * time.Minute
+		if plan.Mode == upgradepkg.ModeBrew {
+			timeout = 10 * time.Minute
+		}
+		upgradeCtx, cancelUpgrade := context.WithTimeout(context.Background(), timeout)
 		defer cancelUpgrade()
 
-		if err := performUpgrade(upgradeCtx, downloadURL, exePath, startArgs, os.Environ()); err != nil {
-			h.logger.Error("升级失败: %v", err)
+		var upgradeErr error
+		switch plan.Mode {
+		case upgradepkg.ModeBrew:
+			upgradeErr = upgradepkg.PerformBrewUpgrade(upgradeCtx, startArgs, os.Environ())
+		case upgradepkg.ModeBinary:
+			upgradeErr = upgradepkg.PerformUpgrade(upgradeCtx, plan.DownloadURL, plan.ExecutablePath, startArgs, os.Environ())
+		default:
+			upgradeErr = fmt.Errorf("不支持的升级模式: %s", plan.Mode)
+		}
+
+		if upgradeErr != nil {
+			h.logger.Error("升级失败: %v", upgradeErr)
 			h.setUpgradeInProgress(false)
 			return
 		}
@@ -196,7 +142,7 @@ func (h *Handler) upgrade(c *gin.Context) {
 }
 
 func isDockerDeploy() bool {
-	return strings.EqualFold(os.Getenv("DOCKER_DEPLOY"), "true") || os.Getenv("DOCKER_DEPLOY") == "1"
+	return upgradepkg.IsDockerDeploy()
 }
 
 func resolveExecutablePath() (string, error) {
@@ -256,78 +202,23 @@ func performBrewUpgrade(ctx context.Context, startArgs []string, env []string) e
 }
 
 func (h *Handler) checkUpgrade(c *gin.Context) {
-	currentVersion := strings.TrimPrefix(config.Version, "v")
-	if currentVersion == "" {
-		currentVersion = "dev"
-	}
-
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 
-	release, err := fetchLatestRelease(ctx)
+	result, err := upgradepkg.Check(ctx, config.Version)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("获取最新版本失败: %v", err)})
-		return
-	}
-
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
-	if latestVersion == "" {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "最新版本号为空"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	resp := upgradeCheckResponse{
-		CurrentVersion: currentVersion,
-		LatestVersion:  latestVersion,
-		DockerDeploy:   isDockerDeploy(),
+		CurrentVersion: result.CurrentVersion,
+		LatestVersion:  result.LatestVersion,
+		HasUpdate:      result.HasUpdate,
+		CanUpgrade:     result.CanUpgrade,
+		Message:        result.Message,
+		DockerDeploy:   result.DockerDeploy,
 	}
-	resp.HasUpdate = currentVersion != latestVersion
-
-	if currentVersion == "dev" {
-		resp.CanUpgrade = false
-		if resp.HasUpdate {
-			resp.Message = fmt.Sprintf("发现新版本 v%s（开发模式仅提示）", latestVersion)
-		} else {
-			resp.Message = "当前已是最新版本"
-		}
-		c.JSON(http.StatusOK, resp)
-		return
-	}
-
-	if runtime.GOOS == "windows" {
-		resp.CanUpgrade = false
-		if resp.HasUpdate {
-			resp.Message = fmt.Sprintf("发现新版本 v%s（Windows 暂不支持在线升级）", latestVersion)
-		} else {
-			resp.Message = "当前已是最新版本"
-		}
-		c.JSON(http.StatusOK, resp)
-		return
-	}
-
-	if resp.HasUpdate {
-		if exePath, err := resolveExecutablePath(); err == nil && isBrewInstall(exePath) {
-			if isBrewAvailable() {
-				resp.CanUpgrade = true
-				resp.Message = fmt.Sprintf("发现新版本 v%s，可通过 Homebrew 升级", latestVersion)
-			} else {
-				resp.CanUpgrade = false
-				resp.Message = fmt.Sprintf("发现新版本 v%s，但未检测到 brew 命令", latestVersion)
-			}
-			c.JSON(http.StatusOK, resp)
-			return
-		}
-	}
-
-	if currentVersion == latestVersion {
-		resp.CanUpgrade = false
-		resp.Message = "当前已是最新版本"
-		c.JSON(http.StatusOK, resp)
-		return
-	}
-
-	resp.CanUpgrade = true
-	resp.Message = fmt.Sprintf("发现新版本 v%s，可执行升级", latestVersion)
 	c.JSON(http.StatusOK, resp)
 }
 

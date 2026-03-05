@@ -10,6 +10,7 @@ import (
 	checkcmd "kwdb-playground/cmd/check"
 	startcmd "kwdb-playground/cmd/start"
 	"kwdb-playground/cmd/stop"
+	updatecmd "kwdb-playground/cmd/update"
 	"kwdb-playground/internal/config"
 )
 
@@ -51,6 +52,9 @@ func newRootCmd() *cobra.Command {
 
 	// check 子命令
 	root.AddCommand(checkcmd.NewCommand(staticFiles))
+
+	// update 子命令
+	root.AddCommand(updatecmd.NewCommand())
 
 	return root
 }
