@@ -135,7 +135,7 @@ func TestResolveStartArgs(t *testing.T) {
 
 	os.Args = []string{"kwdb-playground", "start", "--no-daemon"}
 	_ = os.Setenv("DAEMON_MODE", "1")
-	if got, want := resolveStartArgs(), []string{"start", "--daemon", "--no-open"}; !reflect.DeepEqual(got, want) {
+	if got, want := resolveStartArgs(), []string{"start", "--no-daemon"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("resolveStartArgs()=%v, want=%v", got, want)
 	}
 }

@@ -215,9 +215,6 @@ func resolveStartArgs() []string {
 	if len(startArgs) == 0 {
 		startArgs = []string{"start", "--no-daemon"}
 	}
-	if os.Getenv("DAEMON_MODE") == "1" {
-		startArgs = []string{"start", "--daemon", "--no-open"}
-	}
 	return startArgs
 }
 
