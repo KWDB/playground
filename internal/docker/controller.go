@@ -128,6 +128,38 @@ func createDockerClient(log *logger.Logger) (*client.Client, error) {
 	return nil, fmt.Errorf("无法连接到Docker守护进程，已尝试所有可用路径: %v", socketPaths)
 }
 
+func DetectServerAPIVersion() (string, error) {
+	log := logger.NewLogger(logger.ERROR)
+	cli, err := createDockerClient(log)
+	if err != nil {
+		return "", err
+	}
+	defer cli.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ping, err := cli.Ping(ctx, client.PingOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to ping docker daemon: %w", err)
+	}
+
+	apiVersion := strings.TrimSpace(ping.APIVersion)
+	if apiVersion != "" {
+		return apiVersion, nil
+	}
+
+	version, err := cli.ServerVersion(ctx, client.ServerVersionOptions{})
+	if err != nil {
+		return "", fmt.Errorf("docker daemon 未返回 API 版本，且获取 ServerVersion 失败: %w", err)
+	}
+	apiVersion = strings.TrimSpace(version.APIVersion)
+	if apiVersion == "" {
+		return "", fmt.Errorf("docker daemon 未返回 API 版本")
+	}
+	return apiVersion, nil
+}
+
 // NewController 创建新的Docker控制器
 func NewController() (Controller, error) {
 	return NewControllerWithTerminalManager(nil)

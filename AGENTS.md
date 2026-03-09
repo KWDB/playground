@@ -1,12 +1,12 @@
-# PROJECT KNOWLEDGE BASE
-
-**Generated:** 2026-03-04
-**Commit:** c40e1ff
-**Branch:** feat/code-java
+#HM|# PROJECT KNOWLEDGE BASE
+#KM|
+#JX|**Generated:** 2026-03-09
+#SM|**Commit:** a5a2a4e
+#RT|**Branch:** feat/docker-api-version
 
 ## OVERVIEW
 
-Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebSocket) + React 20 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
+Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebSocket) + React 18 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
 
 ## Quick Commands
 
@@ -45,6 +45,7 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 - Import order: React → @/* → relative
 - Components: PascalCase, Hooks: use*, Stores: *Store
 - Use `cn()` helper for Tailwind classes
+- Strict mode OFF in tsconfig
 
 ### Go
 - Import: stdlib → external → internal
@@ -73,6 +74,7 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 - **E2E tests**: `.github/workflows/playwright.yml`
 - **Release**: `.github/workflows/release.yml`
 - **Docker**: `.github/workflows/docker-publish.yml`
+- **AtomGit sync**: `.github/workflows/sync-to-atomgit.yml` (China-centric)
 
 ## Commands
 
@@ -87,11 +89,12 @@ make e2e-playwright  # Run E2E tests
 ## Anti-Patrons
 
 - **No explicit TODOs/FIXMEs** in codebase (clean)
-- **No eslintrc/prettierrc** - relies on editor defaults
+- **No eslintrc/prettierrc** - ESLint 9 flat config, relies on editor defaults
 - **No golangci.yml** - Go linting uses defaults
 - **Type safety issue**: `as never` in src/pages/Learn.tsx (lines 64-65) bypasses TypeScript
 - **Chinese comments in Makefile** - unusual for English projects (`# 安装依赖`, `# 构建前端`)
 - **AtomGit sync workflow** - custom sync to Chinese Git alternative (intentional)
+- **Non-blocking CI checks**: Frontend `check` and `lint` use `|| true` in unit-tests.yml
 
 ## Known Bugs
 
@@ -106,7 +109,7 @@ make e2e-playwright  # Run E2E tests
 | src/components/business/ | UI components |
 | src/store/ | Zustand stores |
 | src/hooks/ | Custom hooks |
+| src/lib/ | Shared utilities |
+| src/pages/learn | Learn page |
 | tests/playwright/ | E2E tests |
 | courses/ | Course content |
-| src/pages/learn | Learn page |
-| src/lib/ | Shared utilities |

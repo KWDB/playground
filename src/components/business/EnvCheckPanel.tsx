@@ -59,6 +59,8 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
 
   const total = data?.items?.length ?? 0;
   const passed = data?.items?.filter(i => i.ok).length ?? 0;
+  const dockerItem = data?.items?.find(i => i.name === 'Docker 环境') ?? null;
+  const dockerApiTooLow = dockerItem ? dockerItem.message.includes('Docker API 版本过低') : false;
 
   return (
     <>
@@ -178,6 +180,26 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {data && !loading && (
+            <div
+              className={`mt-4 p-4 rounded-lg border ${
+                dockerApiTooLow
+                  ? 'border-[var(--color-error)] bg-[var(--color-error-subtle)]'
+                  : 'border-[var(--color-border-light)] bg-[var(--color-bg-secondary)]'
+              }`}
+            >
+              <p className={`text-sm font-medium ${dockerApiTooLow ? 'text-[var(--color-error)]' : 'text-[var(--color-text-primary)]'}`}>
+                Docker 版本要求说明
+              </p>
+              <p className="text-xs mt-1 text-[var(--color-text-secondary)]">
+                本项目最低要求 Docker API v1.41（对应 Docker Engine 20.10+）。
+              </p>
+              <p className="text-xs mt-1 text-[var(--color-text-tertiary)]">
+                若提示 API 版本过低，请升级 Docker 后点击“重新检测”；若仅连接失败，请检查 Docker 服务是否启动及 socket 权限。
+              </p>
             </div>
           )}
 

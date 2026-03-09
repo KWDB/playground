@@ -18,6 +18,11 @@ import (
 	"kwdb-playground/internal/docker"
 )
 
+const (
+	minDockerAPIVersion    = "1.41"
+	minDockerEngineVersion = "20.10"
+)
+
 // Item 单项检查结果
 type Item struct {
 	Name    string `json:"name"`
@@ -37,8 +42,8 @@ func RunFromConfig(staticFiles embed.FS, cfg *config.Config) Summary {
 	items := make([]Item, 0, 5)
 
 	// 1) Docker
-	dockerOK, dockerMsg := DockerEnv()
-	items = append(items, Item{Name: "Docker 环境", OK: dockerOK, Message: dockerMsg})
+	dockerOK, dockerMsg, dockerDetails := DockerEnv()
+	items = append(items, Item{Name: "Docker 环境", OK: dockerOK, Message: dockerMsg, Details: dockerDetails})
 
 	// 2) 镜像源可用性
 	imageOK, imageMsg, imageDetails := ImageSourcesAvailability()
@@ -76,14 +81,69 @@ func RunFromConfig(staticFiles embed.FS, cfg *config.Config) Summary {
 	return Summary{OK: ok, Items: items}
 }
 
-// DockerEnv 检查 Docker 是否可用
-func DockerEnv() (bool, string) {
+func DockerEnv() (bool, string, string) {
 	controller, err := docker.NewController()
 	if err != nil {
-		return false, fmt.Sprintf("Docker 不可用：%v", err)
+		return false, fmt.Sprintf("Docker 不可用：%v", err), fmt.Sprintf("最低要求 Docker API v%s（Docker Engine %s+）", minDockerAPIVersion, minDockerEngineVersion)
 	}
 	_ = controller.Close()
-	return true, "Docker 客户端与守护进程连接正常"
+
+	apiVersion, err := docker.DetectServerAPIVersion()
+	if err != nil {
+		return true, "Docker 客户端与守护进程连接正常（未获取到 API 版本）", fmt.Sprintf("最低要求 Docker API v%s（Docker Engine %s+），请手动执行 docker version 确认", minDockerAPIVersion, minDockerEngineVersion)
+	}
+
+	cmp, err := compareAPIVersion(apiVersion, minDockerAPIVersion)
+	if err != nil {
+		return true, fmt.Sprintf("Docker 客户端与守护进程连接正常（API 版本解析失败：%s）", apiVersion), fmt.Sprintf("最低要求 Docker API v%s（Docker Engine %s+），请手动执行 docker version 确认", minDockerAPIVersion, minDockerEngineVersion)
+	}
+	if cmp < 0 {
+		return false,
+			fmt.Sprintf("Docker API 版本过低：当前 v%s，最低要求 v%s", apiVersion, minDockerAPIVersion),
+			fmt.Sprintf("请升级 Docker Engine 至 %s+，再重试", minDockerEngineVersion)
+	}
+	return true, fmt.Sprintf("Docker 客户端与守护进程连接正常（API v%s，要求 ≥ v%s）", apiVersion, minDockerAPIVersion), ""
+}
+
+func compareAPIVersion(current, minimum string) (int, error) {
+	parse := func(v string) (int, int, error) {
+		parts := strings.Split(strings.TrimSpace(v), ".")
+		if len(parts) != 2 {
+			return 0, 0, fmt.Errorf("invalid version: %s", v)
+		}
+		major, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid major version: %w", err)
+		}
+		minor, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid minor version: %w", err)
+		}
+		return major, minor, nil
+	}
+
+	curMajor, curMinor, err := parse(current)
+	if err != nil {
+		return 0, err
+	}
+	minMajor, minMinor, err := parse(minimum)
+	if err != nil {
+		return 0, err
+	}
+
+	if curMajor > minMajor {
+		return 1, nil
+	}
+	if curMajor < minMajor {
+		return -1, nil
+	}
+	if curMinor > minMinor {
+		return 1, nil
+	}
+	if curMinor < minMinor {
+		return -1, nil
+	}
+	return 0, nil
 }
 
 // PortOccupation 检查端口占用
