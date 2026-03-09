@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -79,6 +80,11 @@ func NewCommand(staticFiles embed.FS) *cobra.Command {
 			fmt.Println(envcheck.RenderSummaryCLI(summary))
 
 			if !summary.OK {
+				for _, item := range summary.Items {
+					if item.Name == "Docker 环境" && strings.Contains(item.Message, "Docker API 版本过低") {
+						return fmt.Errorf("环境检查存在失败项：%s；请升级 Docker 后重试", item.Message)
+					}
+				}
 				return fmt.Errorf("环境检查存在失败项，请根据提示修复后重试")
 			}
 			return nil

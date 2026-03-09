@@ -37,8 +37,8 @@ func (h *Handler) envCheck(c *gin.Context) {
 	}
 	items := make([]check.Item, 0, 4)
 
-	dockerOK, dockerMsg := check.DockerEnv()
-	items = append(items, check.Item{Name: "Docker 环境", OK: dockerOK, Message: dockerMsg})
+	dockerOK, dockerMsg, dockerDetails := check.DockerEnv()
+	items = append(items, check.Item{Name: "Docker 环境", OK: dockerOK, Message: dockerMsg, Details: dockerDetails})
 
 	imageOK, imageMsg, imageDetails := check.ImageSourcesAvailability()
 	items = append(items, check.Item{Name: "镜像源可用性", OK: imageOK, Message: imageMsg, Details: imageDetails})
