@@ -1,8 +1,8 @@
-#HM|# PROJECT KNOWLEDGE BASE
-#KM|
-#JX|**Generated:** 2026-03-09
-#SM|**Commit:** a5a2a4e
-#RT|**Branch:** feat/docker-api-version
+# PROJECT KNOWLEDGE BASE
+
+**Generated:** 2026-03-10
+**Commit:** a5a2a4e
+**Branch:** feat/docker-api-version
 
 ## OVERVIEW
 
@@ -68,6 +68,12 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 | Vitest | `vitest.config.ts` | `pnpm run test:unit` |
 | Playwright | `playwright.config.ts` | `make e2e-playwright` |
 
+### Test Conventions
+- **Serial E2E**: Playwright tests run sequentially (worker=1) with project dependencies
+- **Chinese descriptions**: Test specs use Chinese (e.g., `test.describe('SQL 终端')`)
+- **State reset**: Manual API calls in beforeEach (`/api/progress/:id/reset`, `/api/containers`)
+- **Table-driven Go tests**: Uses `t.Run()` subtests
+
 ## CI/CD
 
 - **Unit tests**: `.github/workflows/unit-tests.yml`
@@ -86,7 +92,7 @@ make release      # Release binaries
 make e2e-playwright  # Run E2E tests
 ```
 
-## Anti-Patrons
+## Anti-Patrons (THIS PROJECT)
 
 - **No explicit TODOs/FIXMEs** in codebase (clean)
 - **No eslintrc/prettierrc** - ESLint 9 flat config, relies on editor defaults
@@ -95,6 +101,9 @@ make e2e-playwright  # Run E2E tests
 - **Chinese comments in Makefile** - unusual for English projects (`# 安装依赖`, `# 构建前端`)
 - **AtomGit sync workflow** - custom sync to Chinese Git alternative (intentional)
 - **Non-blocking CI checks**: Frontend `check` and `lint` use `|| true` in unit-tests.yml
+- **Makefile duplicate code**: `stop` target has identical commands duplicated (lines 168-187)
+- **Docker socket mount**: docker-compose.yml mounts `/var/run/docker.sock` (security consideration)
+- **Release dead code**: ~140 lines commented-out Homebrew job in release.yml
 
 ## Known Bugs
 

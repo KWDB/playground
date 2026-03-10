@@ -1,16 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Terminal, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
-
-type CheckItem = {
-  name: string;
-  ok: boolean;
-  message: string;
-  details?: string;
-};
+import { filterVisibleEnvCheckItems, type EnvCheckItem } from '@/components/business/envCheckItems';
 
 type Summary = {
   ok: boolean;
-  items: CheckItem[];
+  items: EnvCheckItem[];
 };
 
 interface EnvCheckButtonProps {
@@ -39,9 +33,10 @@ export default function EnvCheckButton({ onClick, variant = 'default' }: EnvChec
       setLoading(true);
       setError(null);
       try {
-        const [checkResp] = await Promise.all([
-          fetch('/api/check', { signal: controller.signal }),
-        ]);
+        let checkResp = await fetch('/api/doctor', { signal: controller.signal });
+        if (!checkResp.ok) {
+          checkResp = await fetch('/api/check', { signal: controller.signal });
+        }
 
         if (!checkResp.ok) throw new Error('环境检测接口返回错误');
         const json: Summary = await checkResp.json();
@@ -56,9 +51,10 @@ export default function EnvCheckButton({ onClick, variant = 'default' }: EnvChec
     return () => controller.abort();
   }, []);
 
-  const total = data?.items?.length ?? 0;
-  const passed = data?.items?.filter(i => i.ok).length ?? 0;
-  const allPassed = !!data?.ok;
+  const displayItems = filterVisibleEnvCheckItems(data?.items);
+  const total = displayItems.length;
+  const passed = displayItems.filter(i => i.ok).length;
+  const allPassed = total > 0 && passed === total;
 
   if (variant === 'navbar') {
     return (
