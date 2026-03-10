@@ -18,10 +18,12 @@ export const useLearnActions = ({ stopContainer }: Params) => {
   } = useLearnStore()
 
   const exitCourse = useCallback(async () => {
-    if (containerStatus === 'paused') {
-      return
-    }
-    if (containerStatus === 'running' && course?.id) {
+    if (
+      course?.id &&
+      containerStatus !== 'stopped' &&
+      containerStatus !== 'error' &&
+      containerStatus !== 'completed'
+    ) {
       await stopContainer(course.id)
     }
   }, [containerStatus, course?.id, stopContainer])
