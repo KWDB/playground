@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 
 export interface ImagePullProgressMessageOverlay {
   imageName: string;
@@ -11,11 +11,65 @@ export interface ImagePullProgressMessageOverlay {
 interface Props {
   show: boolean;
   imagePullProgress: ImagePullProgressMessageOverlay | null;
+  onRefresh?: () => void;
 }
 
-const ImagePullProgressOverlay = memo(({ show, imagePullProgress }: Props) => {
+const STUCK_THRESHOLD_MS = 15 * 1000;
+
+const ImagePullProgressOverlay = memo(({ show, imagePullProgress, onRefresh }: Props) => {
+  const [lastActivityAt, setLastActivityAt] = useState(() => Date.now());
+  const [stuckSeconds, setStuckSeconds] = useState(0);
+
+  const progressFingerprint = useMemo(() => {
+    if (!imagePullProgress) return '';
+    return [
+      imagePullProgress.status ?? '',
+      imagePullProgress.progress ?? '',
+      imagePullProgress.progressPercent?.toString() ?? '',
+      imagePullProgress.error ?? '',
+    ].join('|');
+  }, [imagePullProgress]);
+
+  useEffect(() => {
+    if (!show) {
+      setStuckSeconds(0);
+      return;
+    }
+    setLastActivityAt(Date.now());
+    setStuckSeconds(0);
+  }, [progressFingerprint, show]);
+
+  useEffect(() => {
+    if (!show || !imagePullProgress || imagePullProgress.error) {
+      setStuckSeconds(0);
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      const elapsedMs = Date.now() - lastActivityAt;
+      if (elapsedMs >= STUCK_THRESHOLD_MS) {
+        setStuckSeconds(Math.floor(elapsedMs / 1000));
+      } else {
+        setStuckSeconds(0);
+      }
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [imagePullProgress, lastActivityAt, show]);
+
+  const handleRefresh = () => {
+    if (onRefresh) {
+      onRefresh();
+      return;
+    }
+    window.location.reload();
+  };
+
   if (!show || !imagePullProgress) return null;
 
+  const isStuck = stuckSeconds > 0;
   const percent = imagePullProgress.progressPercent;
   const widthStyle = percent != null ? { width: `${Math.max(0, Math.min(100, percent))}%` } : undefined;
 
@@ -59,6 +113,19 @@ const ImagePullProgressOverlay = memo(({ show, imagePullProgress }: Props) => {
                   <div className="bg-[var(--color-accent-primary)] h-full rounded-full animate-pulse"></div>
                 )}
               </div>
+              {isStuck && (
+                <div className="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 p-3 text-center">
+                  <div className="text-sm text-[var(--color-warning)] font-medium">拉取可能卡住（{stuckSeconds}s 未更新）</div>
+                  <div className="text-xs text-[var(--color-text-secondary)] mt-1">可点击刷新按钮重新同步状态</div>
+                  <button
+                    type="button"
+                    onClick={handleRefresh}
+                    className="btn btn-ghost text-xs mt-3 mx-auto block"
+                  >
+                    刷新
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -497,11 +497,6 @@ export function CourseList() {
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">当前筛选学习进度</p>
                   <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
                     已完成 {overallProgress.completedCourses}/{overallProgress.totalCourses} 门课程
-                    {overallProgress.totalSteps > 0 && (
-                      <span className="ml-2">
-                        ({overallProgress.finishedSteps}/{overallProgress.totalSteps} 步)
-                      </span>
-                    )}
                   </p>
                 </div>
                 <div className="text-right">

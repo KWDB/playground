@@ -3,6 +3,15 @@ import { api } from '../../../lib/api/client'
 import { ContainerStatusResponse } from '../../../lib/api/types'
 import { isPortConflictError, waitForContainerReady } from '../utils/container'
 
+const isNotFoundError = (error: unknown) => {
+  const maybeError = error as { statusCode?: number; message?: string }
+  if (maybeError?.statusCode === 404) {
+    return true
+  }
+  const message = maybeError?.message ?? ''
+  return message.includes('404') || message.toLowerCase().includes('not found')
+}
+
 type Params = {
   selectedImage: string
   containerId: string | null
@@ -113,41 +122,50 @@ export const useContainerActions = ({
       setIsStartingContainer(false)
       setContainerStatus('stopping')
       stopStatusMonitoring()
+      if (startAbortControllerRef.current) {
+        startAbortControllerRef.current.abort()
+        startAbortControllerRef.current = null
+      }
 
       if (containerId) {
         try {
           await api.containers.stop(containerId)
         } catch (err) {
-          const msg = err instanceof Error ? err.message : ''
-          if (!msg.includes('404')) {
+          if (!isNotFoundError(err)) {
             throw err
           }
+          await api.courses.stop(id)
         }
       } else {
         try {
           await api.courses.stop(id)
         } catch (err) {
-          const msg = err instanceof Error ? err.message : ''
-          if (!msg.includes('404')) {
+          if (!isNotFoundError(err)) {
             throw err
           }
         }
       }
 
+      await api.containers.cleanup(id)
+
       setContainerStatus('stopped')
       setIsConnected(false)
       setConnectionError(null)
       setContainerId(null)
+    } catch (error) {
+      try {
+        await api.containers.cleanup(id)
+        setContainerStatus('stopped')
+        setIsConnected(false)
+        setConnectionError(null)
+        setContainerId(null)
+      } catch {
+        setError(error instanceof Error ? error.message : '停止容器失败')
+        setContainerStatus('error')
+      }
+    } finally {
       isStoppingRef.current = false
       stopStatusMonitoring()
-      if (startAbortControllerRef.current) {
-        startAbortControllerRef.current.abort()
-        startAbortControllerRef.current = null
-      }
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '停止容器失败')
-      setContainerStatus('error')
-      isStoppingRef.current = false
     }
   }, [containerId, isStoppingRef, lastActionRef, setConnectionError, setContainerId, setContainerStatus, setError, setIsConnected, setIsStartingContainer, startAbortControllerRef, stopStatusMonitoring])
 

@@ -99,10 +99,10 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200 text-left">
-                提议新课程
+                反馈/提议新课程
               </h3>
               <p className="text-xs text-[var(--color-text-tertiary)] mt-1.5 text-left leading-relaxed">
-                希望有更多课程？
+                发现 BUG？希望有更多课程？
               </p>
             </div>
           </div>
@@ -132,10 +132,10 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
           </div>
           <div className="flex-1 min-w-0 flex flex-col">
             <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200 text-left">
-              提议新课程
+              反馈/提议新课程
             </h3>
             <p className="text-xs text-[var(--color-text-tertiary)] truncate text-left">
-              希望有更多课程？
+              发现 BUG？希望有更多课程？
             </p>
           </div>
           <div className="flex-shrink-0">
@@ -152,8 +152,8 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
           <div className="relative z-10 w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl overflow-hidden animate-fade-in">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)]">
               <div>
-                <h3 className="text-sm font-medium text-[var(--color-text-primary)]">提议新课程</h3>
-                <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">反馈您的课程建议</p>
+                <h3 className="text-sm font-medium text-[var(--color-text-primary)]">反馈/提议新课程</h3>
+                <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">反馈您的课程建议或发现的 BUG</p>
               </div>
               <button
                 onClick={closeModal}
