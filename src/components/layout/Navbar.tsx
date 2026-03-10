@@ -8,8 +8,15 @@ import EnvCheckButton from '@/components/business/EnvCheckButton';
 import EnvCheckPanel from '@/components/business/EnvCheckPanel';
 import UpgradeButton from '@/components/business/UpgradeButton';
 import UpgradePanel from '@/components/business/UpgradePanel';
+import ThemeToggle from './ThemeToggle';
+import { Theme } from '@/hooks/useTheme';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  theme: Theme;
+  onToggleTheme: () => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
   const location = useLocation();
   const { startTour, isActive: isTourActive, currentPage: tourCurrentPage } = useTourStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -94,7 +101,7 @@ const Navbar: React.FC = () => {
               disabled={!pageName}
               className={`hidden md:block p-2 rounded-md transition-colors ${
                 pageName 
-                  ? (isTourActive && tourCurrentPage === pageName ? 'text-[var(--color-primary)] bg-[var(--color-bg-secondary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]')
+                  ? (isTourActive && tourCurrentPage === pageName ? 'text-[var(--color-accent-primary)] bg-[var(--color-bg-secondary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]')
                   : 'text-[var(--color-text-disabled)] cursor-not-allowed opacity-50'
               }`}
               aria-label="帮助"
@@ -114,6 +121,9 @@ const Navbar: React.FC = () => {
             >
               <FaGithub className="w-4 h-4" />
             </a>
+            <div className="hidden md:block">
+              <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+            </div>
 
             <div ref={upgradePanelRef} className="relative" data-tour-id="home-upgrade">
               <UpgradeButton
@@ -157,6 +167,7 @@ const Navbar: React.FC = () => {
         {isMobileMenuOpen && (
           <div className="md:hidden py-3 border-t border-[var(--color-border-light)]">
             <div className="flex flex-col gap-1">
+              <ThemeToggle theme={theme} onToggle={onToggleTheme} className="w-full justify-start px-3 py-2.5" />
               {navItems.map((item) => (
                 <Link
                   key={item.path}

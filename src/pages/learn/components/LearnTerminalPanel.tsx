@@ -26,7 +26,7 @@ export const LearnTerminalPanel = ({
   onImagePullComplete,
 }: Props) => {
   return (
-    <div className="h-full text-white flex flex-col" style={{ backgroundColor: '#0d1117' }} data-tour-id="learn-terminal">
+    <div className="h-full text-[var(--color-text-primary)] flex flex-col bg-[var(--color-bg-secondary)]" data-tour-id="learn-terminal">
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 overflow-hidden">
           <div className="h-full overflow-y-auto terminal-scrollbar">

@@ -834,7 +834,7 @@ export function CourseList() {
                       flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
                       transition-colors duration-200 border-2
                       ${course.sqlTerminal 
-                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)]/20 group-hover:border-[var(--color-accent-primary)]/40' 
+                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-border-default)] group-hover:border-[var(--color-accent-primary)]' 
                         : course.codeTerminal
                         ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
                         : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
@@ -923,11 +923,11 @@ export function CourseList() {
                     hover:shadow-md hover:-translate-y-0.5
                     active:translate-y-0 active:shadow-sm
                     ${
-                      courseStatus === 'completed' 
-                        ? 'bg-green-50/40 border-green-200 hover:border-green-300' 
+                      courseStatus === 'completed'
+                        ? 'bg-[var(--color-success-subtle)] border-[var(--color-success)] hover:border-[var(--color-success)]'
                         : courseStatus === 'in-progress'
-                        ? 'bg-blue-50/40 border-blue-200 hover:border-blue-300'
-                        : 'bg-white border-gray-200 hover:border-gray-300'
+                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)] hover:border-[var(--color-accent-primary)]'
+                        : 'bg-[var(--color-bg-primary)] border-[var(--color-border-default)] hover:border-[var(--color-border-dark)]'
                     }
                   `}
                 >
@@ -936,7 +936,7 @@ export function CourseList() {
                       flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
                       transition-colors duration-200 border-2
                       ${course.sqlTerminal 
-                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)]/20 group-hover:border-[var(--color-accent-primary)]/40' 
+                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-border-default)] group-hover:border-[var(--color-accent-primary)]' 
                         : course.codeTerminal
                         ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
                         : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
@@ -970,9 +970,9 @@ export function CourseList() {
                       </p>
                       
                       {courseStatus === 'in-progress' && (
-                        <div className="mt-2 h-1.5 w-full bg-blue-100 rounded-full overflow-hidden">
+                        <div className="mt-2 h-1.5 w-full bg-[var(--color-accent-subtle)] rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
+                            className="h-full bg-[var(--color-accent-primary)] rounded-full transition-all duration-300 ease-out"
                             style={{ width: `${progressPercent}%` }}
                           />
                         </div>
@@ -995,17 +995,17 @@ export function CourseList() {
                     </div>
                     <div className="flex items-center gap-2">
                       {courseStatus === 'completed' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
                           <CheckCircle className="w-3.5 h-3.5" />
                           已完成
                         </span>
                       ) : courseStatus === 'in-progress' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)] animate-pulse" />
                           进行中 {progressPercent}%
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
                           <Circle className="w-3.5 h-3.5" />
                           待学习
                         </span>

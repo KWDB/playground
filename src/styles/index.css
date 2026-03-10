@@ -12,6 +12,7 @@
     --color-text-primary: #1a1a1a;
     --color-text-secondary: #6b6b6b;
     --color-text-tertiary: #a3a3a3;
+    --color-text-disabled: #bfbfbd;
 
     --color-border-light: #e8e8e6;
     --color-border-default: #d4d4d4;
@@ -62,6 +63,7 @@
     --color-text-primary: #ededed;
     --color-text-secondary: #8a8a8a;
     --color-text-tertiary: #555555;
+    --color-text-disabled: #4d4d4d;
 
     --color-border-light: #262626;
     --color-border-default: #333333;
@@ -84,6 +86,19 @@
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.25);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
     --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
+    transition: color 0.2s ease, background-color 0.2s ease;
   }
 }
 

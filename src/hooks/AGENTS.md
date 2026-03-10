@@ -11,8 +11,12 @@ Custom React hooks for state management and UI logic.
 ```
 hooks/
 ├── useCourseContainer.ts  # Container lifecycle (start/stop/status)
-└── useMarkdown.ts        # Markdown rendering helpers
+├── useDebounce.ts        # Debounce utility
+├── useTheme.ts          # Theme management
+└── AGENTS.md
 ```
+
+**Note:** Most hooks are in `src/pages/learn/hooks/` (fragmented).
 
 ## WHERE TO LOOK
 

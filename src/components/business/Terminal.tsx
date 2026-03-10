@@ -30,6 +30,35 @@ export interface TerminalRef {
   focus: () => void;
 }
 
+const createTerminalTheme = () => {
+  const styles = window.getComputedStyle(document.documentElement);
+  const pick = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
+
+  return {
+    background: pick('--color-bg-secondary', '#141414'),
+    foreground: pick('--color-text-primary', '#ededed'),
+    cursor: pick('--color-text-primary', '#ededed'),
+    selectionBackground: pick('--color-accent-subtle', 'rgba(139, 139, 235, 0.22)'),
+    selectionForeground: pick('--color-text-primary', '#ededed'),
+    black: pick('--color-text-primary', '#ededed'),
+    red: pick('--color-error', '#ef4444'),
+    green: pick('--color-success', '#3cc76a'),
+    yellow: pick('--color-warning', '#f59e0b'),
+    blue: pick('--color-accent-primary', '#8b8beb'),
+    magenta: '#c084fc',
+    cyan: '#22d3ee',
+    white: pick('--color-bg-primary', '#0d0d0d'),
+    brightBlack: pick('--color-text-secondary', '#8a8a8a'),
+    brightRed: pick('--color-error', '#ef4444'),
+    brightGreen: pick('--color-success', '#3cc76a'),
+    brightYellow: pick('--color-warning', '#f59e0b'),
+    brightBlue: pick('--color-accent-hover', '#7a7ae0'),
+    brightMagenta: '#e879f9',
+    brightCyan: '#67e8f9',
+    brightWhite: pick('--color-bg-primary', '#0d0d0d')
+  };
+};
+
 /** XTerm 终端组件：管理容器命令 WebSocket 与镜像进度 WebSocket */
 const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containerStatus }, ref) => {
   const xtermRef = useRef<XTerm | null>(null);
@@ -49,6 +78,11 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
   const [imagePullProgress, setImagePullProgress] = useState<ImagePullProgressMessage | null>(null);
   const [showProgress, setShowProgress] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+
+  const applyTerminalTheme = useCallback(() => {
+    if (!xtermRef.current) return;
+    xtermRef.current.options.theme = createTerminalTheme();
+  }, []);
 
   const debounce = useCallback(<T extends (...args: unknown[]) => void>(func: T, wait: number) => {
     return (...args: Parameters<T>) => {
@@ -426,30 +460,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
       fontSize: 14,
       fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
       lineHeight: 1,
-      // Linear 风格主题：使用浅色/中性色调
-      theme: {
-        background: '#fafafa',
-        foreground: '#1a1a1a',
-        cursor: '#1a1a1a',
-        selectionBackground: '#5e6ad240',
-        selectionForeground: '#1a1a1a',
-        black: '#1a1a1a',
-        red: '#dc2626',
-        green: '#16a34a',
-        yellow: '#ca8a04',
-        blue: '#2563eb',
-        magenta: '#9333ea',
-        cyan: '#0891b2',
-        white: '#fafafa',
-        brightBlack: '#525252',
-        brightRed: '#ef4444',
-        brightGreen: '#22c55e',
-        brightYellow: '#eab308',
-        brightBlue: '#3b82f6',
-        brightMagenta: '#a855f7',
-        brightCyan: '#06b6d4',
-        brightWhite: '#ffffff'
-      },
+      theme: createTerminalTheme(),
       allowTransparency: true,
       convertEol: true,
       scrollback: 10000,
@@ -530,6 +541,21 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
       }
     };
   }, [debouncedResize, resizeTerminal, scheduleResize, sendInput]);
+
+  useEffect(() => {
+    applyTerminalTheme();
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      applyTerminalTheme();
+    });
+
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
+  }, [applyTerminalTheme]);
 
   useImperativeHandle(ref, () => ({
     sendCommand,
@@ -638,7 +664,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
   return (
     // Linear 风格终端容器
     <div 
-      className={`relative w-full h-full flex flex-col bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] rounded-lg transition-all duration-200 ${
+      className={`relative w-full h-full flex flex-col bg-[var(--color-bg-primary)] border border-[var(--color-border-light)] rounded-lg transition-all duration-200 ${
         isFocused ? 'ring-2 ring-[var(--color-accent-primary)]/30' : ''
       }`} 
       role="region" 
@@ -647,12 +673,11 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
       {/* 终端容器 */}
       <div 
         ref={terminalRef} 
-        className="flex-1 w-full h-full overflow-hidden p-2"
+        className="flex-1 w-full h-full overflow-hidden p-2 bg-[var(--color-bg-secondary)]"
         style={{
           minHeight: '200px',
           fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-          fontSize: '14px',
-          backgroundColor: '#fafafa'
+          fontSize: '14px'
         }}
       />
 

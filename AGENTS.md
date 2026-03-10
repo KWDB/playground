@@ -58,6 +58,25 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 |------|------|-------|------|
 | Docker orchestration | internal/docker/controller.go | 2316 | Concurrency |
 | API routes | internal/api/routes.go | 2151 | Long handlers |
+## Code Map
+
+| Symbol | Type | Location | Refs | Role |
+|--------|------|----------|------|------|
+| NewContainer | func | internal/docker/controller.go | 12 | Core orchestration |
+| RunCourse | func | internal/api/handlers_run.go | 8 | Course execution |
+| LearnStore | store | src/store/learnStore.ts | 15 | Frontend state |
+| WebSocketHandler | struct | internal/websocket/handler.go | 6 | Terminal multiplex |
+
+## Entry Points
+
+| File | Purpose |
+|------|---------|
+| main.go | Cobra CLI + embedded server |
+| cmd/start/start.go | HTTP server entry |
+| src/main.tsx | React frontend entry |
+| dist/* | Embedded in binary via go:embed |
+
+
 | Learn page | src/pages/Learn.tsx | 1464 | Duplicate logic |
 
 ## Testing
@@ -92,18 +111,10 @@ make release      # Release binaries
 make e2e-playwright  # Run E2E tests
 ```
 
-## Anti-Patrons (THIS PROJECT)
-
-- **No explicit TODOs/FIXMEs** in codebase (clean)
-- **No eslintrc/prettierrc** - ESLint 9 flat config, relies on editor defaults
-- **No golangci.yml** - Go linting uses defaults
-- **Type safety issue**: `as never` in src/pages/Learn.tsx (lines 64-65) bypasses TypeScript
-- **Chinese comments in Makefile** - unusual for English projects (`# 安装依赖`, `# 构建前端`)
-- **AtomGit sync workflow** - custom sync to Chinese Git alternative (intentional)
-- **Non-blocking CI checks**: Frontend `check` and `lint` use `|| true` in unit-tests.yml
-- **Makefile duplicate code**: `stop` target has identical commands duplicated (lines 168-187)
-- **Docker socket mount**: docker-compose.yml mounts `/var/run/docker.sock` (security consideration)
 - **Release dead code**: ~140 lines commented-out Homebrew job in release.yml
+- **Duplicate check package**: Both `/cmd/check/` and `/internal/check/` exist (CLI vs core logic)
+- **Hooks fragmented**: Most hooks in `/src/pages/learn/hooks/` not centralized
+- **Check command deprecated**: `cmd/check/check.go` uses Cobra's Deprecated field
 
 ## Known Bugs
 

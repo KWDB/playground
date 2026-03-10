@@ -22,17 +22,7 @@ playwright/
 └── docker-deploy.spec.ts       # Docker deployment test
 ```
 
-```
-playwright/
-├── playwright.config.ts         # Main config
-├── playwright.docker.config.ts  # Docker deployment config
-├── quick-start.spec.ts          # Primary flow test
-├── sql-terminal.spec.ts        # SQL terminal test
-├── course-list-status.spec.ts   # Course list test
-├── course-pause.spec.ts        # Pause/resume test
-├── port-conflict.spec.ts       # Port conflict test
-└── docker-deploy.spec.ts       # Docker deployment test
-```
+## RUN COMMANDS
 
 ## RUN COMMANDS
 
@@ -70,10 +60,4 @@ await request.post('/api/courses/:id/stop')
 - Screenshots on failure saved to `tests/screenshots/`
 - Reports saved to `tests/reports/`
 
-## PROJECT DEPENDENCIES
 
-Config defines serial chain:
-1. quick-start → 2. course-list-status → 3. sql-terminal → 4. port-conflict-serial → 5. course-pause → 6. code-terminal
-
-Config defines serial chain:
-1. quick-start → 2. course-list-status → 3. sql-terminal → 4. port-conflict-serial → 5. course-pause

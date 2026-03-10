@@ -1,8 +1,9 @@
 import React from 'react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import CodeEditor from '../../../components/business/CodeEditor'
+import { useTheme } from '../../../hooks/useTheme'
 import { extractTextFromNode, readNodeMeta } from '../utils/markdown'
-import { highlighterStyle } from './highlighterStyle'
+import { highlighterStyleDark, highlighterStyleLight } from './highlighterStyle'
 
 type CodeProps = React.HTMLAttributes<HTMLElement> & {
   className?: string
@@ -11,6 +12,7 @@ type CodeProps = React.HTMLAttributes<HTMLElement> & {
 }
 
 export const MarkdownCodeBlock = ({ className, children, node, ...props }: CodeProps) => {
+  const { isDark } = useTheme()
   const match = /language-([\w-]+)/.exec(className || '')
   const langToken = match ? match[1] : ''
   const codeText = extractTextFromNode(children ?? '').replace(/\n$/, '')
@@ -62,7 +64,7 @@ export const MarkdownCodeBlock = ({ className, children, node, ...props }: CodeP
           />
         ) : (
           <SyntaxHighlighter
-            style={highlighterStyle}
+            style={isDark ? highlighterStyleDark : highlighterStyleLight}
             language={language}
             PreTag="pre"
             className="markdown-syntax-highlighter"
