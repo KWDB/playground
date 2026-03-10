@@ -200,14 +200,37 @@ export function CourseList() {
       .filter((item): item is RecentLearningEntry => item !== null)
       .sort((a, b) => b.timestamp - a.timestamp);
 
-    return entries[0] ?? null;
+    return entries.find((entry) => !entry.progress.completed) ?? null;
   }, [courses, progressMap]);
 
   const suggestedCourse = useMemo(() => {
-    return filteredCourses[0] ?? courses[0] ?? null;
-  }, [filteredCourses, courses]);
+    return courses.find((course) => !progressMap[course.id]) ?? null;
+  }, [courses, progressMap]);
 
   const hasAnyProgress = useMemo(() => Object.keys(progressMap).length > 0, [progressMap]);
+  const allCoursesCompleted = useMemo(() => {
+    if (courses.length === 0) return false;
+    return courses.every((course) => progressMap[course.id]?.completed);
+  }, [courses, progressMap]);
+  const latestCompletedEntry = useMemo(() => {
+    const entries: RecentLearningEntry[] = courses
+      .map((course) => {
+        const progress = progressMap[course.id];
+        if (!progress?.completed) return null;
+        const updatedAt = new Date(progress.updatedAt).getTime();
+        const createdAt = new Date(progress.createdAt).getTime();
+        const timestamp = Number.isFinite(updatedAt) && updatedAt > 0
+          ? updatedAt
+          : Number.isFinite(createdAt) && createdAt > 0
+          ? createdAt
+          : 0;
+        return { course, progress, timestamp };
+      })
+      .filter((item): item is RecentLearningEntry => item !== null)
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    return entries[0] ?? null;
+  }, [courses, progressMap]);
 
   const handleResetFilters = () => {
     setFilters({ type: 'all', learningStatus: 'all', difficulty: [], tags: [], timeRange: [0, maxDuration] });
@@ -536,18 +559,43 @@ export function CourseList() {
                   </span>
                 </button>
               ) : (
-                <div className="h-full p-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] flex items-center justify-between gap-3">
-                  <p className="text-sm text-[var(--color-text-secondary)]">暂无学习记录，开始第一门课程吧</p>
-                  {suggestedCourse && (
+                <div className="h-full p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      {allCoursesCompleted ? '学习里程碑' : hasAnyProgress ? '推荐下一门课程' : '开始你的学习'}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-[var(--color-text-primary)] text-balance">
+                      {allCoursesCompleted
+                        ? '你已完成全部课程，太棒了'
+                        : hasAnyProgress
+                        ? '最近学习课程已完成，推荐你学习下一门新课程'
+                        : '暂无学习记录，开始第一门课程吧'}
+                    </p>
+                    {allCoursesCompleted && latestCompletedEntry && (
+                      <p className="mt-1 text-xs text-[var(--color-text-secondary)] text-pretty">
+                        最近完成：{latestCompletedEntry.course.title}
+                      </p>
+                    )}
+                  </div>
+                  {allCoursesCompleted && latestCompletedEntry ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/learn/${latestCompletedEntry.course.id}?entry=review`)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-primary)] text-xs text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors duration-200 shrink-0"
+                    >
+                      复习最近课程
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : suggestedCourse ? (
                     <button
                       type="button"
                       onClick={() => navigate(`/learn/${suggestedCourse.id}?entry=suggested`)}
                       className="inline-flex items-center gap-1.5 text-xs text-[var(--color-accent-primary)] shrink-0"
                     >
-                      去学习
+                      {hasAnyProgress ? '学新课' : '去学习'}
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>
