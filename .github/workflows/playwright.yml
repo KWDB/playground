@@ -10,6 +10,8 @@ on:
 env:
   SERVER_PORT: '3006'
   CI: 'true'
+  NODE_VERSION: ${{ vars.CI_NODE_VERSION || '20' }}
+  PNPM_VERSION: ${{ vars.CI_PNPM_VERSION || '9' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,11 +26,13 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
       - name: Setup Go
@@ -38,7 +42,27 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        run: make install
+        run: |
+          pnpm install --frozen-lockfile
+          go mod download
+
+      - name: Verify runtime versions
+        run: |
+          set -euo pipefail
+          echo "Expected Node major: ${NODE_VERSION}"
+          echo "Expected pnpm major: ${PNPM_VERSION}"
+          echo "Actual Node: $(node --version)"
+          echo "Actual pnpm: $(pnpm --version)"
+          ACTUAL_NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
+          ACTUAL_PNPM_MAJOR="$(pnpm --version | cut -d. -f1)"
+          if [ "${ACTUAL_NODE_MAJOR}" != "${NODE_VERSION}" ]; then
+            echo "Node major mismatch: expected ${NODE_VERSION}, got ${ACTUAL_NODE_MAJOR}"
+            exit 1
+          fi
+          if [ "${ACTUAL_PNPM_MAJOR}" != "${PNPM_VERSION}" ]; then
+            echo "pnpm major mismatch: expected ${PNPM_VERSION}, got ${ACTUAL_PNPM_MAJOR}"
+            exit 1
+          fi
 
       - name: Install Playwright browsers and system deps
         run: pnpm exec playwright install --with-deps
@@ -73,15 +97,35 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify runtime versions
+        run: |
+          set -euo pipefail
+          echo "Expected Node major: ${NODE_VERSION}"
+          echo "Expected pnpm major: ${PNPM_VERSION}"
+          echo "Actual Node: $(node --version)"
+          echo "Actual pnpm: $(pnpm --version)"
+          ACTUAL_NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
+          ACTUAL_PNPM_MAJOR="$(pnpm --version | cut -d. -f1)"
+          if [ "${ACTUAL_NODE_MAJOR}" != "${NODE_VERSION}" ]; then
+            echo "Node major mismatch: expected ${NODE_VERSION}, got ${ACTUAL_NODE_MAJOR}"
+            exit 1
+          fi
+          if [ "${ACTUAL_PNPM_MAJOR}" != "${PNPM_VERSION}" ]; then
+            echo "pnpm major mismatch: expected ${PNPM_VERSION}, got ${ACTUAL_PNPM_MAJOR}"
+            exit 1
+          fi
 
       - name: Install Playwright browsers and system deps
         run: pnpm exec playwright install --with-deps
