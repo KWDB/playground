@@ -251,4 +251,67 @@ test.describe('Onboarding Tour', () => {
     const backToFirstContent = await tooltip.textContent();
     expect(backToFirstContent).toBe(firstStepContent);
   });
+
+  test('学习页弹窗位置在课程类型间保持一致', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.removeItem('hasSeenTour');
+      localStorage.removeItem('TOUR_DISABLED_FOR_E2E');
+    });
+
+    const tooltipRoot = page.locator('[data-testid="tour-tooltip"]').last();
+    const tooltipPanel = tooltipRoot.locator('div.w-80');
+    const target = page.locator('[data-tour-id="learn-start-container"]');
+    const openTourAndMeasure = async (courseId: string) => {
+      await page.goto(`/learn/${courseId}`);
+      await page.waitForLoadState('networkidle');
+      await expect(tooltipRoot).toBeVisible({ timeout: 8000 });
+      await expect(tooltipPanel).toBeVisible({ timeout: 8000 });
+      await expect(target).toBeVisible({ timeout: 8000 });
+
+      const tooltipBox = await tooltipPanel.boundingBox();
+      const targetBox = await target.boundingBox();
+      expect(tooltipBox).not.toBeNull();
+      expect(targetBox).not.toBeNull();
+
+      const tooltip = tooltipBox!;
+      const anchor = targetBox!;
+      const tooltipCenterX = tooltip.x + tooltip.width / 2;
+      const tooltipCenterY = tooltip.y + tooltip.height / 2;
+      const targetCenterX = anchor.x + anchor.width / 2;
+      const targetCenterY = anchor.y + anchor.height / 2;
+      const dx = tooltipCenterX - targetCenterX;
+      const dy = tooltipCenterY - targetCenterY;
+
+      let side: 'left' | 'right' | 'top' | 'bottom';
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        side = dx >= 0 ? 'right' : 'left';
+      } else {
+        side = dy >= 0 ? 'bottom' : 'top';
+      }
+
+      const viewport = page.viewportSize();
+      expect(viewport).not.toBeNull();
+
+      expect(tooltip.x).toBeGreaterThanOrEqual(0);
+      expect(tooltip.y).toBeGreaterThanOrEqual(0);
+      expect(tooltip.x + tooltip.width).toBeLessThanOrEqual(viewport!.width);
+      expect(tooltip.y + tooltip.height).toBeLessThanOrEqual(viewport!.height);
+
+      return { side, dx, dy };
+    };
+
+    const sql = await openTourAndMeasure('sql');
+    const shell = await openTourAndMeasure('quick-start');
+    const codeFirst = await openTourAndMeasure('python-kwdb');
+    const codeSecond = await openTourAndMeasure('python-kwdb');
+
+    expect(codeFirst.side).toBe(shell.side);
+    expect(Math.abs(codeFirst.dx - shell.dx)).toBeLessThan(60);
+    expect(Math.abs(codeFirst.dy - shell.dy)).toBeLessThan(60);
+    expect(Math.abs(codeSecond.dx - codeFirst.dx)).toBeLessThan(24);
+    expect(Math.abs(codeSecond.dy - codeFirst.dy)).toBeLessThan(24);
+
+    expect(sql.side).toBeTruthy();
+    expect(shell.side).toBeTruthy();
+  });
 });

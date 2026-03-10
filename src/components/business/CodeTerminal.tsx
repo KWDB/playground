@@ -326,7 +326,7 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
   }
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-primary)] overflow-hidden">
+    <div className="relative h-full flex flex-col bg-[var(--color-bg-primary)] overflow-hidden">
       {/* 顶部状态栏 */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-bg-secondary)] bg-[var(--color-bg-secondary)]">
         <div className="flex items-center gap-2 text-sm">
