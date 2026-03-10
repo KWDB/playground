@@ -9,7 +9,7 @@ on:
 
 env:
   CI: 'true'
-  NODE_VERSION: ${{ vars.CI_NODE_VERSION || '20' }}
+  NODE_VERSION: ${{ vars.CI_NODE_VERSION || '25' }}
   PNPM_VERSION: ${{ vars.CI_PNPM_VERSION || '9' }}
 
 concurrency:
