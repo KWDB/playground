@@ -29,7 +29,7 @@ LDFLAGS = -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.Git
 # 环境变量文件
 ENV_FILE ?= .env
 
-.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test check help release release-run release-linux-amd64 release-linux-arm64 release-darwin-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist playwright e2e-playwright e2e-docker docker-build docker-build-java-kwdb docker-up docker-down
+.PHONY: all build dev debug dev-debug clean install install-tools deps frontend backend run stop logs status fmt test doctor check help release release-run release-linux-amd64 release-linux-arm64 release-darwin-amd64 release-darwin-arm64 release-windows-amd64 release-all package-dist playwright e2e-playwright e2e-docker docker-build docker-build-java-kwdb docker-up docker-down
 
 # 默认目标
 all: build
@@ -286,7 +286,7 @@ e2e-docker:
 	exit $$EXIT_CODE
 
 # 开发环境检查
-check:
+doctor:
 	@echo "🔍 Checking development environment..."
 	@echo "Checking required tools..."
 	@command -v go >/dev/null 2>&1 || { echo "❌ Go is not installed"; exit 1; }
@@ -300,6 +300,8 @@ check:
 	@command -v dlv >/dev/null 2>&1 && echo "✅ dlv: $$(dlv version 2>&1 | head -1)" || echo "⚠️ dlv: Not installed (run 'make install-tools')"
 	@echo "🎉 Development environment check completed!"
 
+check: doctor
+
 # 帮助信息
 help:
 	@echo "🚀 KWDB Playground - 构建和开发脚本"
@@ -310,7 +312,8 @@ help:
 	@echo "  install       - 安装所有依赖 (pnpm + go mod)"
 	@echo "  install-tools - 安装开发工具 (air, dlv)"
 	@echo "  deps          - 下载Go模块依赖"
-	@echo "  check         - 检查开发环境"
+	@echo "  doctor        - 检查开发环境"
+	@echo "  check         - doctor 的兼容别名"
 	@echo ""
 	@echo "🚀 开发模式:"
 	@echo "  dev           - 启动统一开发服务器 (端口 $(SERVER_PORT))"

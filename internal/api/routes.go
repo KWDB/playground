@@ -86,6 +86,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 	api := r.Group("/api")
 	{
 		// 环境检测
+		api.GET("/doctor", h.envCheck)
 		api.GET("/check", h.envCheck)
 
 		// 版本信息

@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	checkcmd "kwdb-playground/cmd/check"
+	doctorcmd "kwdb-playground/cmd/doctor"
 	startcmd "kwdb-playground/cmd/start"
 	"kwdb-playground/cmd/stop"
 	updatecmd "kwdb-playground/cmd/update"
@@ -30,7 +31,7 @@ func newRootCmd() *cobra.Command {
 		Short:         "KWDB Playground",
 		Long:          "KWDB Playground",
 		SilenceUsage:  true,
-		SilenceErrors: false,
+		SilenceErrors: true,
 		Version:       fmt.Sprintf("%s (build: %s, commit: %s)", Version, BuildTime, GitCommit),
 	}
 
@@ -50,7 +51,10 @@ func newRootCmd() *cobra.Command {
 	// stop 子命令
 	root.AddCommand(stop.NewCommand())
 
-	// check 子命令
+	// doctor 子命令
+	root.AddCommand(doctorcmd.NewCommand(staticFiles))
+
+	// check 兼容子命令（隐藏）
 	root.AddCommand(checkcmd.NewCommand(staticFiles))
 
 	// update 子命令

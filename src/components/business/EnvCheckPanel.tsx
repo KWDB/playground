@@ -1,17 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-
-type CheckItem = {
-  name: string;
-  ok: boolean;
-  message: string;
-  details?: string;
-};
+import { filterVisibleEnvCheckItems, type EnvCheckItem } from '@/components/business/envCheckItems';
 
 type Summary = {
   ok: boolean;
-  items: CheckItem[];
+  items: EnvCheckItem[];
 };
 
 function parseMirrorAvailabilityMessage(message: string): { available: string[]; unavailable: string[] } | null {
@@ -42,7 +36,10 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch('/api/check');
+      let resp = await fetch('/api/doctor');
+      if (!resp.ok) {
+        resp = await fetch('/api/check');
+      }
       if (!resp.ok) throw new Error('环境检测接口返回错误');
       const json: Summary = await resp.json();
       setData(json);
@@ -57,8 +54,10 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
     load();
   }, []);
 
-  const total = data?.items?.length ?? 0;
-  const passed = data?.items?.filter(i => i.ok).length ?? 0;
+  const displayItems = filterVisibleEnvCheckItems(data?.items);
+  const total = displayItems.length;
+  const passed = displayItems.filter(i => i.ok).length;
+  const allPassed = total > 0 && passed === total;
   const dockerItem = data?.items?.find(i => i.name === 'Docker 环境') ?? null;
   const dockerApiTooLow = dockerItem ? dockerItem.message.includes('Docker API 版本过低') : false;
 
@@ -93,7 +92,7 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
             </div>
           ) : (
               <div className="space-y-1">
-                {data?.items.map((item, index) => {
+                {displayItems.map((item, index) => {
                   const isMirror = item.name === '镜像源可用性';
                   const parsed = isMirror ? parseMirrorAvailabilityMessage(item.message) : null;
                   const shouldSplit = !!parsed && parsed.unavailable.length > 0 && parsed.available.length > 0;
@@ -105,7 +104,7 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
                       item.ok
                         ? 'border-[var(--color-border-light)] hover:border-[var(--color-success)]'
                         : 'border-[var(--color-error)] bg-[var(--color-error-subtle)]'
-                    } ${index !== 0 ? 'border-t-0 rounded-t-none' : ''} ${index !== (data.items.length - 1) ? 'rounded-b-none' : ''}`}
+                    } ${index !== 0 ? 'border-t-0 rounded-t-none' : ''} ${index !== (displayItems.length - 1) ? 'rounded-b-none' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -207,9 +206,9 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
             <div className="mt-4 flex items-center justify-between p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)]">
               <div className="flex items-center gap-3">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  data.ok ? 'bg-[var(--color-success-subtle)]' : 'bg-[var(--color-error-subtle)]'
+                  allPassed ? 'bg-[var(--color-success-subtle)]' : 'bg-[var(--color-error-subtle)]'
                 }`}>
-                  {data.ok ? (
+                  {allPassed ? (
                     <CheckCircle className="w-5 h-5 text-[var(--color-success)]" />
                   ) : (
                     <XCircle className="w-5 h-5 text-[var(--color-error)]" />
@@ -217,7 +216,7 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
                 </div>
                 <div>
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                    {data.ok ? '所有检测项目通过' : '存在检测项目未通过'}
+                    {allPassed ? '所有检测项目通过' : '存在检测项目未通过'}
                   </p>
                   <p className="text-xs text-[var(--color-text-tertiary)]">
                     {passed}/{total} 项通过
