@@ -24,8 +24,8 @@ const CodeExecutionResult: React.FC<CodeExecutionResultProps> = ({
   );
 
   // 根据类型选择颜色
-  const stderrColor = isWarning ? 'text-[#d97706]' : 'text-[#dc2626]';  // 黄色 vs 红色
-  const stderrDotColor = isWarning ? 'bg-[#d97706]' : 'bg-[#dc2626]';
+  const stderrColor = isWarning ? 'text-[var(--color-warning)]' : 'text-[var(--color-error)]';
+  const stderrDotColor = isWarning ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-error)]';
 
   return (
     <div
@@ -34,7 +34,7 @@ const CodeExecutionResult: React.FC<CodeExecutionResultProps> = ({
       aria-label="代码执行结果"
     >
       {/* 标题栏 */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[#f5f5f5] border-b border-[var(--color-border-default)]">
+      <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-default)]">
         <span className="text-sm font-medium text-[var(--color-text-secondary)]">
           执行结果
         </span>
@@ -42,7 +42,7 @@ const CodeExecutionResult: React.FC<CodeExecutionResultProps> = ({
           <div className="flex items-center gap-3 text-xs">
             {hasStdout && (
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#16a34a]" />
+                <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
                 <span className="text-[var(--color-text-secondary)]">stdout</span>
               </span>
             )}
@@ -57,7 +57,7 @@ const CodeExecutionResult: React.FC<CodeExecutionResultProps> = ({
       </div>
 
       {/* 输出内容 */}
-      <div className="flex-1 overflow-auto p-3 font-mono text-sm bg-[#fafafa]">
+      <div className="flex-1 overflow-auto p-3 font-mono text-sm bg-[var(--color-bg-tertiary)]">
         {!hasOutput ? (
           <div className="flex items-center justify-center h-full text-[var(--color-text-tertiary)]">
             暂无输出
@@ -66,7 +66,7 @@ const CodeExecutionResult: React.FC<CodeExecutionResultProps> = ({
           <div className="space-y-2">
             {/* stdout 输出 */}
             {hasStdout && (
-              <pre className="whitespace-pre-wrap break-all text-[#1a1a1a]">
+              <pre className="whitespace-pre-wrap break-all text-[var(--color-text-primary)]">
                 {stdout}
               </pre>
             )}

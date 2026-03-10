@@ -4,14 +4,16 @@ import { CourseList } from './pages/CourseList';
 import { Learn } from './pages/Learn';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
+import { ThemeProvider, useTheme } from './hooks/useTheme';
 
 function AppContent() {
   const location = useLocation();
   const isLearnPage = location.pathname.startsWith('/learn/');
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--color-bg-primary)]">
-      {!isLearnPage && <Navbar />}
+      {!isLearnPage && <Navbar theme={theme} onToggleTheme={toggleTheme} />}
       <main className="flex-1 flex flex-col min-h-0">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -26,9 +28,11 @@ function AppContent() {
 
 function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </ThemeProvider>
   );
 }
 

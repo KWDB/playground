@@ -1,5 +1,7 @@
 import { ArrowLeft, HelpCircle, ImageIcon, Server } from 'lucide-react'
 import StatusIndicator, { StatusType } from '../../../components/ui/StatusIndicator'
+import ThemeToggle from '../../../components/layout/ThemeToggle'
+import { useTheme } from '../../../hooks/useTheme'
 
 type Props = {
   title: string
@@ -32,6 +34,8 @@ export const LearnTopBar = ({
   onPause,
   onStop,
 }: Props) => {
+  const { theme: currentTheme, toggleTheme } = useTheme()
+
   return (
     <header className="bg-[var(--color-bg-primary)] border-b border-[var(--color-border-light)] px-4 py-3 flex-shrink-0">
       <div className="flex items-center justify-between">
@@ -48,6 +52,7 @@ export const LearnTopBar = ({
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          <ThemeToggle theme={currentTheme} onToggle={toggleTheme} />
           <StatusIndicator
             status={containerStatus as StatusType}
             label={`容器: ${containerStatus === 'running' ? '运行中' : containerStatus === 'starting' ? '启动中' : containerStatus === 'stopping' ? '停止中' : containerStatus === 'paused' ? '已暂停' : containerStatus === 'error' ? '错误' : '已停止'}`}
