@@ -102,6 +102,35 @@ test.describe('代码终端', () => {
     console.log('✅ 退出课程');
   });
 
+  test('启动过程中停止容器不会残留活动容器', async ({ page, request }) => {
+    await page.goto('/learn/python-kwdb');
+    await expect(page.getByRole('button', { name: '启动容器' })).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: '启动容器' }).click();
+
+    const stopResponse = await request.post('/api/courses/python-kwdb/stop');
+    expect([200, 404]).toContain(stopResponse.status());
+
+    const activeStates = new Set(['creating', 'starting', 'running', 'paused']);
+    let leftovers: Array<{ courseId?: string; state?: string }> = [];
+    for (let i = 0; i < 6; i += 1) {
+      const cleanupResponse = await request.post('/api/courses/python-kwdb/cleanup-containers');
+      expect(cleanupResponse.ok()).toBeTruthy();
+
+      await page.waitForTimeout(1500);
+      const response = await request.get('/api/containers');
+      expect(response.ok()).toBeTruthy();
+      const containers = await response.json() as Array<{ courseId?: string; state?: string }>;
+      leftovers = containers.filter((container) => (
+        container.courseId === 'python-kwdb' && activeStates.has(container.state ?? '')
+      ));
+      if (leftovers.length === 0) {
+        break;
+      }
+    }
+
+    expect(leftovers.length).toBe(0);
+  });
+
   test('重置进度功能', async ({ page }) => {
     // 1) 进入 python-kwdb 课程
     await page.goto('/');

@@ -36,16 +36,13 @@ export const useLearnActions = ({ stopContainer }: Params) => {
     setShowConfirmDialog(true)
   }, [setShowConfirmDialog])
 
-  const handleConfirmExit = useCallback(() => {
+  const handleConfirmExit = useCallback(async () => {
     setShowConfirmDialog(false)
-    navigate('/courses')
-    setTimeout(async () => {
-      try {
-        await exitCourse()
-      } catch {
-        return
-      }
-    }, 100)
+    try {
+      await exitCourse()
+    } finally {
+      navigate('/courses')
+    }
   }, [exitCourse, navigate, setShowConfirmDialog])
 
   const handleCancelExit = useCallback(() => {

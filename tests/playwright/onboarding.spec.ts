@@ -252,7 +252,7 @@ test.describe('Onboarding Tour', () => {
     expect(backToFirstContent).toBe(firstStepContent);
   });
 
-  test('学习页弹窗位置在课程类型间保持一致', async ({ page }) => {
+  test('学习页弹窗位置在课程类型间保持一致', async ({ page, request }) => {
     await page.addInitScript(() => {
       localStorage.removeItem('hasSeenTour');
       localStorage.removeItem('TOUR_DISABLED_FOR_E2E');
@@ -261,7 +261,13 @@ test.describe('Onboarding Tour', () => {
     const tooltipRoot = page.locator('[data-testid="tour-tooltip"]').last();
     const tooltipPanel = tooltipRoot.locator('div.w-80');
     const target = page.locator('[data-tour-id="learn-start-container"]');
+    const cleanupCourse = async (courseId: string) => {
+      await request.post(`/api/courses/${courseId}/cleanup-containers`);
+      await request.post(`/api/courses/${courseId}/stop`).catch(() => undefined);
+      await request.post(`/api/courses/${courseId}/cleanup-containers`);
+    };
     const openTourAndMeasure = async (courseId: string) => {
+      await cleanupCourse(courseId);
       await page.goto(`/learn/${courseId}`);
       await page.waitForLoadState('networkidle');
       await expect(tooltipRoot).toBeVisible({ timeout: 8000 });
