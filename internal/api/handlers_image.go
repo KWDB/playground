@@ -536,13 +536,6 @@ func (h *Handler) getImageSources(c *gin.Context) {
 			"description": "阿里云容器镜像服务",
 			"example":     "registry.cn-hangzhou.aliyuncs.com/kwdb/kwdb:latest",
 		},
-		{
-			"id":          "custom",
-			"name":        "自定义源",
-			"prefix":      "",
-			"description": "使用自定义的镜像仓库地址",
-			"example":     "your-registry.com/kwdb/kwdb:latest",
-		},
 	}
 
 	c.JSON(http.StatusOK, gin.H{
