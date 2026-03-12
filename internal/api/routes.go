@@ -128,6 +128,10 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		{
 			images.POST("/check-availability", h.checkImageAvailability)
 			images.GET("/sources", h.getImageSources)
+			images.GET("/course-diagnostics", h.getCourseImageDiagnostics)
+			images.POST("/preload", h.preloadCourseImages)
+			images.POST("/cleanup", h.cleanupCourseImages)
+			images.POST("/cleanup-all", h.cleanupAllCourseImages)
 		}
 
 		// 用户进度相关路由

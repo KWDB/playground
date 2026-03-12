@@ -100,3 +100,61 @@ export interface GetProgressResponse {
   progress: UserProgressRaw | null
   exists: boolean
 }
+
+export interface CourseImageDiagnosticResult {
+  courseId: string
+  title: string
+  imageName: string
+  available: boolean
+  localCached: boolean
+  message: string
+  checkedAt: string
+  sourceHint: string
+}
+
+export interface CourseImageDiagnosticsResponse {
+  results: CourseImageDiagnosticResult[]
+}
+
+export interface PreloadCourseImagesRequest {
+  courseIds?: string[]
+  imageOverrides?: Record<string, string>
+}
+
+export interface PreloadCourseImageResult {
+  courseId: string
+  title: string
+  imageName: string
+  status: 'cached' | 'pulled' | 'failed'
+  message: string
+}
+
+export interface PreloadCourseImagesResponse {
+  total: number
+  successCount: number
+  results: PreloadCourseImageResult[]
+}
+
+export interface CleanupCourseImagesRequest {
+  imageNames?: string[]
+  sourcePrefix?: string
+}
+
+export type LocalImageCleanupStatus = 'removed' | 'failed' | 'skipped'
+
+export interface LocalImageCleanupItem {
+  imageName: string
+  status: LocalImageCleanupStatus
+  message: string
+  courseIds: string[]
+  courseTitles: string[]
+}
+
+export interface LocalImageCleanupResult {
+  success: boolean
+  message: string
+  total: number
+  successCount: number
+  failureCount: number
+  results: LocalImageCleanupItem[]
+}

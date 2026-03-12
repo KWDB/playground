@@ -384,7 +384,7 @@ export function CourseList() {
   if (loading) {
     return (
       <div className="w-full min-h-dvh bg-[var(--color-bg-primary)]">
-        <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6 py-12">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-8 h-8 rounded-lg skeleton" />
             <div className="h-6 w-32 skeleton rounded" />
@@ -428,7 +428,7 @@ export function CourseList() {
 
   return (
     <div className="w-full flex-1 bg-[var(--color-bg-primary)]">
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6 py-8">
         <header className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-xl font-medium text-[var(--color-text-primary)]">课程列表</h1>

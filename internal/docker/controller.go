@@ -1415,6 +1415,29 @@ func (d *dockerController) PullImage(ctx context.Context, imageName string) erro
 	return nil
 }
 
+// IsImageLocal 检查镜像是否已经存在于本地缓存
+func (d *dockerController) IsImageLocal(ctx context.Context, imageName string) (bool, error) {
+	return d.checkImageExists(ctx, imageName)
+}
+
+func (d *dockerController) RemoveLocalImage(ctx context.Context, imageName string) error {
+	resolved, exists, err := d.resolveLocalImageReference(ctx, imageName)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	_, err = d.client.ImageRemove(ctx, resolved, client.ImageRemoveOptions{
+		Force:         false,
+		PruneChildren: true,
+	})
+	if err == nil || d.isImageNotFound(err) {
+		return nil
+	}
+	return fmt.Errorf("%s", d.classifyImageRemoveError(err, resolved))
+}
+
 // ExecCommand 在容器中执行命令
 func (d *dockerController) ExecCommand(ctx context.Context, containerID string, cmd []string) (string, error) {
 	d.logger.Info("在容器 %s 中执行命令: %v", containerID, cmd)
@@ -2128,6 +2151,20 @@ func (d *dockerController) classifyImageCheckError(err error, imageName string) 
 	return fmt.Sprintf("检查镜像失败，请检查Docker配置和服务状态。镜像: %s，错误: %v", imageName, err)
 }
 
+func (d *dockerController) classifyImageRemoveError(err error, imageName string) string {
+	errorStr := strings.ToLower(err.Error())
+	if strings.Contains(errorStr, "is being used") || strings.Contains(errorStr, "image is in use") {
+		return fmt.Sprintf("镜像正在被容器使用，无法删除。请先停止相关容器后重试。镜像: %s，错误: %v", imageName, err)
+	}
+	if strings.Contains(errorStr, "permission denied") || strings.Contains(errorStr, "access denied") {
+		return fmt.Sprintf("权限不足，无法删除本地镜像。请检查 Docker 权限后重试。镜像: %s，错误: %v", imageName, err)
+	}
+	if strings.Contains(errorStr, "docker daemon") || strings.Contains(errorStr, "cannot connect to the docker daemon") {
+		return fmt.Sprintf("无法连接 Docker 服务，镜像删除失败。镜像: %s，错误: %v", imageName, err)
+	}
+	return fmt.Sprintf("删除本地镜像失败。镜像: %s，错误: %v", imageName, err)
+}
+
 // ensureImageExistsWithProgress 确保镜像存在，如果不存在则自动拉取，支持进度回调
 func (d *dockerController) ensureImageExistsWithProgress(ctx context.Context, imageName string, progressCallback ImagePullProgressCallback) error {
 	d.logger.Info("检查镜像是否存在: %s", imageName)
@@ -2438,6 +2475,7 @@ func (d *dockerController) CheckImageAvailability(ctx context.Context, imageName
 	if exists {
 		// 本地已存在该镜像
 		result.Available = true
+		result.LocalCached = true
 		result.Message = "镜像在本地可用"
 		result.ResponseTime = time.Since(startTime).Milliseconds()
 		d.logger.Info("镜像可用性检查完成: %s - 本地已存在", imageName)
@@ -2491,6 +2529,7 @@ func (d *dockerController) CheckImageAvailability(ctx context.Context, imageName
 	}
 
 	result.Available = true
+	result.LocalCached = false
 	result.Message = "镜像可从远程仓库获取"
 	result.ResponseTime = time.Since(startTime).Milliseconds()
 	d.logger.Info("镜像可用性检查完成: %s - 远程可用", imageName)

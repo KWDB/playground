@@ -113,6 +113,10 @@ func (d *dockerClientAdapter) ImagePull(ctx context.Context, refStr string, opti
 	return d.client.ImagePull(ctx, refStr, options)
 }
 
+func (d *dockerClientAdapter) ImageRemove(ctx context.Context, imageID string, options client.ImageRemoveOptions) (client.ImageRemoveResult, error) {
+	return d.client.ImageRemove(ctx, imageID, options)
+}
+
 // ImageInspectWithRaw 检查镜像详细信息
 func (d *dockerClientAdapter) ImageInspectWithRaw(ctx context.Context, imageID string) (image.InspectResponse, []byte, error) {
 	// 使用ImageInspect方法，在新版本API中返回被包装在结构体中

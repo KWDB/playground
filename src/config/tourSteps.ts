@@ -57,6 +57,26 @@ export const tourSteps: Record<string, TourStep[]> = {
       position: 'left',
     },
   ],
+  'image-management': [
+    {
+      targetId: 'image-management-source',
+      title: '镜像源选择',
+      content: '在这里统一切换镜像源，预拉取、清理和诊断都会使用当前选择。',
+      position: 'bottom',
+    },
+    {
+      targetId: 'image-management-tabs',
+      title: '功能分区',
+      content: '通过这里切换镜像预拉取、镜像清理和镜像诊断三个分区。',
+      position: 'bottom',
+    },
+    {
+      targetId: 'image-management-preload-table',
+      title: '镜像区域',
+      content: '了解镜像信息、关联课程及拉取操作。',
+      position: 'bottom',
+    },
+  ],
   learn: [
     {
       targetId: 'learn-start-container',
