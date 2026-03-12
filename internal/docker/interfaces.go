@@ -27,6 +27,7 @@ type DockerClientInterface interface {
 	ContainerLogs(ctx context.Context, containerID string, options client.ContainerLogsOptions) (io.ReadCloser, error)
 	CopyToContainer(ctx context.Context, containerID string, options client.CopyToContainerOptions) (client.CopyToContainerResult, error)
 	ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (io.ReadCloser, error)
+	ImageRemove(ctx context.Context, imageID string, options client.ImageRemoveOptions) (client.ImageRemoveResult, error)
 	ImageInspectWithRaw(ctx context.Context, imageID string) (image.InspectResponse, []byte, error)
 	ContainerExecCreate(ctx context.Context, containerID string, config client.ExecCreateOptions) (client.ExecCreateResult, error)
 	ContainerExecAttach(ctx context.Context, execID string, config client.ExecAttachOptions) (client.HijackedResponse, error)
@@ -131,6 +132,10 @@ type Controller interface {
 	// CheckImageAvailability 检查Docker镜像的可用性
 	// 尝试从指定源拉取镜像以验证其可访问性
 	CheckImageAvailability(ctx context.Context, imageName string) (*ImageAvailability, error)
+	// IsImageLocal 检查镜像是否已经存在于本地缓存
+	IsImageLocal(ctx context.Context, imageName string) (bool, error)
+	// RemoveLocalImage 删除本地镜像缓存
+	RemoveLocalImage(ctx context.Context, imageName string) error
 
 	// SetNetworkName 设置课程容器使用的 Docker 网络名称
 	SetNetworkName(name string)

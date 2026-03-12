@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Menu, X, CircleHelp } from 'lucide-react';
+import { Home, BookOpen, Menu, X, CircleHelp, DatabaseZap } from 'lucide-react';
 import { useTourStore } from '@/store/tourStore';
 import { FaGithub } from 'react-icons/fa';
 import LogoUrl from '/assets/logo.svg?url';
@@ -41,6 +41,7 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
   const getPageName = (pathname: string) => {
     if (pathname === '/') return 'home';
     if (pathname === '/courses') return 'courses';
+    if (pathname === '/image-management') return 'image-management';
     if (pathname.startsWith('/learn/')) return 'learn';
     return null;
   };
@@ -57,6 +58,7 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
   const navItems = [
     { path: '/', label: '首页', icon: Home },
     { path: '/courses', label: '课程', icon: BookOpen },
+    { path: '/image-management', label: '镜像管理', icon: DatabaseZap },
   ];
 
   const isActive = (path: string) => location.pathname === path;

@@ -134,6 +134,9 @@ func (f *fakeDockerClient) ContainerLogs(ctx context.Context, containerID string
 func (f *fakeDockerClient) ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (io.ReadCloser, error) {
 	return nil, nil
 }
+func (f *fakeDockerClient) ImageRemove(ctx context.Context, imageID string, options client.ImageRemoveOptions) (client.ImageRemoveResult, error) {
+	return client.ImageRemoveResult{}, nil
+}
 func (f *fakeDockerClient) ImageInspectWithRaw(ctx context.Context, imageID string) (image.InspectResponse, []byte, error) {
 	return image.InspectResponse{}, nil, nil
 }

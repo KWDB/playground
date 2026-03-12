@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { Home } from './pages/Home';
 import { CourseList } from './pages/CourseList';
 import { Learn } from './pages/Learn';
+import { CourseImageManagement } from './pages/CourseImageManagement';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import { ThemeProvider, useTheme } from './hooks/useTheme';
@@ -18,6 +19,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/courses" element={<CourseList />} />
+          <Route path="/image-management" element={<CourseImageManagement />} />
           <Route path="/learn/:courseId" element={<Learn />} />
         </Routes>
       </main>

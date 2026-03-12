@@ -1,8 +1,8 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-03-10
-**Commit:** a5a2a4e
-**Branch:** feat/docker-api-version
+**Generated:** 2026-03-12
+**Commit:** 8cdf24d
+**Branch:** feat/imgae-mamager
 
 ## OVERVIEW
 
@@ -52,12 +52,20 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 - Error handling: `fmt.Errorf("action: %w", err)`
 - Logging: Chinese messages, English identifiers
 
+## Non-Standard Patterns
+
+- **Nested Learn page**: `src/pages/Learn.tsx` (file) + `src/pages/learn/` (directory with 11 hooks)
+- **Hooks fragmented**: Business hooks in `src/pages/learn/hooks/` instead of centralized `src/hooks/`
+- **Duplicate check package**: Both `cmd/check/` (17-line wrapper) and `internal/check/` exist
+- **Scattered config**: `src/config/tourSteps.ts` alongside store-based config
+
 ## Architecture Hotspots
 
 | Area | File | Lines | Risk |
 |------|------|-------|------|
 | Docker orchestration | internal/docker/controller.go | 2316 | Concurrency |
 | API routes | internal/api/routes.go | 2151 | Long handlers |
+
 ## Code Map
 
 | Symbol | Type | Location | Refs | Role |
@@ -66,6 +74,7 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 | RunCourse | func | internal/api/handlers_run.go | 8 | Course execution |
 | LearnStore | store | src/store/learnStore.ts | 15 | Frontend state |
 | WebSocketHandler | struct | internal/websocket/handler.go | 6 | Terminal multiplex |
+| Learn page | src/pages/Learn.tsx | 1464 | Duplicate logic |
 
 ## Entry Points
 
@@ -75,9 +84,6 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 | cmd/start/start.go | HTTP server entry |
 | src/main.tsx | React frontend entry |
 | dist/* | Embedded in binary via go:embed |
-
-
-| Learn page | src/pages/Learn.tsx | 1464 | Duplicate logic |
 
 ## Testing
 
@@ -111,6 +117,13 @@ make release      # Release binaries
 make e2e-playwright  # Run E2E tests
 ```
 
+- **Release dead code**: ~140 lines commented-out Homebrew job in release.yml
+- **Duplicate check package**: Both `/cmd/check/` and `/internal/check/` exist (CLI vs core logic)
+- **Hooks fragmented**: Most hooks in `/src/pages/learn/hooks/` not centralized
+- **Check command deprecated**: `cmd/check/check.go` uses Cobra's Deprecated field
+- **Format check**: Uses `go fmt` + `git diff` instead of golangci-lint
+- **Lenient frontend**: TypeScript/ESlint runs with `|| true` in CI
+- **Multi-registry**: Pushes to ghcr.io, Docker Hub, and Alibaba Cloud ACR
 - **Release dead code**: ~140 lines commented-out Homebrew job in release.yml
 - **Duplicate check package**: Both `/cmd/check/` and `/internal/check/` exist (CLI vs core logic)
 - **Hooks fragmented**: Most hooks in `/src/pages/learn/hooks/` not centralized

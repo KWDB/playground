@@ -8,6 +8,11 @@ import type {
   PortConflictInfo,
   UserProgress,
   GetProgressResponse,
+  CourseImageDiagnosticsResponse,
+  PreloadCourseImagesRequest,
+  PreloadCourseImagesResponse,
+  CleanupCourseImagesRequest,
+  LocalImageCleanupResult,
 } from './types'
 
 // ApiError 是从 ApiClientError 类重新导出的类型别名
@@ -103,8 +108,8 @@ export async function request<T>(
 
 export const api = {
   courses: {
-    list: (signal?: AbortSignal): Promise<Course[]> =>
-      request<Course[]>('/courses', { signal }),
+    list: (signal?: AbortSignal): Promise<{ courses: Course[] }> =>
+      request<{ courses: Course[] }>('/courses', { signal }),
 
     get: (id: string, signal?: AbortSignal): Promise<{ course: Course }> =>
       request<{ course: Course }>(`/courses/${id}`, { signal }),
@@ -163,6 +168,9 @@ export const api = {
     list: (signal?: AbortSignal): Promise<ContainerInfo[]> =>
       request<ContainerInfo[]>('/containers', { signal }),
 
+    cleanupAll: (signal?: AbortSignal): Promise<CleanupResult> =>
+      request<CleanupResult>('/containers', { method: 'DELETE', signal }),
+
     getStatus: (id: string, signal?: AbortSignal): Promise<ContainerStatusResponse> =>
       request<ContainerStatusResponse>(`/containers/${id}/status`, { signal }),
 
@@ -191,15 +199,49 @@ export const api = {
   },
 
   images: {
-    sources: (signal?: AbortSignal): Promise<Array<{ id: string; tag: string; size: number }>> =>
-      request<Array<{ id: string; tag: string; size: number }>>('/images/sources', { signal }),
+    sources: (
+      signal?: AbortSignal
+    ): Promise<{ sources: Array<{ id: string; name: string; prefix: string; description: string; example: string }> }> =>
+      request<{ sources: Array<{ id: string; name: string; prefix: string; description: string; example: string }> }>(
+        '/images/sources',
+        { signal }
+      ),
 
     checkAvailability: (image: string, signal?: AbortSignal): Promise<{ available: boolean; message: string }> =>
       request<{ available: boolean; message: string }>('/images/check-availability', {
         method: 'POST',
-        body: JSON.stringify({ image }),
+        body: JSON.stringify({ imageName: image }),
         signal,
       }),
+
+    courseDiagnostics: (
+      options?: { sourcePrefix?: string; signal?: AbortSignal }
+    ): Promise<CourseImageDiagnosticsResponse> => {
+      const query = options?.sourcePrefix ? `?sourcePrefix=${encodeURIComponent(options.sourcePrefix)}` : ''
+      return request<CourseImageDiagnosticsResponse>(`/images/course-diagnostics${query}`, { signal: options?.signal })
+    },
+
+    preload: (payload: PreloadCourseImagesRequest, signal?: AbortSignal): Promise<PreloadCourseImagesResponse> =>
+      request<PreloadCourseImagesResponse>('/images/preload', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        signal,
+      }),
+
+    cleanup: (payload: CleanupCourseImagesRequest, signal?: AbortSignal): Promise<LocalImageCleanupResult> =>
+      request<LocalImageCleanupResult>('/images/cleanup', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        signal,
+      }),
+
+    cleanupAll: (options?: { sourcePrefix?: string; signal?: AbortSignal }): Promise<LocalImageCleanupResult> => {
+      const query = options?.sourcePrefix ? `?sourcePrefix=${encodeURIComponent(options.sourcePrefix)}` : ''
+      return request<LocalImageCleanupResult>(`/images/cleanup-all${query}`, {
+        method: 'POST',
+        signal: options?.signal,
+      })
+    },
   },
 }
 

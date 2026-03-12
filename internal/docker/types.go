@@ -71,6 +71,23 @@ type CleanupResult struct {
 	CleanedContainers []*ContainerInfo `json:"cleanedContainers"` // 已清理的容器列表
 }
 
+type LocalImageCleanupItem struct {
+	ImageName    string   `json:"imageName"`
+	Status       string   `json:"status"`
+	Message      string   `json:"message"`
+	CourseIDs    []string `json:"courseIds"`
+	CourseTitles []string `json:"courseTitles"`
+}
+
+type LocalImageCleanupResult struct {
+	Success      bool                    `json:"success"`
+	Message      string                  `json:"message"`
+	Total        int                     `json:"total"`
+	SuccessCount int                     `json:"successCount"`
+	FailureCount int                     `json:"failureCount"`
+	Results      []LocalImageCleanupItem `json:"results"`
+}
+
 // containerStateCache 缓存容器状态信息以减少API调用
 type containerStateCache struct {
 	isRunning   bool
@@ -80,7 +97,8 @@ type containerStateCache struct {
 
 // ImageAvailability 镜像可用性检查结果
 type ImageAvailability struct {
-	Available    bool      `json:"available"`    // 镜像是否可用
+	Available    bool      `json:"available"` // 镜像是否可用
+	LocalCached  bool      `json:"localCached"`
 	ImageName    string    `json:"imageName"`    // 镜像名称
 	Message      string    `json:"message"`      // 状态消息
 	CheckedAt    time.Time `json:"checkedAt"`    // 检查时间
