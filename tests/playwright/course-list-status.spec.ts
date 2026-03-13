@@ -87,9 +87,11 @@ test.describe('课程列表状态与交互测试', () => {
     const gridBtn = page.getByLabel('卡片模式');
     const listBtn = page.getByLabel('列表模式');
 
-    // 获取课程列表容器（通过查找第一个课程链接的父元素）
+    // 获取课程列表容器（兼容卡片外层 scroll-reveal 包裹）
     const firstCourse = page.locator('a[href^="/learn/"]').first();
-    const container = firstCourse.locator('xpath=..');
+    const container = firstCourse.locator(
+      'xpath=ancestor::div[contains(@class,"gap-4") or contains(@class,"space-y-2")][1]'
+    );
 
     // 1. 默认状态验证 (Grid)
     // 验证 Grid 按钮激活 (检查 text-indigo-600 类，因为选中时有这个颜色)

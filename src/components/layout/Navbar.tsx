@@ -31,6 +31,7 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
+      if (target instanceof Element && target.closest('[role="dialog"]')) return;
       if (envPanelRef.current && envPanelRef.current.contains(target)) return;
       if (upgradePanelRef.current && upgradePanelRef.current.contains(target)) return;
       setShowEnvPanel(false);
