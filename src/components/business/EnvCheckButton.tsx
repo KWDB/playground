@@ -1,13 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Terminal, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { filterVisibleEnvCheckItems, type EnvCheckItem } from '@/components/business/envCheckItems';
+import { filterVisibleEnvCheckItems } from '@/components/business/envCheckItems';
 import { navbarButtonStyles } from '@/components/layout/navbarButtonStyles';
+import { getEnvCheckSummary, type EnvCheckSummary } from '@/lib/envCheck';
 import { cn } from '@/lib/utils';
-
-type Summary = {
-  ok: boolean;
-  items: EnvCheckItem[];
-};
 
 interface EnvCheckButtonProps {
   onClick: () => void;
@@ -25,32 +21,36 @@ function getErrorMessage(err: unknown): string {
 }
 
 export default function EnvCheckButton({ onClick, variant = 'default' }: EnvCheckButtonProps) {
-  const [data, setData] = useState<Summary | null>(null);
+  const [data, setData] = useState<EnvCheckSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let active = true;
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        let checkResp = await fetch('/api/doctor', { signal: controller.signal });
-        if (!checkResp.ok) {
-          checkResp = await fetch('/api/check', { signal: controller.signal });
+        const json = await getEnvCheckSummary();
+        if (!active) {
+          return;
         }
-
-        if (!checkResp.ok) throw new Error('环境检测接口返回错误');
-        const json: Summary = await checkResp.json();
         setData(json);
       } catch (e: unknown) {
+        if (!active) {
+          return;
+        }
         setError(getErrorMessage(e));
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
     load();
-    return () => controller.abort();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const displayItems = filterVisibleEnvCheckItems(data?.items);
