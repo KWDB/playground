@@ -15,7 +15,6 @@ import { getStepsForPage, getTotalSteps } from '@/config/tourSteps'
 import { useTourStore } from '@/store/tourStore'
 
 type SectionError = {
-  preload: string
   diagnostics: string
 }
 type ManagementTab = 'preload' | 'cleanup' | 'diagnostics'
@@ -28,12 +27,28 @@ type SectionFeedbackItem = {
 
 type SectionFeedback = {
   preload: SectionFeedbackItem | null
+  cleanup: SectionFeedbackItem | null
   diagnostics: SectionFeedbackItem | null
+}
+
+type PreloadProgressState = {
+  total: number
+  completed: number
+  pulled: number
+  cached: number
+  failed: number
+  currentImageName: string
 }
 
 type CleanupCourseBrief = {
   id: string
   title: string
+}
+
+type CleanupImageGroup = {
+  imageName: string
+  courses: CleanupCourseBrief[]
+  sizeBytes: number
 }
 
 type ImageSourceOption = {
@@ -46,6 +61,22 @@ type ImageSourceOption = {
 
 const DEFAULT_IMAGE = 'kwdb/kwdb:latest'
 const TAB_ORDER: ManagementTab[] = ['preload', 'cleanup', 'diagnostics']
+const PRELOAD_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return '0 B'
+  }
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let index = 0
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024
+    index += 1
+  }
+  const fractionDigits = value >= 10 || index === 0 ? 0 : 1
+  return `${value.toFixed(fractionDigits)} ${units[index]}`
+}
 
 function buildImageWithSource(originImageName: string, sourcePrefix: string) {
   const imageName = originImageName.trim()
@@ -84,12 +115,20 @@ export function CourseImageManagement() {
   const [preloadResults, setPreloadResults] = useState<PreloadCourseImageResult[]>([])
   const [cleanupResults, setCleanupResults] = useState<LocalImageCleanupItem[]>([])
   const [sectionError, setSectionError] = useState<SectionError>({
-    preload: '',
     diagnostics: '',
   })
   const [sectionFeedback, setSectionFeedback] = useState<SectionFeedback>({
     preload: null,
+    cleanup: null,
     diagnostics: null,
+  })
+  const [preloadProgress, setPreloadProgress] = useState<PreloadProgressState>({
+    total: 0,
+    completed: 0,
+    pulled: 0,
+    cached: 0,
+    failed: 0,
+    currentImageName: '',
   })
   const [loadingState, setLoadingState] = useState({
     preload: false,
@@ -149,8 +188,8 @@ export function CourseImageManagement() {
       .sort((a, b) => a.imageName.localeCompare(b.imageName, 'zh-Hans-CN'))
   }, [courses, selectedSourcePrefix])
 
-  const cleanupImageGroups = useMemo(() => {
-    const grouped = new Map<string, CleanupCourseBrief[]>()
+  const cleanupImageGroups = useMemo<CleanupImageGroup[]>(() => {
+    const grouped = new Map<string, { courses: CleanupCourseBrief[]; sizeBytes: number }>()
     diagnostics.forEach((item) => {
       if (!item.localCached) {
         return
@@ -159,22 +198,31 @@ export function CourseImageManagement() {
       if (!imageName) {
         return
       }
-      const list = grouped.get(imageName) || []
-      if (!list.some((course) => course.id === item.courseId)) {
-        list.push({
+      const current = grouped.get(imageName) || { courses: [], sizeBytes: 0 }
+      if (!current.courses.some((course) => course.id === item.courseId)) {
+        current.courses.push({
           id: item.courseId,
           title: item.title,
         })
       }
-      grouped.set(imageName, list)
+      if (item.localImageSizeBytes > current.sizeBytes) {
+        current.sizeBytes = item.localImageSizeBytes
+      }
+      grouped.set(imageName, current)
     })
     return Array.from(grouped.entries())
-      .map(([imageName, groupedCourses]) => ({
+      .map(([imageName, groupedData]) => ({
         imageName,
-        courses: groupedCourses.sort((a, b) => a.title.localeCompare(b.title, 'zh-Hans-CN')),
+        courses: groupedData.courses.sort((a, b) => a.title.localeCompare(b.title, 'zh-Hans-CN')),
+        sizeBytes: groupedData.sizeBytes,
       }))
       .sort((a, b) => a.imageName.localeCompare(b.imageName, 'zh-Hans-CN'))
   }, [diagnostics])
+
+  const cleanupReclaimableBytes = useMemo(
+    () => cleanupImageGroups.reduce((total, group) => total + group.sizeBytes, 0),
+    [cleanupImageGroups]
+  )
 
   const diagnosticsSummary = useMemo(() => {
     const preloadedCount = diagnostics.filter((item) => item.localCached).length
@@ -195,6 +243,12 @@ export function CourseImageManagement() {
   }, [diagnostics])
 
   const failedPreloadResults = useMemo(() => preloadResults.filter((item) => item.status === 'failed'), [preloadResults])
+  const preloadProgressPercent = useMemo(() => {
+    if (preloadProgress.total <= 0) {
+      return 0
+    }
+    return Math.round((preloadProgress.completed / preloadProgress.total) * 100)
+  }, [preloadProgress.completed, preloadProgress.total])
 
   const loadCourses = async () => {
     const data = await api.courses.list()
@@ -340,9 +394,27 @@ export function CourseImageManagement() {
     return () => window.clearTimeout(timer)
   }, [selectedSourceId, customSourcePrefix, activeTab, tabLoaded.preload, tabLoaded.cleanup, tabLoaded.diagnostics, loadDiagnostics])
 
+  const buildPreloadPayload = (targetCourseIds: string[], sourcePrefix: string) => {
+    const imageOverrides: Record<string, string> = {}
+    targetCourseIds.forEach((courseId) => {
+      const course = courses.find((item) => item.id === courseId)
+      if (!course) {
+        return
+      }
+      const originImage = (course.backend?.imageid || DEFAULT_IMAGE).trim()
+      const overrideImage = buildImageWithSource(originImage, sourcePrefix)
+      if (overrideImage && overrideImage !== originImage) {
+        imageOverrides[courseId] = overrideImage
+      }
+    })
+    return {
+      courseIds: targetCourseIds,
+      imageOverrides,
+    }
+  }
+
   const runPreload = async (targetCourseIds: string[]) => {
     if (targetCourseIds.length === 0) {
-      setSectionError((prev) => ({ ...prev, preload: '请至少选择一个课程' }))
       setSectionFeedback((prev) => ({
         ...prev,
         preload: {
@@ -353,7 +425,14 @@ export function CourseImageManagement() {
       return
     }
     setLoadingState((prev) => ({ ...prev, preload: true }))
-    setSectionError((prev) => ({ ...prev, preload: '' }))
+    setPreloadProgress({
+      total: 0,
+      completed: 0,
+      pulled: 0,
+      cached: 0,
+      failed: 0,
+      currentImageName: '',
+    })
     setSectionFeedback((prev) => ({
       ...prev,
       preload: {
@@ -364,7 +443,6 @@ export function CourseImageManagement() {
     try {
       const sourcePrefix = selectedSourcePrefix
       if (selectedSourceId === 'custom' && !sourcePrefix) {
-        setSectionError((prev) => ({ ...prev, preload: '请先填写自定义镜像源前缀' }))
         setSectionFeedback((prev) => ({
           ...prev,
           preload: {
@@ -374,39 +452,34 @@ export function CourseImageManagement() {
         }))
         return
       }
-      const imageOverrides: Record<string, string> = {}
-      targetCourseIds.forEach((courseId) => {
-        const course = courses.find((item) => item.id === courseId)
-        if (!course) {
-          return
-        }
-        const originImage = (course.backend?.imageid || DEFAULT_IMAGE).trim()
-        const overrideImage = buildImageWithSource(originImage, sourcePrefix)
-        if (overrideImage && overrideImage !== originImage) {
-          imageOverrides[courseId] = overrideImage
-        }
+      const payload = buildPreloadPayload(targetCourseIds, sourcePrefix)
+      const response = await api.images.preload(payload, undefined, {
+        timeout: PRELOAD_REQUEST_TIMEOUT_MS,
       })
-      const payload = {
-        courseIds: targetCourseIds,
-        imageOverrides,
-      }
-      const response = await api.images.preload(payload)
       const results = response.results || []
       setPreloadResults(results)
       const pulledCount = results.filter((item) => item.status === 'pulled').length
+      const cachedCount = results.filter((item) => item.status === 'cached').length
       const failedCount = results.filter((item) => item.status === 'failed').length
+      setPreloadProgress({
+        total: 1,
+        completed: 1,
+        pulled: pulledCount,
+        cached: cachedCount,
+        failed: failedCount,
+        currentImageName: '',
+      })
       const tone: FeedbackTone = failedCount > 0 ? 'warning' : 'success'
       setSectionFeedback((prev) => ({
         ...prev,
         preload: {
           tone,
-          message: `预拉取完成：新拉取 ${pulledCount}，失败 ${failedCount}。`,
+          message: `预拉取完成：新拉取 ${pulledCount}，复用缓存 ${cachedCount}，失败 ${failedCount}。`,
         },
       }))
       await loadDiagnostics()
     } catch (error) {
       const message = error instanceof Error ? error.message : '镜像预拉取失败'
-      setSectionError((prev) => ({ ...prev, preload: message }))
       setSectionFeedback((prev) => ({
         ...prev,
         preload: {
@@ -420,7 +493,113 @@ export function CourseImageManagement() {
   }
 
   const handlePreloadAll = async () => {
-    await runPreload(courses.map((course) => course.id))
+    if (courses.length === 0) {
+      setSectionFeedback((prev) => ({
+        ...prev,
+        preload: {
+          tone: 'warning',
+          message: '当前没有可拉取的课程镜像。',
+        },
+      }))
+      return
+    }
+    setLoadingState((prev) => ({ ...prev, preload: true }))
+    setPreloadProgress({
+      total: courseImageGroups.length,
+      completed: 0,
+      pulled: 0,
+      cached: 0,
+      failed: 0,
+      currentImageName: '',
+    })
+    setSectionFeedback((prev) => ({
+      ...prev,
+      preload: {
+        tone: 'info',
+        message: `正在批量拉取 ${courseImageGroups.length} 个镜像，请稍候。`,
+      },
+    }))
+    try {
+      const sourcePrefix = selectedSourcePrefix
+      if (selectedSourceId === 'custom' && !sourcePrefix) {
+        setSectionFeedback((prev) => ({
+          ...prev,
+          preload: {
+            tone: 'warning',
+            message: '自定义镜像源前缀为空，请填写后再拉取。',
+          },
+        }))
+        return
+      }
+      const allResults: PreloadCourseImageResult[] = []
+      let completed = 0
+      let pulled = 0
+      let cached = 0
+      let failed = 0
+      for (const group of courseImageGroups) {
+        setPreloadProgress((prev) => ({
+          ...prev,
+          currentImageName: group.imageName,
+        }))
+        try {
+          const payload = buildPreloadPayload(
+            group.courses.map((course) => course.id),
+            sourcePrefix
+          )
+          const response = await api.images.preload(payload, undefined, {
+            timeout: PRELOAD_REQUEST_TIMEOUT_MS,
+          })
+          const results = response.results || []
+          allResults.push(...results)
+          if (results.some((item) => item.status === 'failed')) {
+            failed += 1
+          } else if (results.every((item) => item.status === 'cached')) {
+            cached += 1
+          } else {
+            pulled += 1
+          }
+        } catch (error) {
+          failed += 1
+          const message = error instanceof Error ? error.message : '镜像预拉取失败'
+          allResults.push(
+            ...group.courses.map((course) => ({
+              courseId: course.id,
+              title: course.title,
+              imageName: group.imageName,
+              status: 'failed' as const,
+              message,
+            }))
+          )
+        } finally {
+          completed += 1
+          setPreloadProgress((prev) => ({
+            ...prev,
+            completed,
+            pulled,
+            cached,
+            failed,
+          }))
+        }
+      }
+      setPreloadResults(allResults)
+      const failedCourses = allResults.filter((item) => item.status === 'failed').length
+      const pulledCourses = allResults.filter((item) => item.status === 'pulled').length
+      const cachedCourses = allResults.filter((item) => item.status === 'cached').length
+      setSectionFeedback((prev) => ({
+        ...prev,
+        preload: {
+          tone: failedCourses > 0 ? 'warning' : 'success',
+          message: `批量预拉取完成：镜像成功 ${pulled + cached}，镜像失败 ${failed}；课程新拉取 ${pulledCourses}，复用缓存 ${cachedCourses}，失败 ${failedCourses}。`,
+        },
+      }))
+      await loadDiagnostics()
+    } finally {
+      setPreloadProgress((prev) => ({
+        ...prev,
+        currentImageName: '',
+      }))
+      setLoadingState((prev) => ({ ...prev, preload: false }))
+    }
   }
 
   const handlePreloadSingle = async (courseIds: string[]) => {
@@ -442,12 +621,33 @@ export function CourseImageManagement() {
 
   const handleCleanupAll = async () => {
     setLoadingState((prev) => ({ ...prev, cleanupAll: true }))
+    setSectionFeedback((prev) => ({
+      ...prev,
+      cleanup: {
+        tone: 'info',
+        message: '正在执行全量清理，请稍候。',
+      },
+    }))
     try {
       const result = await api.images.cleanupAll({ sourcePrefix: selectedSourcePrefix || undefined })
       setCleanupResults(result.results || [])
+      setSectionFeedback((prev) => ({
+        ...prev,
+        cleanup: {
+          tone: result.failureCount > 0 ? 'warning' : 'success',
+          message: `清理完成：共释放镜像 ${result.removedCount} 个，释放空间 ${formatBytes(result.totalReleasedBytes)}。`,
+        },
+      }))
       await refreshCleanupData()
     } catch (error) {
-      void error
+      const message = error instanceof Error ? error.message : '镜像清理失败'
+      setSectionFeedback((prev) => ({
+        ...prev,
+        cleanup: {
+          tone: 'error',
+          message,
+        },
+      }))
     } finally {
       setLoadingState((prev) => ({ ...prev, cleanupAll: false }))
     }
@@ -654,9 +854,28 @@ export function CourseImageManagement() {
             </div>
           )}
 
-          {sectionError.preload && (
-            <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-subtle)] px-3 py-2 text-sm text-[var(--color-error)]">
-              {sectionError.preload}
+          {loadingState.preload && preloadProgress.total > 0 && (
+            <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] px-3 py-3 space-y-2">
+              <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)] tabular-nums">
+                <span>
+                  进度：{preloadProgress.completed}/{preloadProgress.total}
+                </span>
+                <span>{preloadProgressPercent}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden">
+                <div
+                  className="h-full bg-[var(--color-accent-primary)] transition-all duration-300"
+                  style={{ width: `${preloadProgressPercent}%` }}
+                />
+              </div>
+              <div className="flex flex-wrap gap-3 text-xs text-[var(--color-text-tertiary)] tabular-nums">
+                <span>新拉取镜像：{preloadProgress.pulled}</span>
+                <span>复用缓存镜像：{preloadProgress.cached}</span>
+                <span>失败镜像：{preloadProgress.failed}</span>
+              </div>
+              <div className="text-xs text-[var(--color-text-secondary)] font-mono break-all">
+                当前镜像：{preloadProgress.currentImageName || '等待处理'}
+              </div>
             </div>
           )}
 
@@ -773,6 +992,9 @@ export function CourseImageManagement() {
             <div>
               <h2 className="text-base font-semibold text-[var(--color-text-primary)]">本地镜像清理</h2>
               <p className="text-sm text-[var(--color-text-secondary)]">按镜像删除本地缓存，必要时可执行全量清理。当前镜像源：{selectedSourceName}</p>
+              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                当前可清理镜像总大小：{formatBytes(cleanupReclaimableBytes)}
+              </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Button
@@ -786,6 +1008,12 @@ export function CourseImageManagement() {
               </Button>
             </div>
           </div>
+
+          {sectionFeedback.cleanup && (
+            <div className={cn('rounded-md border px-3 py-2 text-sm', getFeedbackClassName(sectionFeedback.cleanup.tone))} aria-live="polite">
+              {sectionFeedback.cleanup.message}
+            </div>
+          )}
 
           {tabLoading.cleanup && !tabLoaded.cleanup ? (
             <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] p-4 text-sm text-[var(--color-text-secondary)] flex items-center gap-2">
@@ -808,7 +1036,7 @@ export function CourseImageManagement() {
                     <div>
                       <p className="font-medium text-[var(--color-text-primary)] font-mono text-xs">{group.imageName}</p>
                       <p className="text-xs text-[var(--color-text-tertiary)] tabular-nums">
-                        关联课程数：{group.courses.length}
+                        关联课程数：{group.courses.length} · 镜像大小：{formatBytes(group.sizeBytes)}
                       </p>
                       <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
                         {group.courses.map((course) => course.title).join('、')}

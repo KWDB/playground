@@ -91,13 +91,13 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
       <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center gap-3 sm:gap-4 md:gap-8 min-w-0">
-            <Link to="/" className="flex items-center gap-2.5">
+            <Link to="/" className="flex min-w-0 items-center gap-2.5">
               <img 
                 src={LogoUrl}
                 alt="KWDB Logo"
                 className="w-8 h-8 object-contain"
               />
-              <span className="hidden sm:inline text-sm font-medium text-[var(--color-text-primary)] whitespace-nowrap">
+              <span className="hidden max-w-[12rem] truncate text-balance text-sm font-semibold text-[var(--color-text-primary)] sm:inline">
                 KWDB Playground
               </span>
             </Link>

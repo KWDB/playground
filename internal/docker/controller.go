@@ -1420,6 +1420,28 @@ func (d *dockerController) IsImageLocal(ctx context.Context, imageName string) (
 	return d.checkImageExists(ctx, imageName)
 }
 
+func (d *dockerController) GetLocalImageSize(ctx context.Context, imageName string) (int64, error) {
+	resolved, exists, err := d.resolveLocalImageReference(ctx, imageName)
+	if err != nil {
+		return 0, err
+	}
+	if !exists {
+		return 0, nil
+	}
+	inspect, _, err := d.client.ImageInspectWithRaw(ctx, resolved)
+	if err != nil {
+		if d.isImageNotFound(err) {
+			return 0, nil
+		}
+		errorMsg := d.classifyImageCheckError(err, resolved)
+		return 0, fmt.Errorf("%s", errorMsg)
+	}
+	if inspect.Size < 0 {
+		return 0, nil
+	}
+	return inspect.Size, nil
+}
+
 func (d *dockerController) RemoveLocalImage(ctx context.Context, imageName string) error {
 	resolved, exists, err := d.resolveLocalImageReference(ctx, imageName)
 	if err != nil {
