@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Terminal, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { filterVisibleEnvCheckItems, type EnvCheckItem } from '@/components/business/envCheckItems';
+import { navbarButtonStyles } from '@/components/layout/navbarButtonStyles';
+import { cn } from '@/lib/utils';
 
 type Summary = {
   ok: boolean;
@@ -60,7 +62,7 @@ export default function EnvCheckButton({ onClick, variant = 'default' }: EnvChec
     return (
       <button
         onClick={onClick}
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-bg-secondary)] transition-colors cursor-pointer"
+        className={cn(navbarButtonStyles.statusButton, 'cursor-pointer')}
         aria-haspopup="dialog"
         aria-controls="env-check-modal"
       >

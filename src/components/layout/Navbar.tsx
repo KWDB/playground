@@ -2,14 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, BookOpen, Menu, X, CircleHelp, DatabaseZap } from 'lucide-react';
 import { useTourStore } from '@/store/tourStore';
+import { cn } from '@/lib/utils';
 import { FaGithub } from 'react-icons/fa';
 import LogoUrl from '/assets/logo.svg?url';
 import EnvCheckButton from '@/components/business/EnvCheckButton';
 import EnvCheckPanel from '@/components/business/EnvCheckPanel';
 import UpgradeButton from '@/components/business/UpgradeButton';
 import UpgradePanel from '@/components/business/UpgradePanel';
-import ThemeToggle from './ThemeToggle';
 import { Theme } from '@/hooks/useTheme';
+import ThemeToggle from './ThemeToggle';
+import { navbarButtonStyles } from './navbarButtonStyles';
 
 interface NavbarProps {
   theme: Theme;
@@ -48,11 +50,25 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
 
   const pageName = getPageName(location.pathname);
 
+  const closePanels = () => {
+    setShowEnvPanel(false);
+    setShowUpgradePanel(false);
+  };
+
   const handleHelp = () => {
     if (pageName) {
       startTour(pageName);
       setIsMobileMenuOpen(false);
+      closePanels();
     }
+  };
+
+  const handleMobileMenuToggle = () => {
+    setIsMobileMenuOpen((prev) => {
+      const next = !prev;
+      if (!next) closePanels();
+      return next;
+    });
   };
 
   const navItems = [
@@ -62,19 +78,26 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+  const getNavItemClassName = (path: string, isMobile = false) =>
+    cn(
+      navbarButtonStyles.navItemBase,
+      isMobile ? navbarButtonStyles.navItemMobile : navbarButtonStyles.navItemDesktop,
+      isActive(path) ? navbarButtonStyles.navItemActive : navbarButtonStyles.navItemInactive
+    );
+  const isTourButtonActive = Boolean(pageName && isTourActive && tourCurrentPage === pageName);
 
   return (
     <nav className="sticky top-0 z-50 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-light)]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-14">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3 sm:gap-4 md:gap-8 min-w-0">
             <Link to="/" className="flex items-center gap-2.5">
               <img 
                 src={LogoUrl}
                 alt="KWDB Logo"
                 className="w-8 h-8 object-contain"
               />
-              <span className="text-sm font-medium text-[var(--color-text-primary)]">
+              <span className="hidden sm:inline text-sm font-medium text-[var(--color-text-primary)] whitespace-nowrap">
                 KWDB Playground
               </span>
             </Link>
@@ -84,11 +107,7 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 ${
-                    isActive(item.path)
-                      ? 'text-[var(--color-text-primary)] bg-[var(--color-bg-secondary)]'
-                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
-                  }`}
+                  className={getNavItemClassName(item.path)}
                 >
                   <item.icon className="w-4 h-4" />
                   {item.label}
@@ -97,15 +116,19 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
             <button
               onClick={handleHelp}
               disabled={!pageName}
-              className={`hidden md:block p-2 rounded-md transition-colors ${
-                pageName 
-                  ? (isTourActive && tourCurrentPage === pageName ? 'text-[var(--color-accent-primary)] bg-[var(--color-bg-secondary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]')
-                  : 'text-[var(--color-text-disabled)] cursor-not-allowed opacity-50'
-              }`}
+              className={cn(
+                'hidden md:inline-flex',
+                navbarButtonStyles.iconButtonBase,
+                pageName
+                  ? isTourButtonActive
+                    ? navbarButtonStyles.iconButtonActive
+                    : navbarButtonStyles.iconButtonDefault
+                  : navbarButtonStyles.iconButtonDisabled
+              )}
               aria-label="帮助"
               title="开启页面引导"
               data-tour-id="help-button"
@@ -118,7 +141,7 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
               href="https://github.com/KWDB/KWDB"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+              className={cn('hidden md:inline-flex', navbarButtonStyles.iconButtonBase, navbarButtonStyles.iconButtonDefault)}
               aria-label="GitHub"
             >
               <FaGithub className="w-4 h-4" />
@@ -127,7 +150,7 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
               <ThemeToggle theme={theme} onToggle={onToggleTheme} />
             </div>
 
-            <div ref={upgradePanelRef} className="relative" data-tour-id="home-upgrade">
+            <div ref={upgradePanelRef} className="relative hidden md:block" data-tour-id="home-upgrade">
               <UpgradeButton
                 onClick={() => {
                   setShowUpgradePanel(!showUpgradePanel);
@@ -141,7 +164,7 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
               )}
             </div>
 
-            <div ref={envPanelRef} className="relative" data-tour-id="home-env-check">
+            <div ref={envPanelRef} className="relative hidden md:block" data-tour-id="home-env-check">
               <EnvCheckButton
                 variant="navbar"
                 onClick={() => {
@@ -157,8 +180,12 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
             </div>
 
             <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+              onClick={handleMobileMenuToggle}
+              className={cn(
+                'md:hidden',
+                navbarButtonStyles.iconButtonBase,
+                navbarButtonStyles.iconButtonDefault
+              )}
               aria-label="菜单"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -169,17 +196,13 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
         {isMobileMenuOpen && (
           <div className="md:hidden py-3 border-t border-[var(--color-border-light)]">
             <div className="flex flex-col gap-1">
-              <ThemeToggle theme={theme} onToggle={onToggleTheme} className="w-full justify-start px-3 py-2.5" />
+              <ThemeToggle theme={theme} onToggle={onToggleTheme} className="w-full justify-start px-3 py-2.5 text-sm font-medium" />
               {navItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                    isActive(item.path)
-                      ? 'text-[var(--color-text-primary)] bg-[var(--color-bg-secondary)]'
-                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
-                  }`}
+                  className={getNavItemClassName(item.path, true)}
                 >
                   <item.icon className="w-4 h-4" />
                   {item.label}
@@ -189,15 +212,67 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
               <button 
                 onClick={handleHelp}
                 disabled={!pageName}
-                className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-left ${
+                className={cn(
+                  navbarButtonStyles.navItemBase,
+                  navbarButtonStyles.navItemMobile,
+                  'w-full text-left',
                   pageName
-                    ? 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
-                    : 'text-[var(--color-text-disabled)] cursor-not-allowed opacity-50'
-                }`}
+                    ? isTourButtonActive
+                      ? navbarButtonStyles.navItemActive
+                      : navbarButtonStyles.navItemInactive
+                    : navbarButtonStyles.iconButtonDisabled
+                )}
               >
                 <CircleHelp className="w-4 h-4" />
                 使用指南
               </button>
+              <div className="h-px bg-[var(--color-border-light)] my-2" />
+              <a
+                href="https://github.com/KWDB/KWDB"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  navbarButtonStyles.navItemBase,
+                  navbarButtonStyles.navItemMobile,
+                  navbarButtonStyles.navItemInactive
+                )}
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-label="GitHub"
+              >
+                <FaGithub className="w-4 h-4" />
+                GitHub
+              </a>
+              <div className="space-y-2" data-tour-id="home-upgrade">
+                <div className="[&>button]:w-full [&>button]:justify-between">
+                  <UpgradeButton
+                    onClick={() => {
+                      setShowUpgradePanel(!showUpgradePanel);
+                      setShowEnvPanel(false);
+                    }}
+                  />
+                </div>
+                {showUpgradePanel && (
+                  <div className="w-full">
+                    <UpgradePanel alwaysExpanded={true} />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2" data-tour-id="home-env-check">
+                <div className="[&>button]:w-full [&>button]:justify-between">
+                  <EnvCheckButton
+                    variant="navbar"
+                    onClick={() => {
+                      setShowEnvPanel(!showEnvPanel);
+                      setShowUpgradePanel(false);
+                    }}
+                  />
+                </div>
+                {showEnvPanel && (
+                  <div className="w-full">
+                    <EnvCheckPanel alwaysExpanded={true} />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
