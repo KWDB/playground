@@ -3,6 +3,7 @@ import { CheckCircle2, DatabaseZap, Download, Loader2, RefreshCw, Trash2 } from 
 import { Button } from '@/components/ui/Button'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { TourTooltip } from '@/components/ui/TourTooltip'
+import { useSwitchTransition } from '@/hooks/useSwitchTransition'
 import { api } from '@/lib/api/client'
 import type {
   Course,
@@ -147,6 +148,7 @@ export function CourseImageManagement() {
   })
   const [confirmCleanupAll, setConfirmCleanupAll] = useState(false)
   const [activeTab, setActiveTab] = useState<ManagementTab>('preload')
+  const { renderedValue: renderedTab, stage: tabTransitionStage } = useSwitchTransition<ManagementTab>(activeTab, activeTab, 150)
   const [cleanupImageName, setCleanupImageName] = useState('')
   const tabButtonRefs = useRef<Record<ManagementTab, HTMLButtonElement | null>>({
     preload: null,
@@ -879,7 +881,8 @@ export function CourseImageManagement() {
           })}
         </div>
 
-        {activeTab === 'preload' && (
+        <div className={cn('tab-panel-transition', tabTransitionStage === 'enter' ? 'is-entering' : 'is-exiting')}>
+        {renderedTab === 'preload' && (
           <section
           role="tabpanel"
           id="image-management-panel-preload"
@@ -1042,7 +1045,7 @@ export function CourseImageManagement() {
           </section>
         )}
 
-      {activeTab === 'cleanup' && (
+      {renderedTab === 'cleanup' && (
         <section
           role="tabpanel"
           id="image-management-panel-cleanup"
@@ -1161,7 +1164,7 @@ export function CourseImageManagement() {
         </section>
       )}
 
-      {activeTab === 'diagnostics' && (
+      {renderedTab === 'diagnostics' && (
         <section
           role="tabpanel"
           id="image-management-panel-diagnostics"
@@ -1272,6 +1275,7 @@ export function CourseImageManagement() {
           ) : null}
         </section>
       )}
+      </div>
 
       <ConfirmDialog
         isOpen={confirmCleanupAll}

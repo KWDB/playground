@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +11,7 @@ interface ProposeCourseCardProps {
 }
 
 type IssueTarget = 'atomgit' | 'github';
+type SubmitStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
@@ -20,6 +22,8 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
   const githubIssueBaseUrl = 'https://github.com/KWDB/playground/issues/new';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>('idle');
   const [issueTarget, setIssueTarget] = useState<IssueTarget>('atomgit');
   const [formData, setFormData] = useState({
     courseName: '',
@@ -34,24 +38,36 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
       [name]: value
     }));
     if (submitError) setSubmitError(null);
+    if (submitSuccess) setSubmitSuccess(null);
+    if (submitStatus !== 'submitting') setSubmitStatus('idle');
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setSubmitError(null);
+    setSubmitSuccess(null);
+    setSubmitStatus('idle');
   };
 
   const openModal = () => {
     setIsModalOpen(true);
     setSubmitError(null);
+    setSubmitSuccess(null);
+    setSubmitStatus('idle');
     setIssueTarget('atomgit');
   };
 
   const canSubmit = formData.courseName.trim().length > 0 && formData.description.trim().length > 0;
 
-  const submitIssue = (target: IssueTarget) => {
+  const submitIssue = async (target: IssueTarget) => {
+    if (submitStatus === 'submitting') return;
+    setSubmitError(null);
+    setSubmitSuccess(null);
+    setSubmitStatus('submitting');
+
     if (!canSubmit) {
       setSubmitError('请填写课程名称和需求描述');
+      setSubmitStatus('error');
       return;
     }
 
@@ -67,15 +83,21 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
     });
     const issueBaseUrl = target === 'atomgit' ? atomgitIssueBaseUrl : githubIssueBaseUrl;
     const issueUrl = `${issueBaseUrl}?${params.toString()}`;
+    await new Promise((resolve) => window.setTimeout(resolve, 200));
     const issueWindow = window.open(issueUrl, '_blank', 'noopener,noreferrer');
 
     if (!issueWindow) {
       setSubmitError('未能打开新窗口，请检查浏览器弹窗设置后重试');
+      setSubmitStatus('error');
       return;
     }
 
-    closeModal();
-    setFormData({ courseName: '', description: '', contact: '' });
+    setSubmitStatus('success');
+    setSubmitSuccess('已成功打开提交页面，正在为您跳转');
+    window.setTimeout(() => {
+      closeModal();
+      setFormData({ courseName: '', description: '', contact: '' });
+    }, 650);
   };
 
   return (
@@ -83,15 +105,15 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
       {mode === 'grid' ? (
         <button
           onClick={openModal}
-          className={`
-            group block p-5 rounded-xl 
-            border border-dashed border-[var(--color-border-default)]
-            bg-[var(--color-bg-secondary)]
-            transition-all duration-200 ease-out
-            hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]
-            hover:-translate-y-0.5 active:translate-y-0
-            ${className}
-          `}
+          className={cn(
+            'group block w-full p-5 rounded-xl',
+            'border border-dashed border-[var(--color-border-default)]',
+            'bg-[var(--color-bg-secondary)]',
+            'transition-all duration-200 ease-out',
+            'hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]',
+            'hover:-translate-y-0.5 active:translate-y-0',
+            className
+          )}
         >
           <div className="flex items-start gap-3 mb-4">
             <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[var(--color-bg-tertiary)] flex items-center justify-center group-hover:bg-[var(--color-accent-subtle)] transition-colors duration-200">
@@ -117,15 +139,15 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
       ) : (
         <button
           onClick={openModal}
-          className={`
-            group flex items-center gap-4 p-5 rounded-xl
-            border border-dashed border-[var(--color-border-default)]
-            bg-[var(--color-bg-secondary)]
-            transition-all duration-200 ease-out
-            hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]
-            hover:-translate-y-0.5 active:translate-y-0
-            w-full ${className}
-          `}
+          className={cn(
+            'group flex items-center gap-4 p-5 rounded-xl w-full',
+            'border border-dashed border-[var(--color-border-default)]',
+            'bg-[var(--color-bg-secondary)]',
+            'transition-all duration-200 ease-out',
+            'hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]',
+            'hover:-translate-y-0.5 active:translate-y-0',
+            className
+          )}
         >
           <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[var(--color-bg-tertiary)] flex items-center justify-center group-hover:bg-[var(--color-accent-subtle)] transition-colors duration-200">
             <Plus className="w-5 h-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200" />
@@ -146,7 +168,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
         </button>
       )}
 
-      {isModalOpen && (
+      {isModalOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/40" onClick={closeModal} />
           <div className="relative z-10 w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl overflow-hidden animate-fade-in">
@@ -167,7 +189,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                submitIssue(issueTarget);
+                void submitIssue(issueTarget);
               }}
               className="p-4 space-y-4"
             >
@@ -184,7 +206,14 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                         ? 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-sm'
                         : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                     )}
-                    onClick={() => setIssueTarget('atomgit')}
+                    onClick={() => {
+                      setIssueTarget('atomgit');
+                      if (submitStatus !== 'submitting') {
+                        setSubmitError(null);
+                        setSubmitSuccess(null);
+                        setSubmitStatus('idle');
+                      }
+                    }}
                   >
                     AtomGit
                   </button>
@@ -198,7 +227,14 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                         ? 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-sm'
                         : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                     )}
-                    onClick={() => setIssueTarget('github')}
+                    onClick={() => {
+                      setIssueTarget('github');
+                      if (submitStatus !== 'submitting') {
+                        setSubmitError(null);
+                        setSubmitSuccess(null);
+                        setSubmitStatus('idle');
+                      }
+                    }}
                   >
                     GitHub
                   </button>
@@ -261,11 +297,26 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
               </div>
 
               <div className="pt-2 space-y-2">
-                <Button type="submit" variant="primary" className="w-full" disabled={!canSubmit}>
-                  {issueTarget === 'atomgit' ? '提交到 AtomGit' : '提交到 GitHub'}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-full"
+                  disabled={!canSubmit || submitStatus === 'submitting'}
+                  loading={submitStatus === 'submitting'}
+                >
+                  {submitStatus === 'submitting'
+                    ? '正在打开提交通道...'
+                    : submitStatus === 'success'
+                      ? '已打开，正在跳转...'
+                      : issueTarget === 'atomgit'
+                        ? '提交到 AtomGit'
+                        : '提交到 GitHub'}
                 </Button>
-                {submitError && (
+                {submitStatus === 'error' && submitError && (
                   <p className="text-xs text-[var(--color-error)] text-center mt-2">{submitError}</p>
+                )}
+                {submitStatus === 'success' && submitSuccess && (
+                  <p className="text-xs text-[var(--color-success)] text-center mt-2">{submitSuccess}</p>
                 )}
                 <p className="text-xs text-[var(--color-text-tertiary)] text-center mt-3">
                   点击后将跳转至对应平台的新建 Issue 页面
@@ -273,7 +324,8 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

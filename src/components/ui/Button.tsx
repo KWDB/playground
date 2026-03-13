@@ -1,4 +1,5 @@
 import React, { createContext, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -31,7 +32,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center gap-2 font-medium rounded-md transition-colors duration-150 outline-none',
+          'inline-flex items-center justify-center gap-2 font-medium rounded-md outline-none transform-gpu',
+          'transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out',
+          'active:scale-[0.98] disabled:active:scale-100',
           'focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)]',
           variants[variant],
           sizes[size],
@@ -87,8 +90,9 @@ export const DialogContent: React.FC<{ children: React.ReactNode; className?: st
   if (!context) throw new Error('DialogContent must be used within Dialog');
 
   if (!context.open) return null;
+  if (typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => context.onOpenChange(false)} />
       <div className={cn(
@@ -97,7 +101,8 @@ export const DialogContent: React.FC<{ children: React.ReactNode; className?: st
       )}>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

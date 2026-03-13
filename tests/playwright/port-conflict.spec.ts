@@ -495,7 +495,7 @@ test.describe('端口冲突智能处理功能测试', () => {
     
     // 3. 尝试启动课程（应该触发端口冲突）
     console.log('步骤3: 尝试启动课程触发端口冲突');
-    const startButton = page.locator('button:has-text("启动课程"), button:has-text("开始学习")').first();
+    const startButton = page.locator('[data-tour-id="learn-start-container"]').first();
     
     if (await startButton.count() > 0) {
       await startButton.click();
