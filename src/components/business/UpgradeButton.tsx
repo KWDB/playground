@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
+import { navbarButtonStyles } from '@/components/layout/navbarButtonStyles';
 
 type UpgradeCheck = {
   currentVersion: string;
@@ -50,7 +52,10 @@ export default function UpgradeButton({ onClick }: UpgradeButtonProps) {
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-bg-secondary)] transition-colors cursor-pointer"
+      className={cn(
+        navbarButtonStyles.statusButton,
+        'cursor-pointer'
+      )}
       aria-haspopup="dialog"
       aria-controls="upgrade-modal"
     >

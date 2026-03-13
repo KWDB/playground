@@ -1,0 +1,30 @@
+const homeThemeTokens = {
+  bgPrimary: 'bg-[var(--color-bg-primary)]',
+  bgSecondary: 'bg-[var(--color-bg-secondary)]',
+  accentPrimary: 'text-[var(--color-accent-primary)]',
+  accentSubtleBg: 'bg-[var(--color-accent-subtle)]',
+  textPrimary: 'text-[var(--color-text-primary)]',
+  textSecondary: 'text-[var(--color-text-secondary)]',
+  borderLight: 'border-[var(--color-border-light)]',
+  borderDefault: 'border-[var(--color-border-default)]',
+};
+
+export const homeStyles = {
+  pageRoot: `w-full flex-1 flex flex-col items-center justify-center overflow-x-hidden ${homeThemeTokens.bgPrimary}`,
+  contentContainer: 'max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-10 sm:py-14 lg:py-16',
+  sectionSpacing: 'mb-12 sm:mb-16 lg:mb-20',
+  heroHeader: 'text-center',
+  heroBadge: `inline-flex items-center gap-2 px-3 py-1 rounded-full ${homeThemeTokens.accentSubtleBg} ${homeThemeTokens.accentPrimary} text-xs sm:text-sm font-medium mb-5 sm:mb-6`,
+  heroBadgePing: `animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-accent-primary)] opacity-75`,
+  heroBadgeDot: 'relative inline-flex rounded-full h-2 w-2 bg-[var(--color-accent-primary)]',
+  heroTitle: `text-3xl sm:text-5xl lg:text-6xl font-semibold ${homeThemeTokens.textPrimary} mb-3 sm:mb-4 text-balance tracking-tight`,
+  heroDescription: `text-base sm:text-lg ${homeThemeTokens.textSecondary} max-w-2xl mx-auto mb-6 sm:mb-8 text-pretty leading-relaxed`,
+  heroActions: 'flex flex-col sm:flex-row items-center justify-center gap-3',
+  heroCtaButton: 'gap-2 w-full sm:w-auto',
+  heroCtaIcon: 'w-4 h-4',
+  featureGrid: 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-5',
+  featureCard: `group h-full p-4 sm:p-5 lg:p-6 rounded-xl border ${homeThemeTokens.borderLight} ${homeThemeTokens.bgPrimary} hover:${homeThemeTokens.borderDefault} transition-colors duration-200`,
+  featureIconWrap: `inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12 rounded-lg ${homeThemeTokens.bgSecondary} ${homeThemeTokens.textPrimary} mb-3 sm:mb-4 group-hover:${homeThemeTokens.accentSubtleBg} group-hover:${homeThemeTokens.accentPrimary} transition-colors duration-200`,
+  featureTitle: `text-sm sm:text-base font-medium ${homeThemeTokens.textPrimary} mb-1.5 sm:mb-2`,
+  featureDescription: `text-sm ${homeThemeTokens.textSecondary} leading-6`,
+};

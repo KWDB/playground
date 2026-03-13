@@ -1,6 +1,8 @@
 import React from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { Theme } from '@/hooks/useTheme';
+import { cn } from '@/lib/utils';
+import { navbarButtonStyles } from './navbarButtonStyles';
 
 interface ThemeToggleProps {
   theme: Theme;
@@ -15,7 +17,11 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ theme, onToggle, className })
     <button
       type="button"
       onClick={onToggle}
-      className={`inline-flex items-center justify-center p-2 rounded-md text-[var(--color-text-secondary)] transition-colors duration-150 hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)] ${className ?? ''}`}
+      className={cn(
+        navbarButtonStyles.iconButtonBase,
+        navbarButtonStyles.iconButtonDefault,
+        className
+      )}
       aria-label={isDark ? '切换为浅色模式' : '切换为暗色模式'}
       title={isDark ? '切换为浅色模式' : '切换为暗色模式'}
       data-testid="theme-toggle"

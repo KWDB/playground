@@ -541,11 +541,11 @@ export function CourseImageManagement() {
   ]
 
   return (
-    <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div className="w-full rounded-xl bg-[var(--color-bg-primary)] p-6 space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div className="w-full flex-1 bg-[var(--color-bg-primary)]">
+      <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6 py-8 space-y-6">
+        <header className="flex flex-wrap items-center justify-between gap-3 mb-8">
           <div>
-            <h1 className="text-xl font-semibold text-[var(--color-text-primary)] text-balance">课程镜像管理</h1>
+            <h1 className="text-xl font-medium text-[var(--color-text-primary)] text-balance">课程镜像管理</h1>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <select
@@ -580,7 +580,7 @@ export function CourseImageManagement() {
               <RefreshCw className="size-4" />
             </Button>
           </div>
-        </div>
+        </header>
 
         <div
           role="tablist"
@@ -626,8 +626,8 @@ export function CourseImageManagement() {
           })}
         </div>
 
-      {activeTab === 'preload' && (
-        <section
+        {activeTab === 'preload' && (
+          <section
           role="tabpanel"
           id="image-management-panel-preload"
           aria-labelledby="image-management-tab-preload"
@@ -759,8 +759,8 @@ export function CourseImageManagement() {
             </div>
           )}
 
-        </section>
-      )}
+          </section>
+        )}
 
       {activeTab === 'cleanup' && (
         <section
