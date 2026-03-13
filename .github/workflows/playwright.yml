@@ -67,19 +67,36 @@ jobs:
       - name: Install Playwright browsers and system deps
         run: pnpm exec playwright install --with-deps
 
-      - name: Start Playwright server
+      - name: Start server and run Playwright tests
         run: |
-          make playwright &
+          set -euo pipefail
+          make playwright > /tmp/playwright-server.log 2>&1 &
+          SERVER_PID=$!
+          cleanup() {
+            kill "${SERVER_PID}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
           for i in {1..60}; do
             if curl -sf http://localhost:3006/health >/dev/null; then
               echo "Server is ready"
               break
             fi
+            if ! kill -0 "${SERVER_PID}" 2>/dev/null; then
+              echo "Playwright server exited unexpectedly"
+              tail -n 200 /tmp/playwright-server.log || true
+              exit 1
+            fi
             sleep 2
           done
-
-      - name: Run Playwright tests
-        run: pnpm exec playwright test --reporter=html
+          if ! curl -sf http://localhost:3006/health >/dev/null; then
+            echo "Playwright server failed health check"
+            tail -n 200 /tmp/playwright-server.log || true
+            exit 1
+          fi
+          if ! pnpm exec playwright test --reporter=html; then
+            tail -n 200 /tmp/playwright-server.log || true
+            exit 1
+          fi
 
       - name: Upload Playwright HTML report
         if: always()

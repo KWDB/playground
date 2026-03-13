@@ -18,22 +18,34 @@
 
     ```ini
     [global]
+    # Whether to turn on secure mode
     secure_mode=tls
+    # Management KaiwuDB user
     management_user=kaiwudb
+    # KaiwuDB cluster http port
     rest_port=8080
+    # KaiwuDB service port
     kaiwudb_port=26257
-    # brpc_port=27257
+    # KaiwuDB brpc port
+    brpc_port=27257
+    # KaiwuDB data directory
     data_root=/var/lib/kaiwudb
-    cpu=1
-    encrypto_store=true
+    # CPU usage[0-1]
+    # cpu=1
 
     [local]
-    node_addr=your-host-ip
+    # local node configuration
+    node_addr=127.0.0.1
 
     # [cluster]
-    # node_addr=your-host-ip, your-host-ip
+    # remote node addr,split by ','
+    # node_addr=127.0.0.2
+    # ssh info
     # ssh_port=22
     # ssh_user=admin
+
+    # [additional]
+    # IPs=127.0.0.3,127.0.0.4
     ```
 
 3.  **为部署脚本添加可执行权限**
