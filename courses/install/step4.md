@@ -2,77 +2,46 @@
 
 在这一步中，我们将启动 KWDB 节点并连接到数据库。
 
-1.  **进入 kwabase 目录**
+1.  **启动 KWDB 节点**
 
-    切换至程序目录： `cd /usr/local/kaiwudb/bin`{{exec}}
-
-2.  **（可选）创建证书**
-
-    > 如果采用非安全模式体验，请跳过这一步。
-
-    创建证书存放目录：`mkdir -p certs`{{exec}}
-
-    创建数据库证书颁发机构及密钥：`./kwbase cert create-ca --certs-dir=certs --ca-key=certs/ca.key`{{exec}}
-
-    创建 root 用户或安装数据库用户的客户端证书及密钥：`./kwbase cert create-client root --certs-dir=certs --ca-key=certs/ca.key`{{exec}}
-
-    创建节点服务器证书及密钥：`./kwbase cert create-node 127.0.0.1 localhost 0.0.0.0 --certs-dir=certs --ca-key=certs/ca.key`{{exec}}
-
-3.  **启动数据库**
-
-    非安全模式：
-
-    ```bash {{exec}}
-    ./kwbase start-single-node --insecure \
-    --listen-addr=0.0.0.0:26257 \
-    --http-addr=0.0.0.0:8080 \
-    --store=/var/lib/kaiwudb \
-    --background
-    ```
-
-    安全模式：
-
-    ```bash {{exec}}
-    ./kwbase start-single-node \
-    --certs-dir=/usr/local/kaiwudb/bin/certs \
-    --listen-addr=0.0.0.0:26257 \
-    --http-addr=0.0.0.0:8080 \
-    --store=/var/lib/kaiwudb \
-    --background
-    ```
-
-    （可选）为了确保 KWDB 节点在系统启动时自动运行，我们需要将其配置为开机自启动服务。
-
-    `systemctl enable kaiwudb`{{exec}}
-
-<!-- 4.  **启动 KWDB 节点**
-
-    现在，我们可以启动 KWDB 节点了。
-
-    `./deploy.sh start`{{exec}}
+    `./deploy.sh start`{{exec}} 
 
     启动成功后，您会看到以下确认信息：
 
     ```log
-    START COMPLETED: KaiwuDB has started successfuly.
-    ``` -->
+    [START COMPLETED]:KaiwuDB start successfully.
+    ```
 
-4.  **检查节点状态**
+2.  **确认节点状态**
 
-    非安全模式：
+    - 在当前目录使用部署脚本检查节点状态： `./deploy.sh status`{{exec}}
+    - 在任一目录下使用 `systemctl` 命令: `systemctl status kaiwudb`{{exec}}
+    - 在任一目录下使用便捷脚本（推荐）: `kw-status`{{exec}}
 
-    `./kwbase node status --insecure --host=127.0.0.1`{{exec}}
+3.  **（可选）配置 KWDB 开机自启动。**
 
-    安全模式：
+    配置 KWDB 开机自启动后，如果系统重启，则自动启动 KWDB。
 
-    `./kwbase node status --certs-dir=certs --host=127.0.0.1`{{exec}}
+     `systemctl enable kaiwudb`{{exec}}
 
-    如果一切顺利，您将看到节点的运行状态信息。
+4.  **（可选）创建数据库用户**
+
+    执行 `add_user.sh`{{exec}} 脚本创建数据库用户。如果跳过该步骤，系统将默认使用部署数据库时使用的用户，且无需密码访问数据库。
+
+    ```text
+    ./add_user.sh
+    Please enter the username: 
+    Please enter the password: 
+    ```
+
+    执行成功后，控制台输出以下信息：
+
+    ```text
+    [ADD USER COMPLETED]:User creation completed.
+    ```
 
 5.  **连接到数据库**
 
-    非安全模式（不带密码）连接到数据库： `./kwbase sql --insecure --host=127.0.0.1`{{exec}}
-
-    安全模式（带密码）连接到数据库： `./kwbase sql --certs-dir=certs --host=127.0.0.1`{{exec}}
+    使用内置脚本：执行 `kw-sql`{{exec}} 使用 root 用户登录数据库
 
 完成这些步骤后，您的 KWDB 单节点实例就已经成功安装并运行了。在最后一个步骤中，我们将连接到数据库并进行简单的交互。

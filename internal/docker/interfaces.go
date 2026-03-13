@@ -134,6 +134,8 @@ type Controller interface {
 	CheckImageAvailability(ctx context.Context, imageName string) (*ImageAvailability, error)
 	// IsImageLocal 检查镜像是否已经存在于本地缓存
 	IsImageLocal(ctx context.Context, imageName string) (bool, error)
+	// GetLocalImageSize 获取本地镜像大小（字节）
+	GetLocalImageSize(ctx context.Context, imageName string) (int64, error)
 	// RemoveLocalImage 删除本地镜像缓存
 	RemoveLocalImage(ctx context.Context, imageName string) error
 

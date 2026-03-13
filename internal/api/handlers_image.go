@@ -27,14 +27,15 @@ type preloadCourseImageResult struct {
 }
 
 type courseImageDiagnosticResult struct {
-	CourseID    string    `json:"courseId"`
-	Title       string    `json:"title"`
-	ImageName   string    `json:"imageName"`
-	Available   bool      `json:"available"`
-	LocalCached bool      `json:"localCached"`
-	Message     string    `json:"message"`
-	CheckedAt   time.Time `json:"checkedAt"`
-	SourceHint  string    `json:"sourceHint"`
+	CourseID            string    `json:"courseId"`
+	Title               string    `json:"title"`
+	ImageName           string    `json:"imageName"`
+	Available           bool      `json:"available"`
+	LocalCached         bool      `json:"localCached"`
+	LocalImageSizeBytes int64     `json:"localImageSizeBytes"`
+	Message             string    `json:"message"`
+	CheckedAt           time.Time `json:"checkedAt"`
+	SourceHint          string    `json:"sourceHint"`
 }
 
 type cleanupCourseImagesRequest struct {
@@ -180,6 +181,10 @@ func (h *Handler) buildCourseImageDiagnostic(ctx context.Context, courseID strin
 	result.Available = localCached
 	result.LocalCached = localCached
 	if localCached {
+		sizeBytes, sizeErr := h.dockerController.GetLocalImageSize(ctx, imageName)
+		if sizeErr == nil && sizeBytes > 0 {
+			result.LocalImageSizeBytes = sizeBytes
+		}
 		result.Message = "镜像在本地可用"
 		result.SourceHint = "镜像已在本地缓存，可直接执行清理或启动课程"
 	} else {
@@ -398,12 +403,14 @@ func (h *Handler) cleanupAllCourseImages(c *gin.Context) {
 	targetImages, imageToCourses := collectCourseImages(courses, nil, sourcePrefix)
 	if len(targetImages) == 0 {
 		c.JSON(http.StatusOK, docker.LocalImageCleanupResult{
-			Success:      true,
-			Message:      "当前课程未配置可清理镜像",
-			Total:        0,
-			SuccessCount: 0,
-			FailureCount: 0,
-			Results:      []docker.LocalImageCleanupItem{},
+			Success:            true,
+			Message:            "当前课程未配置可清理镜像",
+			Total:              0,
+			SuccessCount:       0,
+			FailureCount:       0,
+			RemovedCount:       0,
+			TotalReleasedBytes: 0,
+			Results:            []docker.LocalImageCleanupItem{},
 		})
 		return
 	}
@@ -424,6 +431,8 @@ func (h *Handler) executeLocalImageCleanup(
 	results := make([]docker.LocalImageCleanupItem, 0, len(targetImages))
 	successCount := 0
 	failureCount := 0
+	removedCount := 0
+	totalReleasedBytes := int64(0)
 
 	for _, imageName := range targetImages {
 		item := buildLocalImageCleanupItem(imageName, imageToCourses[imageName])
@@ -445,6 +454,10 @@ func (h *Handler) executeLocalImageCleanup(
 			continue
 		}
 
+		sizeBytes, sizeErr := h.dockerController.GetLocalImageSize(ctx, imageName)
+		if sizeErr != nil {
+			sizeBytes = 0
+		}
 		if err := h.dockerController.RemoveLocalImage(ctx, imageName); err != nil {
 			item.Status = "failed"
 			item.Message = err.Error()
@@ -455,8 +468,11 @@ func (h *Handler) executeLocalImageCleanup(
 
 		item.Status = "removed"
 		item.Message = "本地镜像已删除"
+		item.ReleasedBytes = sizeBytes
 		results = append(results, item)
 		successCount++
+		removedCount++
+		totalReleasedBytes += sizeBytes
 	}
 
 	resultMessage := fmt.Sprintf("镜像清理完成：成功 %d，失败 %d。", successCount, failureCount)
@@ -464,12 +480,14 @@ func (h *Handler) executeLocalImageCleanup(
 		resultMessage = "未匹配到可清理镜像"
 	}
 	return docker.LocalImageCleanupResult{
-		Success:      failureCount == 0,
-		Message:      resultMessage,
-		Total:        len(targetImages),
-		SuccessCount: successCount,
-		FailureCount: failureCount,
-		Results:      results,
+		Success:            failureCount == 0,
+		Message:            resultMessage,
+		Total:              len(targetImages),
+		SuccessCount:       successCount,
+		FailureCount:       failureCount,
+		RemovedCount:       removedCount,
+		TotalReleasedBytes: totalReleasedBytes,
+		Results:            results,
 	}
 }
 

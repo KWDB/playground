@@ -18,22 +18,34 @@
 
     ```ini
     [global]
+    # Whether to turn on secure mode
     secure_mode=tls
+    # Management KaiwuDB user
     management_user=kaiwudb
+    # KaiwuDB cluster http port
     rest_port=8080
+    # KaiwuDB service port
     kaiwudb_port=26257
-    # brpc_port=27257
+    # KaiwuDB brpc port
+    brpc_port=27257
+    # KaiwuDB data directory
     data_root=/var/lib/kaiwudb
-    cpu=1
-    encrypto_store=true
+    # CPU usage[0-1]
+    # cpu=1
 
     [local]
-    node_addr=your-host-ip
+    # local node configuration
+    node_addr=127.0.0.1
 
     # [cluster]
-    # node_addr=your-host-ip, your-host-ip
+    # remote node addr,split by ','
+    # node_addr=127.0.0.2
+    # ssh info
     # ssh_port=22
     # ssh_user=admin
+
+    # [additional]
+    # IPs=127.0.0.3,127.0.0.4
     ```
 
 3.  **为部署脚本添加可执行权限**
@@ -50,19 +62,17 @@
 
 `deploy.cfg` 文件是 KaiwuDB 部署的核心，它定义了数据库的各项关键参数。
 
--   **`[global]` 部分**：全局配置
-    -   `secure_mode=tls`: 启用 TLS 安全模式，保障数据传输安全。
-    -   `management_user=kaiwudb`: 指定数据库的管理用户名。
-    -   `rest_port=8080`: REST API 服务的端口。
-    -   `kaiwudb_port=26257`: KaiwuDB 数据库的主服务端口。
-    -   `data_root=/var/lib/kaiwudb`: 数据文件的存储根目录。
-    -   `cpu=1`: 限制数据库使用的 CPU 核心数。
-    -   `encrypto_store=true`: 启用静态数据加密，保护存储在磁盘上的数据。
-
--   **`[local]` 部分**：本地节点配置
-    -   `node_addr=your-host-ip`: 本地节点的 IP 地址。**请务必将其替换为您的实际主机 IP**。
-
--   **`[cluster]` 部分** (已注释)
-    -   这部分用于配置集群模式。在单节点部署中，我们需要将其注释掉。
+- `global`：全局配置
+    - `secure_mode`：是否开启安全模式，支持以下两种取值：
+    - `insecure`：使用非安全模式。
+    - `tls`：（默认选项）开启 TLS 安全模式。开启安全模式后，KWDB 生成 TLS 证书，作为客户端或应用程序连接数据库的凭证。生成的客户端相关证书存放在 `/etc/kaiwudb/certs` 目录。
+    - `management_user`：KWDB 的管理用户，默认为 `kaiwudb`。安装部署后，KWDB 创建相应的管理用户以及和管理用户同名的用户组。
+    - `rest_port`：KWDB Web 服务端口，默认为 `8080`。
+    - `kaiwudb_port`：KWDB 服务端口，默认为 `26257`。
+    - `brpc_port`：KWDB 时序引擎间的 brpc 通信端口，用于节点间通信。单节点部署时系统会自动忽略该设置。
+    - `data_root`：数据目录，默认为 `/var/lib/kaiwudb`。
+    - `cpu`：可选参数，用于指定 KWDB 服务占用当前节点服务器 CPU 资源的比例，默认无限制。取值范围为 `[0,1]`，最大精度为小数点后两位。**注意**：如果部署环境为 Ubuntu 18.04 版本，部署集群后，需要将 `kaiwudb.service` 文件中的 `CPUQuota` 修改为整型值，例如，将 `180.0%` 修改为 `180%`，以确保设置生效。具体操作步骤，参见[配置 CPU 资源占用率](https://www.kaiwudb.com/template_version/pc/doc/oss_dev/deployment/cluster-config/cluster-config-bare-metal.html#%E9%85%8D%E7%BD%AE-cpu-%E8%B5%84%E6%BA%90%E5%8D%A0%E7%94%A8%E7%8E%87)。
+- `local`：本地节点配置
+    - `node_addr`：本地节点对外提供服务的 IP 地址，监听地址为 `0.0.0.0`，端口为 KWDB 服务端口。
 
 完成以上配置后，我们就可以在下一步中正式开始安装 KWDB 了。

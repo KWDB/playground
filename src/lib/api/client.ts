@@ -22,6 +22,11 @@ const DEFAULT_TIMEOUT = 30000
 const DEFAULT_RETRIES = 2
 const BASE_URL = '/api'
 
+type RequestConfig = {
+  timeout?: number
+  retries?: number
+}
+
 class ApiClientError extends Error {
   constructor(
     message: string,
@@ -36,28 +41,35 @@ class ApiClientError extends Error {
 export async function request<T>(
   endpoint: string,
   options: RequestInit = {},
-  config: { timeout?: number; retries?: number } = {}
+  config: RequestConfig = {}
 ): Promise<T> {
   const { timeout = DEFAULT_TIMEOUT, retries = DEFAULT_RETRIES } = config
   const url = `${BASE_URL}${endpoint}`
 
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeout)
-
   let lastError: Error | undefined
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController()
+    const requestSignal = options.signal
+    const onAbort = () => {
+      controller.abort()
+    }
+    if (requestSignal?.aborted) {
+      controller.abort()
+    } else if (requestSignal) {
+      requestSignal.addEventListener('abort', onAbort, { once: true })
+    }
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
     try {
+      const { signal: _ignoredSignal, ...restOptions } = options
       const response = await fetch(url, {
-        ...options,
+        ...restOptions,
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           ...options.headers,
         },
       })
-
-      clearTimeout(timeoutId)
 
       const contentType = response.headers.get('content-type') || ''
       let payload: unknown = null
@@ -89,6 +101,21 @@ export async function request<T>(
     } catch (error) {
       lastError = error as Error
 
+      const isAbortError =
+        error instanceof DOMException
+          ? error.name === 'AbortError' || error.name === 'TimeoutError'
+          : error instanceof Error
+            ? error.name === 'AbortError' || error.name === 'TimeoutError'
+            : false
+      if (isAbortError) {
+        if (requestSignal?.aborted) {
+          throw new ApiClientError('请求已取消')
+        }
+        if (attempt >= retries) {
+          throw new ApiClientError(`请求超时（>${Math.floor(timeout / 1000)}s），请稍后重试`)
+        }
+      }
+
       if (error instanceof ApiClientError && error.statusCode && error.statusCode < 500) {
         throw error
       }
@@ -100,6 +127,11 @@ export async function request<T>(
       }
 
       throw lastError
+    } finally {
+      clearTimeout(timeoutId)
+      if (requestSignal) {
+        requestSignal.removeEventListener('abort', onAbort)
+      }
     }
   }
 
@@ -221,12 +253,16 @@ export const api = {
       return request<CourseImageDiagnosticsResponse>(`/images/course-diagnostics${query}`, { signal: options?.signal })
     },
 
-    preload: (payload: PreloadCourseImagesRequest, signal?: AbortSignal): Promise<PreloadCourseImagesResponse> =>
+    preload: (
+      payload: PreloadCourseImagesRequest,
+      signal?: AbortSignal,
+      config?: RequestConfig
+    ): Promise<PreloadCourseImagesResponse> =>
       request<PreloadCourseImagesResponse>('/images/preload', {
         method: 'POST',
         body: JSON.stringify(payload),
         signal,
-      }),
+      }, config),
 
     cleanup: (payload: CleanupCourseImagesRequest, signal?: AbortSignal): Promise<LocalImageCleanupResult> =>
       request<LocalImageCleanupResult>('/images/cleanup', {

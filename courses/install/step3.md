@@ -8,7 +8,26 @@
 
     `./deploy.sh install --single`{{exec}}
 
-2.  **设置初始密码**
+2.  **确认安装信息**
+
+    检查配置无误后输入 `Y` 或 `y`，如需返回修改 `deploy.cfg` 配置文件，输入 `N` 或 `n`。
+
+    ```text
+    ================= KaiwuDB Basic Info =================
+    Deploy Mode: bare-metal
+    Start Mode: single
+    RESTful Port: 8080
+    KaiwuDB Port: 26257
+    BRPC Port: 27257
+    Data Root: /var/lib/kaiwudb
+    Secure Mode: tls
+    CPU Usage Limit: unlimited
+    Local Node Address: 127.0.0.1
+    ======================================================
+    Please confirm the installation information above(Y/n):
+    ```
+
+3.  **设置初始密码**
 
     安装脚本会提示您为创建的系统用户设置密码。请输入一个安全的密码并牢记它。
 

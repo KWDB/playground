@@ -107,6 +107,7 @@ export interface CourseImageDiagnosticResult {
   imageName: string
   available: boolean
   localCached: boolean
+  localImageSizeBytes: number
   message: string
   checkedAt: string
   sourceHint: string
@@ -148,6 +149,7 @@ export interface LocalImageCleanupItem {
   message: string
   courseIds: string[]
   courseTitles: string[]
+  releasedBytes: number
 }
 
 export interface LocalImageCleanupResult {
@@ -156,5 +158,7 @@ export interface LocalImageCleanupResult {
   total: number
   successCount: number
   failureCount: number
+  removedCount: number
+  totalReleasedBytes: number
   results: LocalImageCleanupItem[]
 }

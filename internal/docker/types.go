@@ -72,20 +72,23 @@ type CleanupResult struct {
 }
 
 type LocalImageCleanupItem struct {
-	ImageName    string   `json:"imageName"`
-	Status       string   `json:"status"`
-	Message      string   `json:"message"`
-	CourseIDs    []string `json:"courseIds"`
-	CourseTitles []string `json:"courseTitles"`
+	ImageName     string   `json:"imageName"`
+	Status        string   `json:"status"`
+	Message       string   `json:"message"`
+	CourseIDs     []string `json:"courseIds"`
+	CourseTitles  []string `json:"courseTitles"`
+	ReleasedBytes int64    `json:"releasedBytes"`
 }
 
 type LocalImageCleanupResult struct {
-	Success      bool                    `json:"success"`
-	Message      string                  `json:"message"`
-	Total        int                     `json:"total"`
-	SuccessCount int                     `json:"successCount"`
-	FailureCount int                     `json:"failureCount"`
-	Results      []LocalImageCleanupItem `json:"results"`
+	Success            bool                    `json:"success"`
+	Message            string                  `json:"message"`
+	Total              int                     `json:"total"`
+	SuccessCount       int                     `json:"successCount"`
+	FailureCount       int                     `json:"failureCount"`
+	RemovedCount       int                     `json:"removedCount"`
+	TotalReleasedBytes int64                   `json:"totalReleasedBytes"`
+	Results            []LocalImageCleanupItem `json:"results"`
 }
 
 // containerStateCache 缓存容器状态信息以减少API调用
