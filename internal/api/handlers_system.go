@@ -37,3 +37,15 @@ func (h *Handler) envCheck(c *gin.Context) {
 	summary := check.RunFromService(h.courseService, h.cfg.Server.Host, h.cfg.Server.Port)
 	c.JSON(http.StatusOK, summary)
 }
+
+func (h *Handler) pageEnvCheck(c *gin.Context) {
+	if h.logger != nil {
+		h.logger.Info("Handling /api/env-check request")
+	}
+	if h.cfg == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "配置未初始化"})
+		return
+	}
+	summary := check.RunPageFromService(h.cfg.Server.Host, h.cfg.Server.Port)
+	c.JSON(http.StatusOK, summary)
+}

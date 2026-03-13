@@ -200,4 +200,10 @@ func TestSystemHandlers(t *testing.T) {
 	if wEnv.Code != http.StatusInternalServerError {
 		t.Fatalf("envCheck(nil cfg) expected 500, got %d", wEnv.Code)
 	}
+
+	cPageEnv, wPageEnv := makeJSONContext(http.MethodGet, ``)
+	h2.pageEnvCheck(cPageEnv)
+	if wPageEnv.Code != http.StatusInternalServerError {
+		t.Fatalf("pageEnvCheck(nil cfg) expected 500, got %d", wPageEnv.Code)
+	}
 }

@@ -2,11 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { filterVisibleEnvCheckItems, type EnvCheckItem } from '@/components/business/envCheckItems';
-
-type Summary = {
-  ok: boolean;
-  items: EnvCheckItem[];
-};
+import { getEnvCheckSummary, invalidateEnvCheckSummaryCache, type EnvCheckSummary } from '@/lib/envCheck';
 
 function parseMirrorAvailabilityMessage(message: string): { available: string[]; unavailable: string[] } | null {
   const trimmed = message.trim();
@@ -29,19 +25,17 @@ function parseMirrorAvailabilityMessage(message: string): { available: string[];
 }
 
 export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpanded?: boolean }) {
-  const [data, setData] = useState<Summary | null>(null);
+  const [data, setData] = useState<EnvCheckSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const load = async () => {
+  const load = async (force = false) => {
     setLoading(true);
     setError(null);
     try {
-      let resp = await fetch('/api/doctor');
-      if (!resp.ok) {
-        resp = await fetch('/api/check');
+      if (force) {
+        invalidateEnvCheckSummaryCache();
       }
-      if (!resp.ok) throw new Error('环境检测接口返回错误');
-      const json: Summary = await resp.json();
+      const json = await getEnvCheckSummary(force);
       setData(json);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '环境检测失败');
@@ -223,7 +217,7 @@ export default function EnvCheckPanel({ alwaysExpanded = false }: { alwaysExpand
                   </p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={load} className="gap-1.5">
+              <Button variant="ghost" size="sm" onClick={() => load(true)} className="gap-1.5">
                 <RefreshCw className="w-4 h-4" />
                 重新检测
               </Button>

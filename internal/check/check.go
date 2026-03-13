@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"kwdb-playground/internal/config"
@@ -32,6 +33,16 @@ const (
 	ItemNameProgress       = "进度文件"
 	ItemNameProcessFile    = "进程文件 (tmp/kwdb-playground.pid)"
 	ItemNameExecutablePath = "程序可执行文件位置"
+	imageSourcesCacheTTL   = 45 * time.Second
+)
+
+var (
+	imageSourcesCacheMu      sync.RWMutex
+	imageSourcesCacheAt      time.Time
+	imageSourcesCacheOK      bool
+	imageSourcesCacheMessage string
+	imageSourcesCacheDetails string
+	probeRegistryV2Func      = probeRegistryV2
 )
 
 // Item 单项检查结果
@@ -90,6 +101,44 @@ func RunFromService(svc *course.Service, host string, port int) Summary {
 
 	serviceOK, serviceMsg := ServiceHealth(host, port)
 	items = append(items, Item{Name: fmt.Sprintf("服务健康检查 (%s:%d)", host, port), OK: serviceOK, Message: serviceMsg})
+
+	ok := true
+	for _, it := range items {
+		if !it.OK {
+			ok = false
+		}
+	}
+	return Summary{OK: ok, Items: items}
+}
+
+func RunPageFromService(host string, port int) Summary {
+	var dockerItem Item
+	var imageItem Item
+	var serviceItem Item
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		dockerOK, dockerMsg, dockerDetails := DockerEnv()
+		dockerItem = Item{Name: ItemNameDockerEnv, OK: dockerOK, Message: dockerMsg, Details: dockerDetails}
+	}()
+
+	go func() {
+		defer wg.Done()
+		imageOK, imageMsg, imageDetails := ImageSourcesAvailability()
+		imageItem = Item{Name: ItemNameImageSources, OK: imageOK, Message: imageMsg, Details: imageDetails}
+	}()
+
+	go func() {
+		defer wg.Done()
+		serviceOK, serviceMsg := ServiceHealth(host, port)
+		serviceItem = Item{Name: fmt.Sprintf("服务健康检查 (%s:%d)", host, port), OK: serviceOK, Message: serviceMsg}
+	}()
+
+	wg.Wait()
+	items := []Item{dockerItem, imageItem, serviceItem}
 
 	ok := true
 	for _, it := range items {
@@ -628,6 +677,16 @@ func probeHealthStatus(hosts []string, port int, timeout time.Duration) (int, st
 }
 
 func ImageSourcesAvailability() (bool, string, string) {
+	imageSourcesCacheMu.RLock()
+	if !imageSourcesCacheAt.IsZero() && time.Since(imageSourcesCacheAt) < imageSourcesCacheTTL {
+		ok := imageSourcesCacheOK
+		msg := imageSourcesCacheMessage
+		details := imageSourcesCacheDetails
+		imageSourcesCacheMu.RUnlock()
+		return ok, msg, details
+	}
+	imageSourcesCacheMu.RUnlock()
+
 	type registry struct {
 		label string
 		url   string
@@ -649,7 +708,7 @@ func ImageSourcesAvailability() (bool, string, string) {
 
 	results := make([]probeResult, 0, len(registries))
 	for _, r := range registries {
-		code, ok, err := probeRegistryV2(r.url)
+		code, ok, err := probeRegistryV2Func(r.url)
 		results = append(results, probeResult{
 			label:      r.label,
 			url:        r.url,
@@ -681,7 +740,16 @@ func ImageSourcesAvailability() (bool, string, string) {
 	}
 
 	if okCount == 0 {
-		return false, "未检测到可用镜像源（至少需要一个可访问的 registry）", strings.Join(lines, "\n")
+		ok := false
+		msg := "未检测到可用镜像源（至少需要一个可访问的 registry）"
+		details := strings.Join(lines, "\n")
+		imageSourcesCacheMu.Lock()
+		imageSourcesCacheAt = time.Now()
+		imageSourcesCacheOK = ok
+		imageSourcesCacheMessage = msg
+		imageSourcesCacheDetails = details
+		imageSourcesCacheMu.Unlock()
+		return ok, msg, details
 	}
 
 	msg := ""
@@ -690,7 +758,15 @@ func ImageSourcesAvailability() (bool, string, string) {
 	} else {
 		msg = fmt.Sprintf("可用：%s；不可用：%s", strings.Join(available, ", "), strings.Join(unavailable, ", "))
 	}
-	return true, msg, strings.Join(lines, "\n")
+	ok := true
+	details := strings.Join(lines, "\n")
+	imageSourcesCacheMu.Lock()
+	imageSourcesCacheAt = time.Now()
+	imageSourcesCacheOK = ok
+	imageSourcesCacheMessage = msg
+	imageSourcesCacheDetails = details
+	imageSourcesCacheMu.Unlock()
+	return ok, msg, details
 }
 
 func probeRegistryV2(url string) (int, bool, error) {
