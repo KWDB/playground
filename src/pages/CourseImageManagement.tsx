@@ -243,6 +243,21 @@ export function CourseImageManagement() {
   }, [diagnostics])
 
   const failedPreloadResults = useMemo(() => preloadResults.filter((item) => item.status === 'failed'), [preloadResults])
+  const hasPreloadTargets = courseImageGroups.length > 0
+  const allImagesPreloaded = hasPreloadTargets && courseImageGroups.every((group) => localReadyImages.has(group.imageName))
+  const hasCleanupTargets = cleanupImageGroups.length > 0
+  const preloadAllButtonHint = loadingState.preload
+    ? '正在拉取镜像，请稍候'
+    : !hasPreloadTargets
+      ? '当前没有可拉取的镜像'
+      : allImagesPreloaded
+        ? '所有镜像均已拉取完成'
+        : '拉取全部镜像'
+  const cleanupAllButtonHint = loadingState.cleanupAll
+    ? '正在清理镜像，请稍候'
+    : !hasCleanupTargets
+      ? '当前没有可清理的镜像'
+      : '清理全部本地镜像'
   const preloadProgressPercent = useMemo(() => {
     if (preloadProgress.total <= 0) {
       return 0
@@ -375,6 +390,24 @@ export function CourseImageManagement() {
   }, [activeTab, tabLoaded.preload, tabLoaded.cleanup, tabLoaded.diagnostics, loadPreloadTabData, loadCleanupTabData, loadDiagnosticsTabData])
 
   useEffect(() => {
+    setSectionFeedback((prev) => ({
+      ...prev,
+      preload: null,
+      cleanup: null,
+    }))
+    setPreloadResults([])
+    setCleanupResults([])
+    setPreloadProgress({
+      total: 0,
+      completed: 0,
+      pulled: 0,
+      cached: 0,
+      failed: 0,
+      currentImageName: '',
+    })
+  }, [selectedSourceId, customSourcePrefix])
+
+  useEffect(() => {
     if (selectedSourceId === 'custom' && !customSourcePrefix.trim()) {
       return
     }
@@ -493,6 +526,16 @@ export function CourseImageManagement() {
   }
 
   const handlePreloadAll = async () => {
+    if (allImagesPreloaded) {
+      setSectionFeedback((prev) => ({
+        ...prev,
+        preload: {
+          tone: 'success',
+          message: '当前镜像均已在本地缓存，无需重复拉取。',
+        },
+      }))
+      return
+    }
     if (courses.length === 0) {
       setSectionFeedback((prev) => ({
         ...prev,
@@ -620,6 +663,16 @@ export function CourseImageManagement() {
   }
 
   const handleCleanupAll = async () => {
+    if (!hasCleanupTargets) {
+      setSectionFeedback((prev) => ({
+        ...prev,
+        cleanup: {
+          tone: 'info',
+          message: '当前没有可清理的本地镜像。',
+        },
+      }))
+      return
+    }
     setLoadingState((prev) => ({ ...prev, cleanupAll: true }))
     setSectionFeedback((prev) => ({
       ...prev,
@@ -841,7 +894,15 @@ export function CourseImageManagement() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="primary" onClick={handlePreloadAll} loading={loadingState.preload} className="gap-1.5 whitespace-nowrap">
+              <Button
+                variant="primary"
+                onClick={handlePreloadAll}
+                loading={loadingState.preload}
+                disabled={loadingState.preload || !hasPreloadTargets || allImagesPreloaded}
+                aria-label={preloadAllButtonHint}
+                title={preloadAllButtonHint}
+                className="gap-1.5 whitespace-nowrap"
+              >
                 <Download className="size-4" />
                 拉取全部
               </Button>
@@ -1001,6 +1062,9 @@ export function CourseImageManagement() {
                 variant="danger"
                 onClick={() => setConfirmCleanupAll(true)}
                 loading={loadingState.cleanupAll}
+                disabled={loadingState.cleanupAll || !hasCleanupTargets}
+                aria-label={cleanupAllButtonHint}
+                title={cleanupAllButtonHint}
                 className="gap-1.5"
               >
                 <Trash2 className="size-4" />
