@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { clsx, type ClassValue } from 'clsx';
 
 function cn(...inputs: ClassValue[]) {
@@ -79,6 +80,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
   }, [isOpen, currentStep, totalSteps, onNext, onPrev, onSkip]);
 
   if (!isOpen || !targetRect) return null;
+  if (typeof document === 'undefined') return null;
 
   const getTooltipStyle = () => {
     if (!targetRect) return {};
@@ -159,7 +161,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
     return style;
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 overflow-hidden" data-testid="tour-tooltip">
 
       <div
@@ -225,6 +227,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

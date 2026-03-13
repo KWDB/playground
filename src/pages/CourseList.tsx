@@ -8,6 +8,7 @@ import ProposeCourseCard from '../components/business/ProposeCourseCard';
 import { useDebounce } from '../hooks/useDebounce';
 import PinyinMatch from 'pinyin-match';
 import { AlertDialog, Button, Dialog, DialogContent, DialogTitle } from '@/components/ui/Button';
+import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { useTourStore } from '@/store/tourStore';
 import { TourTooltip } from '@/components/ui/TourTooltip';
 import { getStepsForPage, getTotalSteps } from '@/config/tourSteps';
@@ -655,7 +656,7 @@ export function CourseList() {
                             ? 'bg-[#f3e8ff] text-[#f32bd8ff] border-[#f32bd8ff] shadow-sm'
                             : type.value === 'shell'
                             ? 'bg-[#dcfce7] text-[#16a34a] border-[#16a34a] shadow-sm'
-                            : 'bg-[var(--color-text-primary)] text-white border-[var(--color-text-primary)] shadow-sm'
+                            : 'bg-[var(--color-accent-primary)] text-white border-[var(--color-accent-primary)] shadow-sm'
                           : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)]'
                       }`}
                     >
@@ -688,7 +689,7 @@ export function CourseList() {
                             ? 'bg-[rgba(59,130,246,0.1)] text-[#3b82f6] border-[#3b82f6] shadow-sm'
                             : status.value === 'pending'
                             ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] border-[var(--color-text-tertiary)] shadow-sm'
-                            : 'bg-[var(--color-text-primary)] text-white border-[var(--color-text-primary)] shadow-sm'
+                            : 'bg-[var(--color-accent-primary)] text-white border-[var(--color-accent-primary)] shadow-sm'
                           : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)]'
                       }`}
                     >
@@ -806,229 +807,233 @@ export function CourseList() {
 
               if (viewMode === 'list') {
                 return (
-                  <Link
-                    to={`/learn/${course.id}`}
-                    key={course.id}
-                    data-tour-id={index === 0 ? 'course-card-first' : undefined}
-                    className={`
-                      group flex items-center gap-4 p-5 rounded-xl 
-                      border bg-[var(--color-bg-primary)]
-                      transition-all duration-200 ease-out
-                      hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5
-                      active:translate-y-0 active:shadow-[var(--shadow-sm)]
-                      ${isRunning 
-                        ? course.sqlTerminal 
-                          ? 'border-l-[3px] border-l-[var(--color-accent-primary)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
-                          : course.codeTerminal
-                          ? 'border-l-[3px] border-l-[#f32bd8ff] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
-                          : 'border-l-[3px] border-l-[#3b82f6] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
-                        : course.sqlTerminal
-                          ? 'border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]'
-                          : course.codeTerminal
-                          ? 'border-[var(--color-border-light)] hover:border-[#f32bd8ff]'
-                          : 'border-[var(--color-border-light)] hover:border-[#3b82f6]'
-                      }
-                    `}
-                  >
-                    <div className={`
-                      flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
-                      transition-colors duration-200 border-2
-                      ${course.sqlTerminal 
-                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-border-default)] group-hover:border-[var(--color-accent-primary)]' 
-                        : course.codeTerminal
-                        ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
-                        : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
-                      }
-                    `}>
-                      {course.sqlTerminal ? (
-                        <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
-                      ) : course.codeTerminal ? (
-                        <Code className="w-5 h-5 text-[#f32bd8ff]" />
-                      ) : (
-                        <Terminal className="w-5 h-5 text-[#3b82f6]" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
-                          {course.title}
-                        </h3>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          course.sqlTerminal 
-                            ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
+                  <ScrollReveal key={course.id} delay={Math.min(index * 35, 240)}>
+                    <Link
+                      to={`/learn/${course.id}`}
+                      data-tour-id={index === 0 ? 'course-card-first' : undefined}
+                      className={`
+                        group flex items-center gap-4 p-5 rounded-xl 
+                        border bg-[var(--color-bg-primary)]
+                        transition-all duration-200 ease-out
+                        hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5
+                        active:translate-y-0 active:shadow-[var(--shadow-sm)]
+                        ${isRunning 
+                          ? course.sqlTerminal 
+                            ? 'border-l-[3px] border-l-[var(--color-accent-primary)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
                             : course.codeTerminal
-                            ? 'bg-[#f3e8ff] text-[#f32bd8ff] border border-[#f32bd8ff]/40'
-                            : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
-                        }`}>
-                          {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
-                        </span>
+                            ? 'border-l-[3px] border-l-[#f32bd8ff] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
+                            : 'border-l-[3px] border-l-[#3b82f6] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
+                          : course.sqlTerminal
+                            ? 'border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]'
+                            : course.codeTerminal
+                            ? 'border-[var(--color-border-light)] hover:border-[#f32bd8ff]'
+                            : 'border-[var(--color-border-light)] hover:border-[#3b82f6]'
+                        }
+                      `}
+                    >
+                      <div className={`
+                        flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
+                        transition-colors duration-200 border-2
+                        ${course.sqlTerminal 
+                          ? 'bg-[var(--color-accent-subtle)] border-[var(--color-border-default)] group-hover:border-[var(--color-accent-primary)]' 
+                          : course.codeTerminal
+                          ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
+                          : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
+                        }
+                      `}>
+                        {course.sqlTerminal ? (
+                          <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
+                        ) : course.codeTerminal ? (
+                          <Code className="w-5 h-5 text-[#f32bd8ff]" />
+                        ) : (
+                          <Terminal className="w-5 h-5 text-[#3b82f6]" />
+                        )}
                       </div>
-                      <p className="text-xs text-[var(--color-text-tertiary)] truncate leading-relaxed">
-                        {course.description}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
-                        course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
-                        course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
-                        'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
-                      }`}>
-                        {getDifficultyLabel(course.difficulty)}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
-                        <Clock className="w-3.5 h-3.5" />
-                        {course.estimatedMinutes} 分钟
-                      </span>
-                      {progressMap[course.id]?.completed ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          已完成
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
+                            {course.title}
+                          </h3>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            course.sqlTerminal 
+                              ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
+                              : course.codeTerminal
+                              ? 'bg-[#f3e8ff] text-[#f32bd8ff] border border-[#f32bd8ff]/40'
+                              : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
+                          }`}>
+                            {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-tertiary)] truncate leading-relaxed">
+                          {course.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
+                          course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
+                          course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
+                          'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
+                        }`}>
+                          {getDifficultyLabel(course.difficulty)}
                         </span>
-                      ) : progressMap[course.id] ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
-                          进行中 ({course.totalSteps ? Math.round((progressMap[course.id].stepIndex + 1) / course.totalSteps * 100) : 0}%)
+                        <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
+                          <Clock className="w-3.5 h-3.5" />
+                          {course.estimatedMinutes} 分钟
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
-                          <Circle className="w-3.5 h-3.5" />
-                          待学习
-                        </span>
-                      )}
-                      {isRunning && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
-                          运行中
-                        </span>
-                      )}
-                      {isPaused && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-                          已暂停
-                        </span>
-                      )}
-                    </div>
-                  </Link>
+                        {progressMap[course.id]?.completed ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            已完成
+                          </span>
+                        ) : progressMap[course.id] ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                            进行中 ({course.totalSteps ? Math.round((progressMap[course.id].stepIndex + 1) / course.totalSteps * 100) : 0}%)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                            <Circle className="w-3.5 h-3.5" />
+                            待学习
+                          </span>
+                        )}
+                        {isRunning && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
+                            运行中
+                          </span>
+                        )}
+                        {isPaused && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
+                            已暂停
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  </ScrollReveal>
                 );
               }
 
               return (
-                <Link
-                  to={`/learn/${course.id}`}
-                  key={course.id}
-                  data-tour-id={index === 0 ? 'course-card-first' : undefined}
-                  className={`
-                    group block p-5 rounded-xl
-                    border transition-all duration-200 ease-out
-                    hover:shadow-md hover:-translate-y-0.5
-                    active:translate-y-0 active:shadow-sm
-                    ${
-                      courseStatus === 'completed'
-                        ? 'bg-[var(--color-success-subtle)] border-[var(--color-success)] hover:border-[var(--color-success)]'
-                        : courseStatus === 'in-progress'
-                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)] hover:border-[var(--color-accent-primary)]'
-                        : 'bg-[var(--color-bg-primary)] border-[var(--color-border-default)] hover:border-[var(--color-border-dark)]'
-                    }
-                  `}
-                >
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className={`
-                      flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
-                      transition-colors duration-200 border-2
-                      ${course.sqlTerminal 
-                        ? 'bg-[var(--color-accent-subtle)] border-[var(--color-border-default)] group-hover:border-[var(--color-accent-primary)]' 
-                        : course.codeTerminal
-                        ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
-                        : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
+                <ScrollReveal key={course.id} delay={Math.min(index * 35, 240)}>
+                  <Link
+                    to={`/learn/${course.id}`}
+                    data-tour-id={index === 0 ? 'course-card-first' : undefined}
+                    className={`
+                      group block p-5 rounded-xl
+                      border transition-all duration-200 ease-out
+                      hover:shadow-md hover:-translate-y-0.5
+                      active:translate-y-0 active:shadow-sm
+                      ${
+                        courseStatus === 'completed'
+                          ? 'bg-[var(--color-success-subtle)] border-[var(--color-success)] hover:border-[var(--color-success)]'
+                          : courseStatus === 'in-progress'
+                          ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)] hover:border-[var(--color-accent-primary)]'
+                          : 'bg-[var(--color-bg-primary)] border-[var(--color-border-default)] hover:border-[var(--color-border-dark)]'
                       }
-                    `}>
-                      {course.sqlTerminal ? (
-                        <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
-                      ) : course.codeTerminal ? (
-                        <Code className="w-5 h-5 text-[#f32bd8ff]" />
-                      ) : (
-                        <Terminal className="w-5 h-5 text-[#3b82f6]" />
-                      )}
+                    `}
+                  >
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className={`
+                        flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
+                        transition-colors duration-200 border-2
+                        ${course.sqlTerminal 
+                          ? 'bg-[var(--color-accent-subtle)] border-[var(--color-border-default)] group-hover:border-[var(--color-accent-primary)]' 
+                          : course.codeTerminal
+                          ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
+                          : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
+                        }
+                      `}>
+                        {course.sqlTerminal ? (
+                          <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
+                        ) : course.codeTerminal ? (
+                          <Code className="w-5 h-5 text-[#f32bd8ff]" />
+                        ) : (
+                          <Terminal className="w-5 h-5 text-[#3b82f6]" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
+                            {course.title}
+                          </h3>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            course.sqlTerminal 
+                              ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
+                              : course.codeTerminal
+                              ? 'bg-[#f3e8ff] text-[#f32bd8ff] border border-[#f32bd8ff]/40'
+                              : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
+                          }`}>
+                            {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-tertiary)] line-clamp-2 leading-relaxed">
+                          {course.description}
+                        </p>
+                        
+                        {courseStatus === 'in-progress' && (
+                          <div className="mt-2 h-1.5 w-full bg-[var(--color-accent-subtle)] rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-[var(--color-accent-primary)] rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${progressPercent}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
-                          {course.title}
-                        </h3>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          course.sqlTerminal 
-                            ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
-                            : course.codeTerminal
-                            ? 'bg-[#f3e8ff] text-[#f32bd8ff] border border-[#f32bd8ff]/40'
-                            : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
+                    <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-light)]">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
+                          course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
+                          course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
+                          'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
                         }`}>
-                          {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
+                          {getDifficultyLabel(course.difficulty)}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
+                          <Clock className="w-3.5 h-3.5" />
+                          {course.estimatedMinutes} 分钟
                         </span>
                       </div>
-                      <p className="text-xs text-[var(--color-text-tertiary)] line-clamp-2 leading-relaxed">
-                        {course.description}
-                      </p>
-                      
-                      {courseStatus === 'in-progress' && (
-                        <div className="mt-2 h-1.5 w-full bg-[var(--color-accent-subtle)] rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-[var(--color-accent-primary)] rounded-full transition-all duration-300 ease-out"
-                            style={{ width: `${progressPercent}%` }}
-                          />
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {courseStatus === 'completed' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            已完成
+                          </span>
+                        ) : courseStatus === 'in-progress' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)] animate-pulse" />
+                            进行中 {progressPercent}%
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                            <Circle className="w-3.5 h-3.5" />
+                            待学习
+                          </span>
+                        )}
+                        
+                        {isRunning && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
+                            运行中
+                          </span>
+                        )}
+                        {isPaused && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
+                            已暂停
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-light)]">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
-                        course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
-                        course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
-                        'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
-                      }`}>
-                        {getDifficultyLabel(course.difficulty)}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
-                        <Clock className="w-3.5 h-3.5" />
-                        {course.estimatedMinutes} 分钟
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {courseStatus === 'completed' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          已完成
-                        </span>
-                      ) : courseStatus === 'in-progress' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)] animate-pulse" />
-                          进行中 {progressPercent}%
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
-                          <Circle className="w-3.5 h-3.5" />
-                          待学习
-                        </span>
-                      )}
-                      
-                      {isRunning && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
-                          运行中
-                        </span>
-                      )}
-                      {isPaused && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-                          已暂停
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
+                  </Link>
+                </ScrollReveal>
               );
             })}
-            <ProposeCourseCard mode={viewMode} />
+            <ScrollReveal delay={120} className="w-full">
+              <ProposeCourseCard mode={viewMode} />
+            </ScrollReveal>
           </div>
         )}
       </div>

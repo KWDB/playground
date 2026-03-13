@@ -1,4 +1,5 @@
 import React, { useId } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from './Button';
 
@@ -40,7 +41,9 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   const config = getVariantConfig();
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
       <div
@@ -71,7 +74,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

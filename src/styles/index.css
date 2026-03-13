@@ -117,6 +117,7 @@
     border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.15s ease;
+    transform: translateZ(0);
     outline: none;
   }
 
@@ -135,6 +136,7 @@
 
   .btn-primary:active {
     background-color: var(--color-accent-active);
+    transform: scale(0.98);
   }
 
   .btn-secondary {
@@ -165,6 +167,19 @@
 
   .btn-danger:hover {
     background-color: #b91c1c;
+  }
+
+  .scroll-reveal {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+    transition-property: opacity, transform;
+    transition-duration: 420ms;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .scroll-reveal.is-visible {
+    opacity: 1;
+  transform: none;
   }
 
   /* Linear Input Styles */
@@ -228,6 +243,16 @@
     background-color: var(--color-bg-tertiary);
     color: var(--color-text-secondary);
   }
+
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
+}
 
   .badge-success {
     background-color: var(--color-success-subtle);
@@ -374,6 +399,34 @@
 
 .animate-fade-out {
   animation: fade-out 0.1s ease-in;
+}
+
+.route-transition {
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.route-transition.is-entering {
+  opacity: 1;
+  transform: none;
+}
+
+.route-transition.is-exiting {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.tab-panel-transition {
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.tab-panel-transition.is-entering {
+  opacity: 1;
+  transform: none;
+}
+
+.tab-panel-transition.is-exiting {
+  opacity: 0;
+  transform: translateY(6px);
 }
 }
 
