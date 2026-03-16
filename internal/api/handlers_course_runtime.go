@@ -75,6 +75,15 @@ func normalizeCourseCmd(cmd []string) []string {
 	return cmd
 }
 
+func resolveCoursePorts(port int) map[string]string {
+	if port <= 0 {
+		return nil
+	}
+	return map[string]string{
+		"26257": fmt.Sprintf("%d", port),
+	}
+}
+
 func (h *Handler) startCourse(c *gin.Context) {
 	id := c.Param("id")
 	h.logger.Debug("[startCourse] 开始启动课程容器，课程ID: %s", id)
@@ -109,6 +118,17 @@ func (h *Handler) startCourse(c *gin.Context) {
 	}
 
 	h.logger.Debug("[startCourse] 找到课程: %s，标题: %s", id, course.Title)
+
+	existingContainer, err := h.findCourseContainerByState(ctx, id, docker.StateRunning, docker.StateStarting)
+	if err == nil && existingContainer != nil {
+		h.logger.Info("[startCourse] 课程 %s 已存在可复用容器: %s (%s)", id, existingContainer.ID, existingContainer.State)
+		c.JSON(http.StatusOK, gin.H{
+			"message":     "课程容器已在运行中",
+			"courseId":    id,
+			"containerId": existingContainer.ID,
+		})
+		return
+	}
 
 	imageName := resolveStartCourseImage(requestBody.Image, course.Backend.ImageID)
 	if requestBody.Image != "" {
@@ -243,15 +263,21 @@ func (h *Handler) startCourse(c *gin.Context) {
 		h.logger.Debug("[startCourse] 已解析环境变量: %v", env)
 	}
 
+	memoryLimit := int64(1024 * 1024 * 1024)
+	if course.Backend.MemoryLimit > 0 {
+		memoryLimit = course.Backend.MemoryLimit
+	}
+
 	config := &docker.ContainerConfig{
 		Image:       imageName,
 		WorkingDir:  workingDir,
 		Cmd:         cmd,
 		Privileged:  course.Backend.Privileged,
-		Ports:       map[string]string{"26257": fmt.Sprintf("%d", course.Backend.Port)},
+		Ports:       resolveCoursePorts(course.Backend.Port),
 		Volumes:     volumes,
 		Env:         env,
-		MemoryLimit: 512 * 1024 * 1024,
+		MemoryLimit: memoryLimit,
+		CPULimit:    course.Backend.CPULimit,
 	}
 
 	h.logger.Debug("[startCourse] 创建容器配置完成，镜像: %s，工作目录: %s，Cmd: %v, Privileged: %v",
@@ -354,8 +380,10 @@ func (h *Handler) findCourseContainerByState(ctx context.Context, courseID strin
 				return container, nil
 			}
 		}
-		if target == nil || container.StartedAt.After(target.StartedAt) {
-			target = container
+		if len(preferredStates) == 0 {
+			if target == nil || container.StartedAt.After(target.StartedAt) {
+				target = container
+			}
 		}
 	}
 

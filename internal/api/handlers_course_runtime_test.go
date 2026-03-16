@@ -101,3 +101,23 @@ func TestParseStartCourseRequest(t *testing.T) {
 		t.Fatalf("empty body should produce empty image, got %q", got2.Image)
 	}
 }
+
+func TestResolveCoursePorts(t *testing.T) {
+	got := resolveCoursePorts(26257)
+	if got == nil {
+		t.Fatal("resolveCoursePorts(26257) should not be nil")
+	}
+	if len(got) != 1 {
+		t.Fatalf("resolveCoursePorts(26257) len=%d, want=1", len(got))
+	}
+	if got["26257"] != "26257" {
+		t.Fatalf(`resolveCoursePorts(26257)["26257"]=%q, want="26257"`, got["26257"])
+	}
+
+	if got := resolveCoursePorts(0); got != nil {
+		t.Fatalf("resolveCoursePorts(0)=%v, want nil", got)
+	}
+	if got := resolveCoursePorts(-1); got != nil {
+		t.Fatalf("resolveCoursePorts(-1)=%v, want nil", got)
+	}
+}

@@ -12,6 +12,15 @@ const isNotFoundError = (error: unknown) => {
   return message.includes('404') || message.toLowerCase().includes('not found')
 }
 
+const isStartInProgressError = (error: unknown) => {
+  const maybeError = error as { statusCode?: number; message?: string }
+  if (maybeError?.statusCode === 409) {
+    return true
+  }
+  const message = maybeError?.message ?? ''
+  return message.includes('课程容器正在启动中')
+}
+
 type Params = {
   selectedImage: string
   containerId: string | null
@@ -99,6 +108,12 @@ export const useContainerActions = ({
     } catch (error) {
       const maybeAbort = error as { name?: string }
       if (maybeAbort?.name === 'AbortError') {
+        return
+      }
+      if (isStartInProgressError(error)) {
+        setContainerStatus('starting')
+        setError(null)
+        setConnectionError(null)
         return
       }
       const errorMessage = error instanceof Error ? error.message : '启动容器失败'

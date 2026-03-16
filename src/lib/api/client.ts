@@ -61,9 +61,11 @@ export async function request<T>(
     }
     const timeoutId = setTimeout(() => controller.abort(), timeout)
     try {
-      const { signal: _ignoredSignal, ...restOptions } = options
+      const requestOptions: RequestInit = {
+        ...options,
+      }
       const response = await fetch(url, {
-        ...restOptions,
+        ...requestOptions,
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +157,7 @@ export const api = {
         method: 'POST',
         body: body ? JSON.stringify(body) : undefined,
         signal,
-      }),
+      }, { timeout: 10 * 60 * 1000, retries: 0 }),
 
     stop: (id: string, signal?: AbortSignal): Promise<void> =>
       request<void>(`/courses/${id}/stop`, { method: 'POST', signal }),

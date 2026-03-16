@@ -108,3 +108,77 @@ func TestReadCourseFile_FSPriority(t *testing.T) {
 		t.Errorf("ReadCourseFile() = %q, want %q (should prefer FS over disk)", string(data), "from-embed")
 	}
 }
+
+func TestLoadCourses_ParseBackendResourceLimits(t *testing.T) {
+	memFS := fstest.MapFS{
+		"courses/compile/index.yaml": {Data: []byte(`
+title: compile
+description: compile test
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: step
+      text: step1.md
+  finish:
+    text: finish.md
+backend:
+  imageid: kwdb/ubuntu:20.04
+  memory: "4Gi"
+  cpuLimit: "1.5"
+`)},
+		"courses/compile/intro.md":  {Data: []byte("intro")},
+		"courses/compile/step1.md":  {Data: []byte("step")},
+		"courses/compile/finish.md": {Data: []byte("finish")},
+		"courses/legacy/index.yaml": {Data: []byte(`
+title: legacy
+description: legacy test
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: step
+      text: step1.md
+  finish:
+    text: finish.md
+backend:
+  imageid: kwdb/ubuntu:20.04
+  memoryLimit: 4 * 1024 * 1024 * 1024
+  cpu: "2"
+`)},
+		"courses/legacy/intro.md":  {Data: []byte("intro")},
+		"courses/legacy/step1.md":  {Data: []byte("step")},
+		"courses/legacy/finish.md": {Data: []byte("finish")},
+	}
+
+	svc := NewServiceFromFS(memFS, "courses")
+	if err := svc.LoadCourses(); err != nil {
+		t.Fatalf("LoadCourses() error: %v", err)
+	}
+
+	c, exists := svc.GetCourse("compile")
+	if !exists {
+		t.Fatalf("course not loaded")
+	}
+
+	if c.Backend.MemoryLimit != 4*1024*1024*1024 {
+		t.Fatalf("memoryLimit = %d, want %d", c.Backend.MemoryLimit, int64(4*1024*1024*1024))
+	}
+
+	if c.Backend.CPULimit != 1.5 {
+		t.Fatalf("cpuLimit = %v, want 1.5", c.Backend.CPULimit)
+	}
+
+	legacy, exists := svc.GetCourse("legacy")
+	if !exists {
+		t.Fatalf("legacy course not loaded")
+	}
+
+	if legacy.Backend.MemoryLimit != 4*1024*1024*1024 {
+		t.Fatalf("legacy memoryLimit = %d, want %d", legacy.Backend.MemoryLimit, int64(4*1024*1024*1024))
+	}
+
+	if legacy.Backend.CPULimit != 2 {
+		t.Fatalf("legacy cpuLimit = %v, want 2", legacy.Backend.CPULimit)
+	}
+}

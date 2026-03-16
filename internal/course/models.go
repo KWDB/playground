@@ -42,10 +42,12 @@ type CourseFile struct {
 
 // Backend 后端配置
 type Backend struct {
-	ImageID    string   `json:"imageid" yaml:"imageid"`
-	Workspace  string   `json:"workspace" yaml:"workspace"`
-	Cmd        []string `json:"cmd" yaml:"cmd"`
-	Privileged bool     `json:"privileged" yaml:"privileged"`
+	ImageID     string   `json:"imageid" yaml:"imageid"`
+	Workspace   string   `json:"workspace" yaml:"workspace"`
+	Cmd         []string `json:"cmd" yaml:"cmd"`
+	Privileged  bool     `json:"privileged" yaml:"privileged"`
+	MemoryLimit int64    `json:"memoryLimit,omitempty" yaml:"-"`
+	CPULimit    float64  `json:"cpuLimit,omitempty" yaml:"-"`
 	// Port KWDB服务端口（主机映射端口）
 	Port int `json:"port" yaml:"port"`
 	// Volumes 主机与容器的挂载绑定，例如:

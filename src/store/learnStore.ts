@@ -228,6 +228,12 @@ export const useLearnStore = create<LearnState & LearnActions>()(
             return true;
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : '容器启动失败';
+            if (errorMessage.includes('课程容器正在启动中')) {
+              state.setContainerStatus('starting');
+              state.setError(null);
+              state.setConnectionError(null);
+              return false;
+            }
             console.error('启动容器失败:', error);
             state.setError(errorMessage);
             state.setContainerStatus('error');

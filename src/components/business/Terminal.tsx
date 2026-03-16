@@ -332,9 +332,6 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
               xtermRef.current.write(msg.data);
             } else if (msg.type === 'error' && xtermRef.current) {
               xtermRef.current.write(`\r\n\x1b[31m错误: ${msg.data}\x1b[0m\r\n`);
-            } else if (msg.type === 'image_pull_progress') {
-              const payload = msg.data || {};
-              handleImagePullProgress(payload, true);
             } else if (msg.type === 'pong') {
               // 收到服务端心跳响应
             } else if (msg.type === 'connected') {
@@ -408,7 +405,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
         clearInterval(pingIntervalRef.current);
       }
     };
-  }, [containerId, containerStatus, handleImagePullProgress]);
+  }, [containerId, containerStatus]);
 
   const connectProgressOnly = useCallback(() => {
     if (containerStatus !== 'starting') return;

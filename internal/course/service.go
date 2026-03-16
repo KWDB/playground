@@ -17,9 +17,11 @@ package course
 import (
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -218,15 +220,7 @@ func (s *Service) loadCourse(courseID, coursePath string) (*Course, error) {
 	// 计算总步骤数
 	course.TotalSteps = len(course.Details.Steps)
 
-	// 兼容误拼写键 slqTerminal：若yaml中存在且为true，则置位SqlTerminal
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(configData, &raw); err == nil {
-		if v, ok := raw["slqTerminal"]; ok {
-			if b, okb := v.(bool); okb && b {
-				course.SqlTerminal = true
-			}
-		}
-	}
+	s.applyRawCompatConfig(configData, &course)
 
 	// 设置课程ID和基础信息
 	course.ID = courseID
@@ -269,15 +263,7 @@ func (s *Service) loadCourseFromFS(courseID, coursePath string) (*Course, error)
 	// 计算总步骤数
 	course.TotalSteps = len(course.Details.Steps)
 
-	// 兼容误拼写键 slqTerminal：若yaml中存在且为true，则置位SqlTerminal
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(configData, &raw); err == nil {
-		if v, ok := raw["slqTerminal"]; ok {
-			if b, okb := v.(bool); okb && b {
-				course.SqlTerminal = true
-			}
-		}
-	}
+	s.applyRawCompatConfig(configData, &course)
 
 	// 设置课程ID和基础信息
 	course.ID = courseID
@@ -291,6 +277,205 @@ func (s *Service) loadCourseFromFS(courseID, coursePath string) (*Course, error)
 	}
 
 	return &course, nil
+}
+
+func (s *Service) applyRawCompatConfig(configData []byte, course *Course) {
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(configData, &raw); err != nil {
+		return
+	}
+
+	if v, ok := raw["slqTerminal"]; ok {
+		if b, okb := v.(bool); okb && b {
+			course.SqlTerminal = true
+		}
+	}
+
+	backendRaw, ok := raw["backend"].(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	if memoryRaw, exists := backendRaw["memoryLimit"]; exists {
+		memoryLimit, err := parseMemoryLimitValue(memoryRaw)
+		if err == nil && memoryLimit > 0 {
+			course.Backend.MemoryLimit = memoryLimit
+		}
+	}
+	if memoryRaw, exists := backendRaw["memory"]; exists {
+		memoryLimit, err := parseMemoryLimitValue(memoryRaw)
+		if err == nil && memoryLimit > 0 {
+			course.Backend.MemoryLimit = memoryLimit
+		}
+	}
+
+	if cpuRaw, exists := backendRaw["cpuLimit"]; exists {
+		cpuLimit, err := parseCPULimitValue(cpuRaw)
+		if err == nil && cpuLimit > 0 {
+			course.Backend.CPULimit = cpuLimit
+		}
+	}
+	if cpuRaw, exists := backendRaw["cpu"]; exists {
+		cpuLimit, err := parseCPULimitValue(cpuRaw)
+		if err == nil && cpuLimit > 0 {
+			course.Backend.CPULimit = cpuLimit
+		}
+	}
+}
+
+func parseMemoryLimitValue(v interface{}) (int64, error) {
+	switch value := v.(type) {
+	case int:
+		return int64(value), nil
+	case int8:
+		return int64(value), nil
+	case int16:
+		return int64(value), nil
+	case int32:
+		return int64(value), nil
+	case int64:
+		return value, nil
+	case uint:
+		return int64(value), nil
+	case uint8:
+		return int64(value), nil
+	case uint16:
+		return int64(value), nil
+	case uint32:
+		return int64(value), nil
+	case uint64:
+		return int64(value), nil
+	case float32:
+		return int64(value), nil
+	case float64:
+		return int64(value), nil
+	case string:
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return 0, fmt.Errorf("memory limit is empty")
+		}
+		if n, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
+			return n, nil
+		}
+		if n, err := parseK8sMemoryQuantity(trimmed); err == nil {
+			return n, nil
+		}
+		return parseMultiplyExpression(trimmed)
+	default:
+		return 0, fmt.Errorf("unsupported memory limit type %T", v)
+	}
+}
+
+func parseK8sMemoryQuantity(value string) (int64, error) {
+	s := strings.TrimSpace(value)
+	if s == "" {
+		return 0, fmt.Errorf("memory quantity is empty")
+	}
+
+	i := 0
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		i++
+	}
+	if i == 0 {
+		return 0, fmt.Errorf("invalid memory quantity: %s", value)
+	}
+
+	numberPart := s[:i]
+	suffix := s[i:]
+	n, err := strconv.ParseInt(numberPart, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	multipliers := map[string]int64{
+		"":   1,
+		"k":  1000,
+		"K":  1000,
+		"M":  1000 * 1000,
+		"G":  1000 * 1000 * 1000,
+		"T":  1000 * 1000 * 1000 * 1000,
+		"P":  1000 * 1000 * 1000 * 1000 * 1000,
+		"E":  1000 * 1000 * 1000 * 1000 * 1000 * 1000,
+		"Ki": 1024,
+		"Mi": 1024 * 1024,
+		"Gi": 1024 * 1024 * 1024,
+		"Ti": 1024 * 1024 * 1024 * 1024,
+		"Pi": 1024 * 1024 * 1024 * 1024 * 1024,
+		"Ei": 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
+	}
+
+	multiplier, ok := multipliers[suffix]
+	if !ok {
+		return 0, fmt.Errorf("unsupported memory suffix: %s", suffix)
+	}
+
+	if n > 0 && multiplier > 0 && n > math.MaxInt64/multiplier {
+		return 0, fmt.Errorf("memory quantity overflow: %s", value)
+	}
+
+	return n * multiplier, nil
+}
+
+func parseMultiplyExpression(value string) (int64, error) {
+	expr := strings.ReplaceAll(value, " ", "")
+	if expr == "" {
+		return 0, fmt.Errorf("memory expression is empty")
+	}
+
+	parts := strings.Split(expr, "*")
+	if len(parts) == 1 {
+		return 0, fmt.Errorf("invalid memory expression: %s", value)
+	}
+
+	result := int64(1)
+	for _, part := range parts {
+		if part == "" {
+			return 0, fmt.Errorf("invalid memory expression: %s", value)
+		}
+		n, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		result *= n
+	}
+	return result, nil
+}
+
+func parseCPULimitValue(v interface{}) (float64, error) {
+	switch value := v.(type) {
+	case int:
+		return float64(value), nil
+	case int8:
+		return float64(value), nil
+	case int16:
+		return float64(value), nil
+	case int32:
+		return float64(value), nil
+	case int64:
+		return float64(value), nil
+	case uint:
+		return float64(value), nil
+	case uint8:
+		return float64(value), nil
+	case uint16:
+		return float64(value), nil
+	case uint32:
+		return float64(value), nil
+	case uint64:
+		return float64(value), nil
+	case float32:
+		return float64(value), nil
+	case float64:
+		return value, nil
+	case string:
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return 0, fmt.Errorf("cpu limit is empty")
+		}
+		return strconv.ParseFloat(trimmed, 64)
+	default:
+		return 0, fmt.Errorf("unsupported cpu limit type %T", v)
+	}
 }
 
 // loadCourseContent 加载课程的详细内容，根据index.yaml中的details结构加载对应文件（磁盘模式）

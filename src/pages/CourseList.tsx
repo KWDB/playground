@@ -915,12 +915,12 @@ export function CourseList() {
               }
 
               return (
-                <ScrollReveal key={course.id} delay={Math.min(index * 35, 240)}>
+                <ScrollReveal key={course.id} delay={Math.min(index * 35, 240)} className="h-full">
                   <Link
                     to={`/learn/${course.id}`}
                     data-tour-id={index === 0 ? 'course-card-first' : undefined}
                     className={`
-                      group block p-5 rounded-xl
+                      group h-full p-5 rounded-xl flex flex-col
                       border transition-all duration-200 ease-out
                       hover:shadow-md hover:-translate-y-0.5
                       active:translate-y-0 active:shadow-sm
@@ -933,7 +933,7 @@ export function CourseList() {
                       }
                     `}
                   >
-                    <div className="flex items-start gap-3 mb-4">
+                    <div className="flex items-start gap-3 mb-4 flex-1 min-h-0">
                       <div className={`
                         flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
                         transition-colors duration-200 border-2
@@ -1031,8 +1031,11 @@ export function CourseList() {
                 </ScrollReveal>
               );
             })}
-            <ScrollReveal delay={120} className="w-full">
-              <ProposeCourseCard mode={viewMode} />
+            <ScrollReveal delay={120} className="w-full h-full">
+              <ProposeCourseCard
+                mode={viewMode}
+                className={viewMode === 'grid' ? 'h-full flex flex-col justify-between' : undefined}
+              />
             </ScrollReveal>
           </div>
         )}

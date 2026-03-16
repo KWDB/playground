@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { filterVisibleEnvCheckItems, type EnvCheckItem } from '@/components/business/envCheckItems';
+import { filterVisibleEnvCheckItems } from '@/components/business/envCheckItems';
 import { getEnvCheckSummary, invalidateEnvCheckSummaryCache, type EnvCheckSummary } from '@/lib/envCheck';
 
 function parseMirrorAvailabilityMessage(message: string): { available: string[]; unavailable: string[] } | null {
