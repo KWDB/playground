@@ -13,6 +13,11 @@ import (
 )
 
 func (h *Handler) getAllContainers(c *gin.Context) {
+	if h.dockerController == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Docker服务暂不可用"})
+		return
+	}
+
 	ctx := c.Request.Context()
 	containers, err := h.dockerController.ListContainers(ctx)
 	if err != nil {
@@ -25,6 +30,11 @@ func (h *Handler) getAllContainers(c *gin.Context) {
 }
 
 func (h *Handler) cleanupAllContainers(c *gin.Context) {
+	if h.dockerController == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Docker服务暂不可用"})
+		return
+	}
+
 	ctx := c.Request.Context()
 
 	result, err := h.dockerController.CleanupAllContainers(ctx)
