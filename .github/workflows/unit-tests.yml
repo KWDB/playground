@@ -10,7 +10,7 @@ on:
 env:
   CI: 'true'
   NODE_VERSION: ${{ vars.CI_NODE_VERSION || '25' }}
-  PNPM_VERSION: ${{ vars.CI_PNPM_VERSION || '9' }}
+  PNPM_VERSION: ${{ vars.CI_PNPM_VERSION || '10' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -81,6 +81,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
