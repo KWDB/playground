@@ -11,11 +11,12 @@ const homeThemeTokens = {
 };
 
 export const homeStyles = {
-  pageRoot: `relative isolate w-full flex-1 flex flex-col items-center justify-center overflow-x-hidden ${homeThemeTokens.bgPrimary}`,
+  pageRoot: `relative isolate w-full flex-1 flex flex-col items-center justify-center overflow-hidden ${homeThemeTokens.bgPrimary}`,
   pageBackdrop: 'absolute inset-0 pointer-events-none',
   backdropGrid: `absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_center,black_32%,transparent_78%)] bg-[linear-gradient(to_right,var(--color-border-light)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-border-light)_1px,transparent_1px)] bg-[size:36px_36px]`,
   backdropOrbPrimary: 'absolute -top-24 left-1/2 h-72 w-72 -translate-x-[58%] rounded-full bg-[var(--color-accent-primary)]/15 blur-3xl',
-  backdropOrbSecondary: `absolute bottom-0 left-1/2 h-60 w-[26rem] -translate-x-1/2 rounded-full ${homeThemeTokens.bgTertiary} blur-3xl`,
+  backdropOrbSecondary: `absolute -bottom-24 left-1/2 h-72 w-[34rem] -translate-x-1/2 rounded-full ${homeThemeTokens.bgTertiary}/80 blur-3xl`,
+  backdropBottomBlend: `absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent via-[var(--color-bg-primary)]/70 to-[var(--color-bg-primary)]`,
   contentContainer: 'relative z-10 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-10 sm:py-14 lg:py-16',
   sectionSpacing: 'mb-12 sm:mb-16 lg:mb-20',
   heroHeader: 'relative text-center px-2 sm:px-4 lg:px-6 py-2 sm:py-4',

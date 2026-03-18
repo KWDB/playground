@@ -37,6 +37,7 @@ export function Home() {
         <div className={homeStyles.backdropGrid} />
         <div className={homeStyles.backdropOrbPrimary} />
         <div className={homeStyles.backdropOrbSecondary} />
+        <div className={homeStyles.backdropBottomBlend} />
       </div>
       <div className={homeStyles.contentContainer}>
         <ScrollReveal>
