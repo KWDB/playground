@@ -8,6 +8,10 @@
 
 Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebSocket) + React 18 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
 
+**Stats:** 448 files, 31,333 lines of code (Go + TS/TSX), 4-level depth
+
+Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebSocket) + React 18 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
+
 ## Quick Commands
 
 | Task | Command |
@@ -117,7 +121,13 @@ make release      # Release binaries
 make e2e-playwright  # Run E2E tests
 ```
 
-- **Release dead code**: ~140 lines commented-out Homebrew job in release.yml
+# NV|- **Release dead code**: ~140 lines commented-out Homebrew job in release.yml
+# JQ|- **Duplicate check package**: Both `/cmd/check/` and `/internal/check/` exist (CLI vs core logic)
+# VR|- **Hooks fragmented**: Most hooks in `/src/pages/learn/hooks/` not centralized
+# MV|- **Check command deprecated**: `cmd/check/check.go` uses Cobra's Deprecated field
+# KW|- **Format check**: Uses `go fmt` + `git diff` instead of golangci-lint
+# TQ|- **Lenient frontend**: TypeScript/ESlint runs with `|| true` in CI
+# MV|- **Multi-registry**: Pushes to ghcr.io, Docker Hub, and Alibaba Cloud ACR
 - **Duplicate check package**: Both `/cmd/check/` and `/internal/check/` exist (CLI vs core logic)
 - **Hooks fragmented**: Most hooks in `/src/pages/learn/hooks/` not centralized
 - **Check command deprecated**: `cmd/check/check.go` uses Cobra's Deprecated field

@@ -185,6 +185,9 @@ func renderDetailLines(item Item, state itemDisplayState) []string {
 		if execPath == "" {
 			return []string{colorByState("状态: "+strings.TrimSpace(item.Message), state)}
 		}
+		if !executableFileExists(execPath) {
+			return []string{colorByState("状态: 检测到可执行文件路径但文件不存在", stateFail)}
+		}
 		return []string{colorByState("路径: "+execPath, state)}
 	case strings.HasPrefix(item.Name, "服务健康检查 ("):
 		return []string{colorByState("状态: "+strings.TrimSpace(item.Message), state)}
