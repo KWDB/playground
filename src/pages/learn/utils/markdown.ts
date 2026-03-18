@@ -4,7 +4,7 @@ export const extractTextFromNode = (n: React.ReactNode): string => {
   if (n == null) return ''
   if (typeof n === 'string' || typeof n === 'number') return String(n)
   if (Array.isArray(n)) return (n as React.ReactNode[]).map(extractTextFromNode).join('')
-  if (React.isValidElement(n)) return extractTextFromNode((n as React.ReactElement).props?.children)
+  if (React.isValidElement(n)) return extractTextFromNode((n.props as { children?: React.ReactNode })?.children)
   return ''
 }
 
