@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"kwdb-playground/internal/procutil"
 )
 
 func TestProcessFileHealthWhenPIDFileMissing(t *testing.T) {
@@ -94,6 +96,13 @@ func TestExecutablePathHealthWithCurrentPID(t *testing.T) {
 	if !strings.Contains(details, "程序可执行文件:") {
 		t.Fatalf("expected executable path in details: %s", details)
 	}
+	execPath := extractPrefix(details, "程序可执行文件:")
+	if execPath == "" {
+		t.Fatalf("expected parsed executable path in details: %s", details)
+	}
+	if _, err := os.Stat(execPath); err != nil {
+		t.Fatalf("expected executable path exists, got path=%s err=%v", execPath, err)
+	}
 }
 
 func TestProcessAndExecutableHealthFallbackWhenPIDExpired(t *testing.T) {
@@ -145,16 +154,45 @@ func TestProcessAndExecutableHealthFallbackWhenPIDExpired(t *testing.T) {
 
 func TestParseListenerPIDAndCommand(t *testing.T) {
 	raw := "p123\nckwdb-playground\np456\ncother\n"
-	pid, cmd := parseListenerPIDAndCommand(raw)
+	pid, cmd := procutil.ParseListenerPIDAndCommand(raw)
 	if pid != 123 || cmd != "kwdb-playground" {
 		t.Fatalf("unexpected parse result: pid=%d cmd=%s", pid, cmd)
 	}
 
 	rawFallback := "p456\ncother\n"
-	pid, cmd = parseListenerPIDAndCommand(rawFallback)
+	pid, cmd = procutil.ParseListenerPIDAndCommand(rawFallback)
 	if pid != 456 || cmd != "other" {
 		t.Fatalf("unexpected fallback result: pid=%d cmd=%s", pid, cmd)
 	}
+}
+
+func TestNormalizeExecutableCandidate(t *testing.T) {
+	raw := `"/tmp/kwdb-playground (deleted)"`
+	got := normalizeExecutableCandidate(raw)
+	if got != "/tmp/kwdb-playground" {
+		t.Fatalf("unexpected normalized candidate: %s", got)
+	}
+}
+
+func TestResolveExistingExecutablePath(t *testing.T) {
+	found, ok := resolveExistingExecutablePath("definitely-not-existing-kwdb-binary")
+	if ok || found != "" {
+		t.Fatalf("expected not found for invalid command, got: %s", found)
+	}
+}
+
+func TestExecutableFileExists(t *testing.T) {
+	if executableFileExists("unknown") {
+		t.Fatalf("unknown should not be treated as existing file")
+	}
+	if executableFileExists("/definitely/not/existing/kwdb-playground") {
+		t.Fatalf("non-existing path should not be treated as existing file")
+	}
+	exePath, _ := resolveCurrentExecutablePath()
+	if executableFileExists(exePath) {
+		return
+	}
+	t.Fatalf("current executable path should exist, got: %s", exePath)
 }
 
 func TestHealthProbeHostsForWildcard(t *testing.T) {

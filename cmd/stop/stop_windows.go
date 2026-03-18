@@ -11,6 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/windows"
+
+	"kwdb-playground/internal/config"
+	"kwdb-playground/internal/procutil"
 )
 
 const (
@@ -43,6 +46,14 @@ func readPIDFromFile(filePath string) (int, bool) {
 	return pid, true
 }
 
+func resolveServerPort() int {
+	cfg, err := config.Load()
+	if err != nil || cfg == nil || cfg.Server.Port <= 0 {
+		return 3006
+	}
+	return cfg.Server.Port
+}
+
 // terminateProcess 终止指定进程
 func terminateProcess(pid int, force bool) error {
 	handle, err := windows.OpenProcess(windows.PROCESS_TERMINATE, false, uint32(pid))
@@ -60,17 +71,29 @@ func NewCommand() *cobra.Command {
 		Short: "停止 KWDB Playground 守护进程",
 		Long:  "读取 PID 文件并终止对应的 KWDB Playground 进程",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			port := resolveServerPort()
 			pid, ok := readPIDFromFile(pidFilePath)
 			if !ok {
-				fmt.Printf("未找到 PID 文件: %s\n", pidFilePath)
-				fmt.Println("可能守护进程未运行")
-				os.Exit(1)
+				listenPID, source, findErr := procutil.ResolveRunningPIDByPort(port)
+				if findErr != nil {
+					fmt.Printf("未找到 PID 文件: %s\n", pidFilePath)
+					fmt.Println("可能守护进程未运行")
+					os.Exit(1)
+				}
+				pid = listenPID
+				fmt.Printf("PID 文件缺失，已定位运行进程 PID=%d（%s）\n", pid, source)
 			}
 
 			if !isProcessRunning(pid) {
-				fmt.Printf("进程 %d 不在运行中，清理 PID 文件\n", pid)
-				_ = os.Remove(pidFilePath)
-				os.Exit(0)
+				listenPID, source, findErr := procutil.ResolveRunningPIDByPort(port)
+				if findErr == nil && listenPID > 0 && listenPID != pid {
+					fmt.Printf("PID 文件记录进程 %d 已失效，改为停止当前运行进程 %d（%s）\n", pid, listenPID, source)
+					pid = listenPID
+				} else {
+					fmt.Printf("进程 %d 不在运行中，清理 PID 文件\n", pid)
+					_ = os.Remove(pidFilePath)
+					os.Exit(0)
+				}
 			}
 
 			// 尝试正常终止

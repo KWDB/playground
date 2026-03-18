@@ -17,6 +17,7 @@ import (
 	"kwdb-playground/internal/config"
 	"kwdb-playground/internal/course"
 	dock "kwdb-playground/internal/docker"
+	"kwdb-playground/internal/procutil"
 )
 
 type FixOptions struct {
@@ -490,7 +491,7 @@ func fixProgressStore(svc *course.Service, path string, dryRun bool) FixResult {
 
 func fixProcessFile(cfg *config.Config, path string, dryRun bool) FixResult {
 	port := cfg.Server.Port
-	pid, source, err := resolveRunningPIDByPort(port)
+	pid, source, err := procutil.ResolveRunningPIDByPort(port)
 	if err != nil || pid <= 0 {
 		return FixResult{
 			Name:    ItemNameProcessFile,

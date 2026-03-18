@@ -1,17 +1,22 @@
 package check
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
 
 func TestRenderSummaryCLI(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve executable failed: %v", err)
+	}
 	summary := Summary{
 		OK: false,
 		Items: []Item{
 			{Name: ItemNameDockerEnv, OK: true, Message: "Docker 客户端与守护进程连接正常（API v1.53，要求 ≥ v1.41）"},
 			{Name: ItemNameProcessFile, OK: false, Message: "PID 文件格式正常（PID=444）", Details: "PID 文件路径: /tmp/kwdb-playground.pid\nPID 文件内容: 444"},
-			{Name: ItemNameExecutablePath, OK: true, Message: "已定位运行中 kwdb-playground 的可执行文件", Details: "程序可执行文件: /usr/local/bin/kwdb-playground"},
+			{Name: ItemNameExecutablePath, OK: true, Message: "已定位运行中 kwdb-playground 的可执行文件", Details: "程序可执行文件: " + exe},
 			{Name: "服务健康检查 (0.0.0.0:3006)", OK: true, Message: "服务正在运行且健康（/health 返回 200）"},
 		},
 	}
@@ -41,7 +46,7 @@ func TestRenderSummaryCLI(t *testing.T) {
 	if !strings.Contains(out, "可执行文件路径") {
 		t.Fatalf("missing executable path section: %s", out)
 	}
-	if !strings.Contains(out, "路径: /usr/local/bin/kwdb-playground") {
+	if !strings.Contains(out, "路径: "+exe) {
 		t.Fatalf("missing executable detail: %s", out)
 	}
 	if !strings.Contains(out, "⚠️ 结论: 检测到异常，请按提示修复失败项。") {
@@ -68,11 +73,15 @@ func TestRenderFixResults(t *testing.T) {
 }
 
 func TestRenderSummaryCLINotRunningStatus(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve executable failed: %v", err)
+	}
 	summary := Summary{
 		OK: true,
 		Items: []Item{
 			{Name: ItemNameProcessFile, OK: true, Message: "PID 文件不存在（服务未以守护进程运行或尚未启动）", Details: "PID 文件路径: /tmp/kwdb-playground.pid"},
-			{Name: ItemNameExecutablePath, OK: true, Message: "未检测到运行中的 kwdb-playground 进程", Details: "程序可执行文件: /Users/demo/bin/kwdb-playground"},
+			{Name: ItemNameExecutablePath, OK: true, Message: "未检测到运行中的 kwdb-playground 进程", Details: "程序可执行文件: " + exe},
 		},
 	}
 	out := RenderSummaryCLI(summary)
@@ -85,8 +94,24 @@ func TestRenderSummaryCLINotRunningStatus(t *testing.T) {
 	if !strings.Contains(out, "\033[33m状态: 未找到 kwdb-playground 进程\033[0m") {
 		t.Fatalf("missing process not-running detail: %q", out)
 	}
-	if !strings.Contains(out, "\033[33m路径: /Users/demo/bin/kwdb-playground\033[0m") {
+	if !strings.Contains(out, "\033[33m路径: "+exe+"\033[0m") {
 		t.Fatalf("missing executable path detail: %q", out)
+	}
+}
+
+func TestRenderSummaryCLIExecutablePathMissingFile(t *testing.T) {
+	summary := Summary{
+		OK: true,
+		Items: []Item{
+			{Name: ItemNameExecutablePath, OK: true, Message: "已定位运行中 kwdb-playground 的可执行文件", Details: "程序可执行文件: /definitely/not/existing/kwdb-playground"},
+		},
+	}
+	out := RenderSummaryCLI(summary)
+	if !strings.Contains(out, "状态: 检测到可执行文件路径但文件不存在") {
+		t.Fatalf("expected missing executable file warning, got: %q", out)
+	}
+	if strings.Contains(out, "路径: /definitely/not/existing/kwdb-playground") {
+		t.Fatalf("should not render non-existing executable path: %q", out)
 	}
 }
 

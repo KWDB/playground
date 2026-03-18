@@ -20,6 +20,7 @@ import (
 	"kwdb-playground/internal/config"
 	"kwdb-playground/internal/course"
 	"kwdb-playground/internal/docker"
+	"kwdb-playground/internal/procutil"
 )
 
 const (
@@ -413,7 +414,7 @@ func ProcessFileHealth(pidFilePath string, port int) (bool, string, string) {
 	info, err := os.Stat(pidFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			listenPID, source, findErr := resolveRunningPIDByPort(port)
+			listenPID, source, findErr := procutil.ResolveRunningPIDByPort(port)
 			if findErr == nil && listenPID > 0 {
 				baseDetails = append(baseDetails, fmt.Sprintf("当前监听进程 PID: %d", listenPID))
 				baseDetails = append(baseDetails, fmt.Sprintf("PID 来源: %s", source))
@@ -444,7 +445,7 @@ func ProcessFileHealth(pidFilePath string, port int) (bool, string, string) {
 		return true, fmt.Sprintf("PID 文件与运行进程一致（PID=%d）", pid), strings.Join(baseDetails, "\n")
 	}
 
-	listenPID, source, findErr := resolveRunningPIDByPort(port)
+	listenPID, source, findErr := procutil.ResolveRunningPIDByPort(port)
 	if findErr == nil && listenPID > 0 {
 		baseDetails = append(baseDetails, fmt.Sprintf("PID 文件中的进程不存在: %d", pid))
 		baseDetails = append(baseDetails, fmt.Sprintf("当前监听进程 PID: %d", listenPID))
@@ -472,15 +473,19 @@ func ExecutablePathHealth(pidFilePath, host string, port int) (bool, string, str
 	}
 	if pid > 0 {
 		exePath, source, resolveErr := resolveRunningExecutableByPID(pid)
-		if resolveErr == nil {
+		if resolveErr == nil && executableFileExists(exePath) {
 			pidSource = "PID 文件"
 			return true, "已定位运行中 kwdb-playground 的可执行文件", fmt.Sprintf("PID 文件路径: %s\nPID: %d\nPID 来源: %s\n程序可执行文件: %s\n定位来源: %s", pidAbs, pid, pidSource, exePath, source)
 		}
 	}
 
-	listenPID, source, findErr := resolveRunningPIDByPort(port)
+	listenPID, source, findErr := procutil.ResolveRunningPIDByPort(port)
 	if findErr != nil {
 		currentExe, currentExeSource := resolveCurrentExecutablePath()
+		if !executableFileExists(currentExe) {
+			currentExe = "unknown"
+			currentExeSource = currentExeSource + "（候选文件不存在）"
+		}
 		return true, "未检测到运行中的 kwdb-playground 进程", fmt.Sprintf("PID 文件路径: %s\n监听地址: %s:%d\n程序可执行文件: %s\n定位来源: %s", pidAbs, host, port, currentExe, currentExeSource)
 	}
 	pid = listenPID
@@ -492,6 +497,9 @@ func ExecutablePathHealth(pidFilePath, host string, port int) (bool, string, str
 		}
 		return false, fmt.Sprintf("无法定位 PID=%d 的可执行文件：%v", pid, resolveErr), fmt.Sprintf("PID 文件路径: %s\nPID: %d\nPID 来源: %s", pidAbs, pid, pidSource)
 	}
+	if !executableFileExists(exePath) {
+		return false, fmt.Sprintf("定位到 PID=%d 的可执行文件路径，但文件不存在", pid), fmt.Sprintf("PID 文件路径: %s\nPID: %d\nPID 来源: %s\n程序可执行文件: %s\n定位来源: %s", pidAbs, pid, pidSource, exePath, resolveSource)
+	}
 	details := fmt.Sprintf("PID 文件路径: %s\nPID: %d\nPID 来源: %s\n程序可执行文件: %s\n定位来源: %s", pidAbs, pid, pidSource, exePath, resolveSource)
 	if pidFromFile > 0 && pidFromFile != pid {
 		details += fmt.Sprintf("\nPID 文件内容: %d（已过期）", pidFromFile)
@@ -499,34 +507,64 @@ func ExecutablePathHealth(pidFilePath, host string, port int) (bool, string, str
 	return true, "已定位运行中 kwdb-playground 的可执行文件", details
 }
 
+func executableFileExists(path string) bool {
+	path = strings.TrimSpace(path)
+	if path == "" || path == "unknown" {
+		return false
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
 func resolveCurrentExecutablePath() (string, string) {
+	firstNonExisting := ""
 	exe, err := os.Executable()
 	if err == nil && strings.TrimSpace(exe) != "" {
-		if abs, absErr := filepath.Abs(exe); absErr == nil {
-			return abs, "os.Executable"
+		candidate := normalizeExecutableCandidate(exe)
+		if abs, absErr := filepath.Abs(candidate); absErr == nil {
+			candidate = abs
 		}
-		return exe, "os.Executable"
+		if resolved, ok := resolveExistingExecutablePath(candidate); ok {
+			return resolved, "os.Executable"
+		}
+		firstNonExisting = candidate
 	}
 	if len(os.Args) > 0 && strings.TrimSpace(os.Args[0]) != "" {
-		if filepath.IsAbs(os.Args[0]) {
-			return os.Args[0], "os.Args[0]"
+		candidate := normalizeExecutableCandidate(os.Args[0])
+		if resolved, ok := resolveExistingExecutablePath(candidate); ok {
+			if filepath.IsAbs(candidate) {
+				return resolved, "os.Args[0]"
+			}
+			return resolved, "os.Args[0] + PATH 解析"
 		}
-		if found, lookErr := exec.LookPath(os.Args[0]); lookErr == nil {
-			return found, "os.Args[0] + PATH 解析"
+		if firstNonExisting == "" {
+			firstNonExisting = candidate
 		}
-		return os.Args[0], "os.Args[0]（原始）"
+	}
+	if firstNonExisting != "" {
+		return "unknown", fmt.Sprintf("fallback（候选路径不存在: %s）", firstNonExisting)
 	}
 	return "unknown", "fallback"
 }
 
 func resolveRunningExecutableByPID(pid int) (string, string, error) {
 	pidStr := strconv.Itoa(pid)
+	firstNonExisting := ""
 	lsofCmd := exec.Command("lsof", "-p", pidStr, "-Fn", "-a", "-d", "txt")
 	if out, err := lsofCmd.CombinedOutput(); err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
 			line = strings.TrimSpace(line)
 			if strings.HasPrefix(line, "n") && len(line) > 1 {
-				return strings.TrimSpace(line[1:]), "lsof -d txt", nil
+				candidate := normalizeExecutableCandidate(line[1:])
+				if resolved, ok := resolveExistingExecutablePath(candidate); ok {
+					return resolved, "lsof -d txt", nil
+				}
+				if firstNonExisting == "" && candidate != "" {
+					firstNonExisting = candidate
+				}
 			}
 		}
 	}
@@ -544,72 +582,49 @@ func resolveRunningExecutableByPID(pid int) (string, string, error) {
 	if len(fields) == 0 {
 		return "", "", fmt.Errorf("命令行为空")
 	}
-	exe := fields[0]
-	if filepath.IsAbs(exe) {
-		return exe, "ps -o command", nil
+	exe := normalizeExecutableCandidate(fields[0])
+	if resolved, ok := resolveExistingExecutablePath(exe); ok {
+		if filepath.IsAbs(exe) {
+			return resolved, "ps -o command", nil
+		}
+		return resolved, "ps -o command + PATH 解析", nil
 	}
-	found, lookErr := exec.LookPath(exe)
-	if lookErr == nil {
-		return found, "ps -o command + PATH 解析", nil
+	if firstNonExisting == "" && exe != "" {
+		firstNonExisting = exe
 	}
-	return exe, "ps -o command（原始）", nil
+	if firstNonExisting != "" {
+		return "", "", fmt.Errorf("识别到可执行文件路径但文件不存在: %s", firstNonExisting)
+	}
+	return "", "", fmt.Errorf("未识别到可执行文件路径")
 }
 
-func resolveRunningPIDByPort(port int) (int, string, error) {
-	out, err := exec.Command("lsof", "-i", fmt.Sprintf(":%d", port), "-sTCP:LISTEN", "-n", "-P", "-Fp", "-Fc").CombinedOutput()
+func normalizeExecutableCandidate(raw string) string {
+	candidate := strings.TrimSpace(raw)
+	candidate = strings.Trim(candidate, `"'`)
+	candidate = strings.TrimSuffix(candidate, " (deleted)")
+	return strings.TrimSpace(candidate)
+}
+
+func resolveExistingExecutablePath(candidate string) (string, bool) {
+	if candidate == "" {
+		return "", false
+	}
+	if filepath.IsAbs(candidate) {
+		info, err := os.Stat(candidate)
+		if err != nil || info.IsDir() {
+			return "", false
+		}
+		return candidate, true
+	}
+	found, err := exec.LookPath(candidate)
 	if err != nil {
-		return 0, "", fmt.Errorf("lsof 查询监听进程失败: %v", err)
+		return "", false
 	}
-	pid, cmd := parseListenerPIDAndCommand(string(out))
-	if pid <= 0 {
-		return 0, "", fmt.Errorf("未在端口 %d 上发现监听进程", port)
+	info, statErr := os.Stat(found)
+	if statErr != nil || info.IsDir() {
+		return "", false
 	}
-	if strings.Contains(strings.ToLower(cmd), "kwdb") {
-		return pid, "监听端口进程（kwdb）", nil
-	}
-	return pid, fmt.Sprintf("监听端口进程（%s）", cmd), nil
-}
-
-func parseListenerPIDAndCommand(raw string) (int, string) {
-	lines := strings.Split(raw, "\n")
-	currentPID := 0
-	currentCmd := ""
-	fallbackPID := 0
-	fallbackCmd := ""
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "p") && len(line) > 1 {
-			if currentPID > 0 {
-				if strings.Contains(strings.ToLower(currentCmd), "kwdb") {
-					return currentPID, currentCmd
-				}
-				if fallbackPID == 0 {
-					fallbackPID, fallbackCmd = currentPID, currentCmd
-				}
-			}
-			p, err := strconv.Atoi(strings.TrimSpace(line[1:]))
-			if err != nil || p <= 0 {
-				currentPID = 0
-				currentCmd = ""
-				continue
-			}
-			currentPID = p
-			currentCmd = ""
-			continue
-		}
-		if strings.HasPrefix(line, "c") && len(line) > 1 {
-			currentCmd = strings.TrimSpace(line[1:])
-		}
-	}
-	if currentPID > 0 {
-		if strings.Contains(strings.ToLower(currentCmd), "kwdb") {
-			return currentPID, currentCmd
-		}
-		if fallbackPID == 0 {
-			return currentPID, currentCmd
-		}
-	}
-	return fallbackPID, fallbackCmd
+	return found, true
 }
 
 // ServiceHealth 调用 /health 检查服务状态
