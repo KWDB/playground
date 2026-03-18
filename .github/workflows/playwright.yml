@@ -11,6 +11,7 @@ env:
   SERVER_PORT: '3006'
   CI: 'true'
   NODE_VERSION: ${{ vars.CI_NODE_VERSION || '25' }}
+  PNPM_VERSION: ${{ vars.CI_PNPM_VERSION || '10' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
