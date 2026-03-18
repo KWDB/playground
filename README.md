@@ -169,11 +169,13 @@ make dev
 - **镜像清理**：按本地已缓存镜像清理，支持单镜像清理与全量清理。
 - **镜像诊断**：按课程维度展示镜像状态。
 
+![镜像管理页面](./docs/images/image-management.png)
+
 #### 在线升级
 新版本发布后，导航栏会显示「有更新」提示，点击即可一键升级到最新版本（生产环境）。
 
 #### 环境检查
-点击导航栏的「环境检查」按钮，可快速诊断 Docker、镜像源、端口占用、课程加载等服务状态。
+点击导航栏的「环境检查」按钮，可快速诊断 Docker、镜像源、端口占用等服务状态。
 
 #### 引导教程
 首次访问首页、课程页、学习页和镜像管理页时，可通过导航栏的帮助按钮开启交互式引导，快速了解各项功能。
@@ -188,7 +190,6 @@ make dev
 详细的使用说明、配置参数与开发指南，请参阅以下文档：
 
 - 📖 **使用与开发指南**：[`docs/usage-guide.md`](./docs/usage-guide.md)（包含系统要求、依赖安装、开发规范）
-- 🧩 **Learn 页面模块说明**：[`docs/usage-guide.md#learn-页面模块说明`](./docs/usage-guide.md#learn-页面模块说明)
 - 🐳 **Docker 部署指南**：[`docs/docker-deployment.md`](./docs/docker-deployment.md)（镜像构建、挂载配置、故障排查）
 - 🐍 **代码执行功能**：[`docs/code-execution.md`](./docs/code-execution.md)（Python/Bash/Java 代码执行功能说明）
 - ⬆️ **版本升级指南**：[`docs/upgrade-guide.md`](./docs/upgrade-guide.md)（在线升级机制说明）
