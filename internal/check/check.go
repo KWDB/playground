@@ -93,7 +93,7 @@ func RunFromService(svc *course.Service, host string, port int) Summary {
 	progressOK, progressMsg, progressDetails := ProgressStoreHealth(svc, progressFilePath)
 	items = append(items, Item{Name: ItemNameProgress, OK: progressOK, Message: progressMsg, Details: progressDetails})
 
-	processOK, processMsg, processDetails := ProcessFileHealth(processPIDFilePath)
+	processOK, processMsg, processDetails := ProcessFileHealth(processPIDFilePath, port)
 	items = append(items, Item{Name: ItemNameProcessFile, OK: processOK, Message: processMsg, Details: processDetails})
 
 	exeOK, exeMsg, exeDetails := ExecutablePathHealth(processPIDFilePath, host, port)
@@ -401,7 +401,7 @@ func ProgressStoreHealth(svc *course.Service, path string) (bool, string, string
 	return true, fmt.Sprintf("progress.json 校验通过，共 %d 条进度记录", len(store.Progress)), ""
 }
 
-func ProcessFileHealth(pidFilePath string) (bool, string, string) {
+func ProcessFileHealth(pidFilePath string, port int) (bool, string, string) {
 	pidAbs, pidAbsErr := filepath.Abs(pidFilePath)
 	if pidAbsErr != nil {
 		pidAbs = pidFilePath
@@ -413,6 +413,12 @@ func ProcessFileHealth(pidFilePath string) (bool, string, string) {
 	info, err := os.Stat(pidFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
+			listenPID, source, findErr := resolveRunningPIDByPort(port)
+			if findErr == nil && listenPID > 0 {
+				baseDetails = append(baseDetails, fmt.Sprintf("当前监听进程 PID: %d", listenPID))
+				baseDetails = append(baseDetails, fmt.Sprintf("PID 来源: %s", source))
+				return true, fmt.Sprintf("PID 文件缺失，已识别运行进程（PID=%d）", listenPID), strings.Join(baseDetails, "\n")
+			}
 			return true, "PID 文件不存在（服务未以守护进程运行或尚未启动）", strings.Join(baseDetails, "\n")
 		}
 		return false, fmt.Sprintf("访问 PID 文件失败：%v", err), strings.Join(baseDetails, "\n")
@@ -434,7 +440,18 @@ func ProcessFileHealth(pidFilePath string) (bool, string, string) {
 		return false, fmt.Sprintf("PID 文件内容非法：%q", pidText), strings.Join(baseDetails, "\n")
 	}
 	baseDetails = append(baseDetails, fmt.Sprintf("PID 文件内容: %d", pid))
-	return true, fmt.Sprintf("PID 文件格式正常（PID=%d）", pid), strings.Join(baseDetails, "\n")
+	if _, _, resolveErr := resolveRunningExecutableByPID(pid); resolveErr == nil {
+		return true, fmt.Sprintf("PID 文件与运行进程一致（PID=%d）", pid), strings.Join(baseDetails, "\n")
+	}
+
+	listenPID, source, findErr := resolveRunningPIDByPort(port)
+	if findErr == nil && listenPID > 0 {
+		baseDetails = append(baseDetails, fmt.Sprintf("PID 文件中的进程不存在: %d", pid))
+		baseDetails = append(baseDetails, fmt.Sprintf("当前监听进程 PID: %d", listenPID))
+		baseDetails = append(baseDetails, fmt.Sprintf("PID 来源: %s", source))
+		return true, fmt.Sprintf("PID 文件记录已过期，已识别当前运行进程（PID=%d）", listenPID), strings.Join(baseDetails, "\n")
+	}
+	return false, fmt.Sprintf("PID 文件记录的进程不存在（PID=%d）", pid), strings.Join(baseDetails, "\n")
 }
 
 func ExecutablePathHealth(pidFilePath, host string, port int) (bool, string, string) {
@@ -443,30 +460,43 @@ func ExecutablePathHealth(pidFilePath, host string, port int) (bool, string, str
 		pidAbs = pidFilePath
 	}
 	raw, err := os.ReadFile(pidFilePath)
+	pidFromFile := 0
 	pid := 0
 	pidSource := ""
 	if err == nil {
 		pidText := strings.TrimSpace(string(raw))
 		if parsed, parseErr := strconv.Atoi(pidText); parseErr == nil && parsed > 0 {
+			pidFromFile = parsed
 			pid = parsed
-			pidSource = "PID 文件"
 		}
 	}
-	if pid == 0 {
-		listenPID, source, findErr := resolveRunningPIDByPort(port)
-		if findErr != nil {
-			currentExe, currentExeSource := resolveCurrentExecutablePath()
-			return true, "未检测到运行中的 kwdb-playground 进程", fmt.Sprintf("PID 文件路径: %s\n监听地址: %s:%d\n程序可执行文件: %s\n定位来源: %s", pidAbs, host, port, currentExe, currentExeSource)
+	if pid > 0 {
+		exePath, source, resolveErr := resolveRunningExecutableByPID(pid)
+		if resolveErr == nil {
+			pidSource = "PID 文件"
+			return true, "已定位运行中 kwdb-playground 的可执行文件", fmt.Sprintf("PID 文件路径: %s\nPID: %d\nPID 来源: %s\n程序可执行文件: %s\n定位来源: %s", pidAbs, pid, pidSource, exePath, source)
 		}
-		pid = listenPID
-		pidSource = source
 	}
 
-	exePath, source, resolveErr := resolveRunningExecutableByPID(pid)
+	listenPID, source, findErr := resolveRunningPIDByPort(port)
+	if findErr != nil {
+		currentExe, currentExeSource := resolveCurrentExecutablePath()
+		return true, "未检测到运行中的 kwdb-playground 进程", fmt.Sprintf("PID 文件路径: %s\n监听地址: %s:%d\n程序可执行文件: %s\n定位来源: %s", pidAbs, host, port, currentExe, currentExeSource)
+	}
+	pid = listenPID
+	pidSource = source
+	exePath, resolveSource, resolveErr := resolveRunningExecutableByPID(pid)
 	if resolveErr != nil {
+		if pidFromFile > 0 && pidFromFile != pid {
+			return false, fmt.Sprintf("无法定位 PID=%d 的可执行文件：%v", pid, resolveErr), fmt.Sprintf("PID 文件路径: %s\nPID 文件内容: %d\n当前监听 PID: %d\nPID 来源: %s", pidAbs, pidFromFile, pid, pidSource)
+		}
 		return false, fmt.Sprintf("无法定位 PID=%d 的可执行文件：%v", pid, resolveErr), fmt.Sprintf("PID 文件路径: %s\nPID: %d\nPID 来源: %s", pidAbs, pid, pidSource)
 	}
-	return true, "已定位运行中 kwdb-playground 的可执行文件", fmt.Sprintf("PID 文件路径: %s\nPID: %d\nPID 来源: %s\n程序可执行文件: %s\n定位来源: %s", pidAbs, pid, pidSource, exePath, source)
+	details := fmt.Sprintf("PID 文件路径: %s\nPID: %d\nPID 来源: %s\n程序可执行文件: %s\n定位来源: %s", pidAbs, pid, pidSource, exePath, resolveSource)
+	if pidFromFile > 0 && pidFromFile != pid {
+		details += fmt.Sprintf("\nPID 文件内容: %d（已过期）", pidFromFile)
+	}
+	return true, "已定位运行中 kwdb-playground 的可执行文件", details
 }
 
 func resolveCurrentExecutablePath() (string, string) {

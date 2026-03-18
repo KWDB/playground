@@ -77,21 +77,11 @@ func ApplyFixes(staticFiles embed.FS, cfg *config.Config, summary Summary, opts 
 			Details: "请根据课程完整性详情修复课程目录后重试。",
 		})
 	}
-	if scopes["process-file"] && failed[ItemNameProcessFile] {
-		results = append(results, FixResult{
-			Name:    ItemNameProcessFile,
-			Status:  "跳过",
-			Message: "当前版本未启用进程文件自动修复",
-			Details: "请根据 PID 文件检查详情手动清理或重建后重试。",
-		})
+	if scopes["process-file"] && shouldFixProcessFile(summary, failed) {
+		results = append(results, fixProcessFile(cfg, processPIDFilePath, opts.DryRun))
 	}
-	if scopes["executable"] && failed[ItemNameExecutablePath] {
-		results = append(results, FixResult{
-			Name:    ItemNameExecutablePath,
-			Status:  "跳过",
-			Message: "当前版本未启用可执行文件路径自动修复",
-			Details: "请确认进程状态与启动方式后重试 doctor。",
-		})
+	if scopes["executable"] && shouldFixExecutable(summary, failed) {
+		results = append(results, fixExecutablePath(cfg, processPIDFilePath, opts.DryRun))
 	}
 	if scopes["service"] && hasFailedItemByPrefix(failed, "服务健康检查 (") {
 		results = append(results, FixResult{
@@ -261,6 +251,45 @@ func hasFailedItemByPrefix(failed map[string]bool, prefix string) bool {
 		}
 	}
 	return false
+}
+
+func shouldFixProcessFile(summary Summary, failed map[string]bool) bool {
+	if failed[ItemNameProcessFile] {
+		return true
+	}
+	processItem, processFound := findItemByName(summary, ItemNameProcessFile)
+	if processFound && strings.Contains(processItem.Message, "PID 文件记录已过期") {
+		return true
+	}
+	execItem, execFound := findItemByName(summary, ItemNameExecutablePath)
+	if execFound && strings.Contains(execItem.Details, "PID 文件内容:") && strings.Contains(execItem.Details, "已过期") {
+		return true
+	}
+	return false
+}
+
+func shouldFixExecutable(summary Summary, failed map[string]bool) bool {
+	if failed[ItemNameExecutablePath] {
+		return true
+	}
+	processItem, processFound := findItemByName(summary, ItemNameProcessFile)
+	if processFound && strings.Contains(processItem.Message, "PID 文件记录已过期") {
+		return true
+	}
+	execItem, execFound := findItemByName(summary, ItemNameExecutablePath)
+	if execFound && strings.Contains(execItem.Details, "PID 文件内容:") && strings.Contains(execItem.Details, "已过期") {
+		return true
+	}
+	return false
+}
+
+func findItemByName(summary Summary, name string) (Item, bool) {
+	for _, item := range summary.Items {
+		if item.Name == name {
+			return item, true
+		}
+	}
+	return Item{}, false
 }
 
 func fixPortOccupation(summary Summary, cfg *config.Config, autoApply bool) FixResult {
@@ -457,6 +486,125 @@ func fixProgressStore(svc *course.Service, path string, dryRun bool) FixResult {
 	}
 	actions = append(actions, "已写入修复后的 progress.json")
 	return FixResult{Name: ItemNameProgress, Status: "已修复", Message: "progress 文件修复完成", Details: strings.Join(actions, "\n")}
+}
+
+func fixProcessFile(cfg *config.Config, path string, dryRun bool) FixResult {
+	port := cfg.Server.Port
+	pid, source, err := resolveRunningPIDByPort(port)
+	if err != nil || pid <= 0 {
+		return FixResult{
+			Name:    ItemNameProcessFile,
+			Status:  "失败",
+			Message: "未识别到可回写的运行进程 PID",
+			Details: fmt.Sprintf("PID 文件路径: %s\n监听端口: %d\n错误: %v", path, port, err),
+		}
+	}
+
+	existingPID := 0
+	existingRaw, readErr := os.ReadFile(path)
+	if readErr == nil {
+		if parsed, parseErr := strconv.Atoi(strings.TrimSpace(string(existingRaw))); parseErr == nil && parsed > 0 {
+			existingPID = parsed
+		}
+	}
+
+	details := []string{
+		fmt.Sprintf("PID 文件路径: %s", path),
+		fmt.Sprintf("监听端口: %d", port),
+		fmt.Sprintf("识别到运行 PID: %d", pid),
+		fmt.Sprintf("PID 来源: %s", source),
+	}
+	if existingPID > 0 {
+		details = append(details, fmt.Sprintf("PID 文件当前值: %d", existingPID))
+	} else if readErr == nil {
+		details = append(details, "PID 文件当前值: 非法或为空")
+	} else {
+		details = append(details, fmt.Sprintf("PID 文件当前值: 不可读（%v）", readErr))
+	}
+
+	if existingPID == pid {
+		return FixResult{
+			Name:    ItemNameProcessFile,
+			Status:  "无需修复",
+			Message: "PID 文件已是最新值",
+			Details: strings.Join(details, "\n"),
+		}
+	}
+
+	if dryRun {
+		details = append(details, fmt.Sprintf("计划写入 PID: %d", pid))
+		return FixResult{
+			Name:    ItemNameProcessFile,
+			Status:  "预览",
+			Message: "已生成 PID 文件修复计划",
+			Details: strings.Join(details, "\n"),
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return FixResult{
+			Name:    ItemNameProcessFile,
+			Status:  "失败",
+			Message: fmt.Sprintf("创建 PID 目录失败：%v", err),
+			Details: strings.Join(details, "\n"),
+		}
+	}
+	if err := os.WriteFile(path, []byte(strconv.Itoa(pid)), 0644); err != nil {
+		return FixResult{
+			Name:    ItemNameProcessFile,
+			Status:  "失败",
+			Message: fmt.Sprintf("回写 PID 文件失败：%v", err),
+			Details: strings.Join(details, "\n"),
+		}
+	}
+	details = append(details, fmt.Sprintf("已回写 PID 文件: %d", pid))
+	return FixResult{
+		Name:    ItemNameProcessFile,
+		Status:  "已修复",
+		Message: "PID 文件已回写为当前运行进程",
+		Details: strings.Join(details, "\n"),
+	}
+}
+
+func fixExecutablePath(cfg *config.Config, pidFilePath string, dryRun bool) FixResult {
+	processFix := fixProcessFile(cfg, pidFilePath, dryRun)
+	healthOK, healthMsg, healthDetails := ExecutablePathHealth(pidFilePath, cfg.Server.Host, cfg.Server.Port)
+	details := []string{
+		fmt.Sprintf("前置修复状态: %s", processFix.Status),
+		fmt.Sprintf("前置修复结果: %s", processFix.Message),
+	}
+	if strings.TrimSpace(processFix.Details) != "" {
+		details = append(details, "前置修复详情:")
+		details = append(details, processFix.Details)
+	}
+	details = append(details, fmt.Sprintf("路径校验结果: %s", healthMsg))
+	if strings.TrimSpace(healthDetails) != "" {
+		details = append(details, "路径校验详情:")
+		details = append(details, healthDetails)
+	}
+
+	if dryRun {
+		return FixResult{
+			Name:    ItemNameExecutablePath,
+			Status:  "预览",
+			Message: "已生成可执行文件路径修复计划",
+			Details: strings.Join(details, "\n"),
+		}
+	}
+	if !healthOK {
+		return FixResult{
+			Name:    ItemNameExecutablePath,
+			Status:  "失败",
+			Message: "已尝试修复 PID 文件，但可执行文件路径仍不可用",
+			Details: strings.Join(details, "\n"),
+		}
+	}
+	return FixResult{
+		Name:    ItemNameExecutablePath,
+		Status:  "已修复",
+		Message: "可执行文件路径已恢复并完成校验",
+		Details: strings.Join(details, "\n"),
+	}
 }
 
 func sanitizeProgressStore(store *course.ProgressStore, courses map[string]*course.Course) (*course.ProgressStore, bool) {

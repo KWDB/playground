@@ -2,8 +2,11 @@ package check
 
 import (
 	"embed"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -317,5 +320,169 @@ func TestSanitizeProgressStore(t *testing.T) {
 	}
 	if progress.CompletedAt != nil {
 		t.Fatalf("expected completed_at nil when completed=false")
+	}
+}
+
+func TestApplyFixesProcessFileRepairExpiredPID(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen failed: %v", err)
+	}
+	defer ln.Close()
+
+	server := &http.Server{Handler: http.NewServeMux()}
+	defer server.Close()
+	go func() {
+		_ = server.Serve(ln)
+	}()
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	tmp := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("chdir failed: %v", err)
+	}
+	if err := os.MkdirAll("tmp", 0755); err != nil {
+		t.Fatalf("mkdir tmp failed: %v", err)
+	}
+	if err := os.WriteFile("tmp/kwdb-playground.pid", []byte("999999"), 0644); err != nil {
+		t.Fatalf("write stale pid failed: %v", err)
+	}
+
+	summary := Summary{
+		OK: true,
+		Items: []Item{
+			{Name: ItemNameProcessFile, OK: true, Message: "PID 文件记录已过期，已识别当前运行进程（PID=123）"},
+		},
+	}
+
+	results, err := ApplyFixes(embed.FS{}, &config.Config{
+		Server: config.ServerConfig{
+			Host: "127.0.0.1",
+			Port: port,
+		},
+		Course: config.CourseConfig{
+			Dir:      "./courses",
+			UseEmbed: false,
+		},
+	}, summary, FixOptions{
+		DryRun:   false,
+		FixScope: "process-file",
+	})
+	if err != nil {
+		t.Fatalf("apply fixes failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one process-file result, got: %+v", results)
+	}
+	if results[0].Name != ItemNameProcessFile {
+		t.Fatalf("unexpected fix target: %+v", results[0])
+	}
+	if results[0].Status != "已修复" {
+		t.Fatalf("expected repaired status, got: %+v", results[0])
+	}
+
+	raw, err := os.ReadFile("tmp/kwdb-playground.pid")
+	if err != nil {
+		t.Fatalf("read fixed pid file failed: %v", err)
+	}
+	gotPID, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil {
+		t.Fatalf("parse fixed pid failed: %v", err)
+	}
+	if gotPID != os.Getpid() {
+		t.Fatalf("expected pid file rewritten to current pid %d, got %d", os.Getpid(), gotPID)
+	}
+}
+
+func TestApplyFixesExecutableRepairWithExpiredPID(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen failed: %v", err)
+	}
+	defer ln.Close()
+
+	server := &http.Server{Handler: http.NewServeMux()}
+	defer server.Close()
+	go func() {
+		_ = server.Serve(ln)
+	}()
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	tmp := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("chdir failed: %v", err)
+	}
+	if err := os.MkdirAll("tmp", 0755); err != nil {
+		t.Fatalf("mkdir tmp failed: %v", err)
+	}
+	if err := os.WriteFile("tmp/kwdb-playground.pid", []byte("999999"), 0644); err != nil {
+		t.Fatalf("write stale pid failed: %v", err)
+	}
+
+	summary := Summary{
+		OK: false,
+		Items: []Item{
+			{
+				Name:    ItemNameExecutablePath,
+				OK:      false,
+				Message: "无法定位 PID=999999 的可执行文件",
+				Details: "PID 文件内容: 999999（已过期）",
+			},
+		},
+	}
+
+	results, err := ApplyFixes(embed.FS{}, &config.Config{
+		Server: config.ServerConfig{
+			Host: "127.0.0.1",
+			Port: port,
+		},
+		Course: config.CourseConfig{
+			Dir:      "./courses",
+			UseEmbed: false,
+		},
+	}, summary, FixOptions{
+		DryRun:   false,
+		FixScope: "executable",
+	})
+	if err != nil {
+		t.Fatalf("apply fixes failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one executable result, got: %+v", results)
+	}
+	if results[0].Name != ItemNameExecutablePath {
+		t.Fatalf("unexpected fix target: %+v", results[0])
+	}
+	if results[0].Status != "已修复" {
+		t.Fatalf("expected repaired executable status, got: %+v", results[0])
+	}
+	if !strings.Contains(results[0].Details, "路径校验结果:") {
+		t.Fatalf("expected executable health details, got: %+v", results[0])
+	}
+
+	raw, err := os.ReadFile("tmp/kwdb-playground.pid")
+	if err != nil {
+		t.Fatalf("read fixed pid file failed: %v", err)
+	}
+	gotPID, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil {
+		t.Fatalf("parse fixed pid failed: %v", err)
+	}
+	if gotPID != os.Getpid() {
+		t.Fatalf("expected pid file rewritten to current pid %d, got %d", os.Getpid(), gotPID)
 	}
 }
