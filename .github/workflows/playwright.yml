@@ -11,7 +11,8 @@ env:
   SERVER_PORT: '3006'
   CI: 'true'
   NODE_VERSION: ${{ vars.CI_NODE_VERSION || '25' }}
-  PNPM_VERSION: ${{ vars.CI_PNPM_VERSION || '10' }}
+  PNPM_VERSION: '10.32.1'
+  PNPM_MAJOR: '10'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,7 +53,7 @@ jobs:
           EXPECTED_NODE_MAJOR="${NODE_VERSION%%.*}"
           echo "Expected Node version: ${NODE_VERSION}"
           echo "Expected Node major: ${EXPECTED_NODE_MAJOR}"
-          echo "Expected pnpm major: ${PNPM_VERSION}"
+          echo "Expected pnpm major: ${PNPM_MAJOR}"
           echo "Actual Node: $(node --version)"
           echo "Actual pnpm: $(pnpm --version)"
           ACTUAL_NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
@@ -61,8 +62,8 @@ jobs:
             echo "Node major mismatch: expected ${EXPECTED_NODE_MAJOR}, got ${ACTUAL_NODE_MAJOR}"
             exit 1
           fi
-          if [ "${ACTUAL_PNPM_MAJOR}" != "${PNPM_VERSION}" ]; then
-            echo "pnpm major mismatch: expected ${PNPM_VERSION}, got ${ACTUAL_PNPM_MAJOR}"
+          if [ "${ACTUAL_PNPM_MAJOR}" != "${PNPM_MAJOR}" ]; then
+            echo "pnpm major mismatch: expected ${PNPM_MAJOR}, got ${ACTUAL_PNPM_MAJOR}"
             exit 1
           fi
 
@@ -134,7 +135,7 @@ jobs:
           EXPECTED_NODE_MAJOR="${NODE_VERSION%%.*}"
           echo "Expected Node version: ${NODE_VERSION}"
           echo "Expected Node major: ${EXPECTED_NODE_MAJOR}"
-          echo "Expected pnpm major: ${PNPM_VERSION}"
+          echo "Expected pnpm major: ${PNPM_MAJOR}"
           echo "Actual Node: $(node --version)"
           echo "Actual pnpm: $(pnpm --version)"
           ACTUAL_NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
@@ -143,8 +144,8 @@ jobs:
             echo "Node major mismatch: expected ${EXPECTED_NODE_MAJOR}, got ${ACTUAL_NODE_MAJOR}"
             exit 1
           fi
-          if [ "${ACTUAL_PNPM_MAJOR}" != "${PNPM_VERSION}" ]; then
-            echo "pnpm major mismatch: expected ${PNPM_VERSION}, got ${ACTUAL_PNPM_MAJOR}"
+          if [ "${ACTUAL_PNPM_MAJOR}" != "${PNPM_MAJOR}" ]; then
+            echo "pnpm major mismatch: expected ${PNPM_MAJOR}, got ${ACTUAL_PNPM_MAJOR}"
             exit 1
           fi
 
