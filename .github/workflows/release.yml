@@ -14,7 +14,6 @@ concurrency:
 
 env:
   NODE_VERSION: ${{ vars.CI_NODE_VERSION || '25' }}
-  PNPM_VERSION: ${{ vars.CI_PNPM_VERSION || '9' }}
 
 jobs:
   build_and_release:
