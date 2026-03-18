@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useTourStore } from '@/store/tourStore';
 import { TourTooltip } from '@/components/ui/TourTooltip';
+import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { getStepsForPage, getTotalSteps } from '@/config/tourSteps';
 import { HomeFeatureSection } from './home/HomeFeatureSection';
 import { HomeHeroSection } from './home/HomeHeroSection';
@@ -32,9 +33,18 @@ export function Home() {
 
   return (
     <div className={homeStyles.pageRoot}>
+      <div className={homeStyles.pageBackdrop}>
+        <div className={homeStyles.backdropGrid} />
+        <div className={homeStyles.backdropOrbPrimary} />
+        <div className={homeStyles.backdropOrbSecondary} />
+      </div>
       <div className={homeStyles.contentContainer}>
-        <HomeHeroSection ctaTourId="home-start-learning" />
-        <HomeFeatureSection features={homeFeatureItems} />
+        <ScrollReveal>
+          <HomeHeroSection ctaTourId="home-start-learning" />
+        </ScrollReveal>
+        <ScrollReveal delay={120}>
+          <HomeFeatureSection features={homeFeatureItems} />
+        </ScrollReveal>
       </div>
 
       {step && (

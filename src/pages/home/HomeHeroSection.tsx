@@ -12,6 +12,7 @@ interface HomeHeroSectionProps {
 export function HomeHeroSection({ ctaTourId }: HomeHeroSectionProps) {
   return (
     <header className={cn(homeStyles.heroHeader, homeStyles.sectionSpacing)}>
+      <div className={homeStyles.heroTopAccent} />
       <div className={homeStyles.heroBadge}>
         <span className="relative flex h-2 w-2">
           <span className={homeStyles.heroBadgePing}></span>
