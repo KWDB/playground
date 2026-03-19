@@ -4,12 +4,13 @@
 
 ## OVERVIEW
 
-Gin HTTP handlers for courses, containers, images, progress, WebSocket terminals. **CRITICAL: 2151 lines.**
+Gin HTTP handlers for courses, containers, images, progress, WebSocket terminals. **CRITICAL: 528 lines.**
 
 ## KEY FILES
 
-- `routes.go` (2151 lines) - All HTTP handler
+- `routes.go` (528 lines) - All HTTP handler registration
 - Handler struct wires: course service, docker controller, terminal manager
+- `handlers_run.go` - Course start/stop/pause logic
 
 ## WHERE TO LOOK
 
@@ -20,10 +21,6 @@ Gin HTTP handlers for courses, containers, images, progress, WebSocket terminals
 | SQL WS | handleSqlWebSocket | Query/result protocol |
 | Code WS | handleCodeWebSocket | Code execution protocol |
 | Port conflict | checkPortConflict | Endpoint compatibility |
-
-## KNOWN ISSUES
-
-1. Long handlers with layered error handling
 
 ## ENDPOINTS
 
@@ -76,3 +73,8 @@ SQL:
   GET    /api/sql/info
   GET    /api/sql/health
 ```
+
+## ANTI-PATTERNS
+
+- Long handlers with layered error handling
+- API validation comments in Chinese (不推荐用于正式代码)

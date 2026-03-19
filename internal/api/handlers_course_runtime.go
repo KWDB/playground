@@ -14,7 +14,8 @@ import (
 )
 
 type startCourseRequest struct {
-	Image string `json:"image"`
+	Image    string `json:"image"`
+	HostPort *int   `json:"hostPort"`
 }
 
 func (h *Handler) beginCourseStart(courseID string) bool {
@@ -87,6 +88,16 @@ func resolveCoursePorts(hostPort int, containerPort int) map[string]string {
 	}
 }
 
+func resolveStartHostPort(requestHostPort *int, backendHostPort int) (int, error) {
+	if requestHostPort != nil {
+		if *requestHostPort <= 0 || *requestHostPort > 65535 {
+			return 0, fmt.Errorf("主机端口必须在 1-65535 范围内")
+		}
+		return *requestHostPort, nil
+	}
+	return backendHostPort, nil
+}
+
 func (h *Handler) startCourse(c *gin.Context) {
 	id := c.Param("id")
 	h.logger.Debug("[startCourse] 开始启动课程容器，课程ID: %s", id)
@@ -140,6 +151,18 @@ func (h *Handler) startCourse(c *gin.Context) {
 		h.logger.Debug("[startCourse] 使用课程指定镜像: %s", imageName)
 	} else {
 		h.logger.Debug("[startCourse] 使用默认镜像: %s", imageName)
+	}
+
+	hostPort, err := resolveStartHostPort(requestBody.HostPort, course.Backend.Port)
+	if err != nil {
+		h.logger.Error("[startCourse] 错误: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	if requestBody.HostPort != nil {
+		h.logger.Debug("[startCourse] 使用请求中指定的主机端口: %d", hostPort)
 	}
 
 	if h.dockerController == nil {
@@ -276,7 +299,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 		WorkingDir:  workingDir,
 		Cmd:         cmd,
 		Privileged:  course.Backend.Privileged,
-		Ports:       resolveCoursePorts(course.Backend.Port, course.Backend.ContainerPort),
+		Ports:       resolveCoursePorts(hostPort, course.Backend.ContainerPort),
 		Volumes:     volumes,
 		Env:         env,
 		MemoryLimit: memoryLimit,

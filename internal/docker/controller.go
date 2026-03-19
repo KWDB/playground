@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/netip"
 	"os"
 	"strconv"
@@ -577,7 +578,74 @@ func (d *dockerController) UnpauseContainer(ctx context.Context, containerID str
 	return nil
 }
 
-// CheckPortConflict 检查指定端口是否被课程容器占用
+func resolveContainerCourseID(containerName string, labels map[string]string) string {
+	if labels != nil {
+		if courseID := strings.TrimSpace(labels[LabelCourseID]); courseID != "" {
+			return courseID
+		}
+	}
+
+	parsedCourseID, ok := parseCourseIDFromPlaygroundContainerName(containerName)
+	if ok {
+		return parsedCourseID
+	}
+
+	return ""
+}
+
+func parseCourseIDFromPlaygroundContainerName(containerName string) (string, bool) {
+	const prefix = "kwdb-playground-"
+	cleanName := strings.TrimPrefix(strings.TrimSpace(containerName), "/")
+	if !strings.HasPrefix(cleanName, prefix) {
+		return "", false
+	}
+
+	withoutPrefix := strings.TrimPrefix(cleanName, prefix)
+	lastDash := strings.LastIndex(withoutPrefix, "-")
+	if lastDash <= 0 {
+		return "", false
+	}
+
+	courseID := strings.TrimSpace(withoutPrefix[:lastDash])
+	if courseID == "" {
+		return "", false
+	}
+
+	return courseID, true
+}
+
+func (d *dockerController) isHostPortAvailable(port int) bool {
+	addresses := []struct {
+		network string
+		address string
+	}{
+		{network: "tcp4", address: fmt.Sprintf("127.0.0.1:%d", port)},
+		{network: "tcp4", address: fmt.Sprintf("0.0.0.0:%d", port)},
+		{network: "tcp6", address: fmt.Sprintf("[::1]:%d", port)},
+		{network: "tcp6", address: fmt.Sprintf("[::]:%d", port)},
+	}
+
+	for _, item := range addresses {
+		listener, err := net.Listen(item.network, item.address)
+		if err != nil {
+			errText := strings.ToLower(err.Error())
+			if strings.Contains(errText, "address already in use") {
+				d.logger.Info("端口 %d 在 %s 上已被占用: %v", port, item.network, err)
+				return false
+			}
+			if strings.Contains(errText, "address family not supported") || strings.Contains(errText, "cannot assign requested address") {
+				continue
+			}
+			d.logger.Warn("检查端口 %d (%s) 可用性失败: %v", port, item.network, err)
+			return false
+		}
+		_ = listener.Close()
+	}
+
+	return true
+}
+
+// CheckPortConflict 检查指定端口是否被容器或主机进程占用
 func (d *dockerController) CheckPortConflict(ctx context.Context, courseID string, port int) (*PortConflictInfo, error) {
 	d.logger.Info("检查课程 %s 的端口 %d 冲突情况", courseID, port)
 
@@ -588,37 +656,29 @@ func (d *dockerController) CheckPortConflict(ctx context.Context, courseID strin
 		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
 
-	// 查找匹配课程前缀的容器
-	coursePrefix := fmt.Sprintf("kwdb-playground-%s-", courseID)
 	var conflictContainer *ContainerInfo
 
 	for _, container := range containers {
-		// 检查容器名称是否匹配课程前缀
-		isMatchingCourse := false
 		containerName := ""
 		for _, name := range container.Names {
-			// 容器名称以 / 开头，需要去掉
-			cleanName := strings.TrimPrefix(name, "/")
-			if strings.HasPrefix(cleanName, coursePrefix) {
-				isMatchingCourse = true
-				containerName = cleanName
-				break
-			}
+			containerName = strings.TrimPrefix(name, "/")
+			break
 		}
 
-		if !isMatchingCourse {
-			continue
+		if containerName == "" {
+			containerName = container.ID[:12]
 		}
 
 		// 检查容器的端口映射
 		for _, portMapping := range container.Ports {
 			if portMapping.PublicPort != 0 && int(portMapping.PublicPort) == port {
 				d.logger.Info("发现端口冲突: 容器 %s 占用端口 %d", containerName, port)
+				resolvedCourseID := resolveContainerCourseID(containerName, container.Labels)
 
 				// 构建容器信息
 				conflictContainer = &ContainerInfo{
 					ID:       container.ID,
-					CourseID: courseID,
+					CourseID: resolvedCourseID,
 					DockerID: container.ID,
 					Name:     containerName,
 					Port:     port,
@@ -635,10 +695,23 @@ func (d *dockerController) CheckPortConflict(ctx context.Context, courseID strin
 		}
 	}
 
+	if conflictContainer == nil && !d.isHostPortAvailable(port) {
+		d.logger.Info("发现端口冲突: 主机进程占用端口 %d", port)
+		conflictContainer = &ContainerInfo{
+			ID:       "host-process",
+			CourseID: "",
+			DockerID: "",
+			Name:     "host-process",
+			Port:     port,
+			State:    StateRunning,
+			Message:  fmt.Sprintf("Host process using port %d", port),
+		}
+	}
+
 	// 构建端口冲突信息
 	conflictInfo := &PortConflictInfo{
 		HasConflict:       conflictContainer != nil,
-		IsCourseContainer: conflictContainer != nil,
+		IsCourseContainer: conflictContainer != nil && conflictContainer.CourseID != "",
 		ConflictContainer: conflictContainer,
 	}
 

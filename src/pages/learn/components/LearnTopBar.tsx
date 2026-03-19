@@ -10,6 +10,11 @@ type Props = {
   imageSourceLabel: string
   effectiveImage: string
   canPickImage: boolean
+  showHostPortSelector: boolean
+  hostPortValue: string
+  hostPortConflictMessage: string | null
+  isHostPortChecking: boolean
+  onHostPortChange: (value: string) => void
   onBack: () => void
   onOpenTour: () => void
   onOpenImageSelector: () => void
@@ -26,6 +31,11 @@ export const LearnTopBar = ({
   imageSourceLabel,
   effectiveImage,
   canPickImage,
+  showHostPortSelector,
+  hostPortValue,
+  hostPortConflictMessage,
+  isHostPortChecking,
+  onHostPortChange,
   onBack,
   onOpenTour,
   onOpenImageSelector,
@@ -35,11 +45,12 @@ export const LearnTopBar = ({
   onStop,
 }: Props) => {
   const { theme: currentTheme, toggleTheme } = useTheme()
+  const hasPortConflict = Boolean(hostPortConflictMessage)
 
   return (
     <header className="bg-[var(--color-bg-primary)] border-b border-[var(--color-border-light)] px-4 py-3 flex-shrink-0">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2">
           <button onClick={onBack} className="btn btn-ghost text-sm" title="返回课程列表">
             <ArrowLeft className="h-4 w-4 mr-1.5" />
             <span className="hidden sm:inline">返回</span>
@@ -51,8 +62,36 @@ export const LearnTopBar = ({
             </button>
           </div>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
           <ThemeToggle theme={currentTheme} onToggle={toggleTheme} />
+          {showHostPortSelector && canPickImage && (
+            <div
+              className={`group flex items-center gap-1.5 px-1.5 py-1 rounded-md transition-colors duration-150 focus-within:ring-2 ${
+                hasPortConflict
+                  ? 'bg-[rgba(239,68,68,0.15)] focus-within:ring-[var(--color-error)]'
+                  : 'focus-within:ring-[var(--color-accent-primary)]'
+              }`}
+              data-tour-id="learn-host-port-selector"
+            >
+              {hasPortConflict ? <span className="text-[10px] text-[var(--color-error)]">⚠</span> : null}
+              <span className={`text-[10px] ${hasPortConflict ? 'text-[var(--color-error)]' : 'text-[var(--color-text-secondary)]'}`}>端口</span>
+              <input
+                type="number"
+                min={1}
+                max={65535}
+                value={hostPortValue}
+                onChange={(e) => onHostPortChange(e.target.value)}
+                className="h-6 w-[70px] rounded border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-1.5 text-[11px] text-[var(--color-text-primary)] outline-none transition-colors duration-150 focus:border-[var(--color-accent-primary)]"
+                placeholder="3000"
+              />
+              {isHostPortChecking && !hasPortConflict && (
+                <span className="text-[10px] text-[var(--color-text-tertiary)]">检查中…</span>
+              )}
+              {hostPortConflictMessage && (
+                <span className="text-[10px] font-semibold text-[var(--color-error)] max-w-40 truncate" title={hostPortConflictMessage}>{hostPortConflictMessage}</span>
+              )}
+            </div>
+          )}
           <StatusIndicator
             status={containerStatus as StatusType}
             label={`容器: ${containerStatus === 'running' ? '运行中' : containerStatus === 'starting' ? '启动中' : containerStatus === 'stopping' ? '停止中' : containerStatus === 'paused' ? '已暂停' : containerStatus === 'error' ? '错误' : '已停止'}`}

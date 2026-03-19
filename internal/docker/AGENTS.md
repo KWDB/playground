@@ -4,11 +4,11 @@
 
 ## OVERVIEW
 
-Docker SDK wrapper: container lifecycle (create/start/stop/pause/resume), image pulling, file injection, exec commands. **CRITICAL: 2316 lines, high concurrency.**
+Docker SDK wrapper: container lifecycle (create/start/stop/pause/resume), image pulling, file injection, exec commands. **CRITICAL: 2661 lines, high concurrency.**
 
 ## KEY FILES
 
-- `controller.go` (2316 lines) - Main Docker controller
+- `controller.go` (2661 lines) - Main Docker controller
 - `adapter.go` - Docker client adapter
 - `types.go` - Container/Image types
 

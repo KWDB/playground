@@ -94,11 +94,23 @@ func TestParseStartCourseRequest(t *testing.T) {
 	if got1.Image != "ghcr.io/kwdb/kwdb:latest" {
 		t.Fatalf("parseStartCourseRequest image=%q", got1.Image)
 	}
+	if got1.HostPort != nil {
+		t.Fatalf("parseStartCourseRequest hostPort should be nil, got %v", *got1.HostPort)
+	}
+
+	cPort := makeCtx(`{"hostPort":3000}`)
+	gotPort := parseStartCourseRequest(cPort)
+	if gotPort.HostPort == nil || *gotPort.HostPort != 3000 {
+		t.Fatalf("parseStartCourseRequest hostPort=%v", gotPort.HostPort)
+	}
 
 	c2 := makeCtx(``)
 	got2 := parseStartCourseRequest(c2)
 	if got2.Image != "" {
 		t.Fatalf("empty body should produce empty image, got %q", got2.Image)
+	}
+	if got2.HostPort != nil {
+		t.Fatalf("empty body should produce nil hostPort, got %v", *got2.HostPort)
 	}
 }
 
@@ -129,5 +141,29 @@ func TestResolveCoursePorts(t *testing.T) {
 	}
 	if got := resolveCoursePorts(-1, 26257); got != nil {
 		t.Fatalf("resolveCoursePorts(-1,26257)=%v, want nil", got)
+	}
+}
+
+func TestResolveStartHostPort(t *testing.T) {
+	requestPort := 3000
+	got, err := resolveStartHostPort(&requestPort, 26257)
+	if err != nil {
+		t.Fatalf("resolveStartHostPort returned error: %v", err)
+	}
+	if got != 3000 {
+		t.Fatalf("resolveStartHostPort got=%d, want=3000", got)
+	}
+
+	gotBackend, err := resolveStartHostPort(nil, 26257)
+	if err != nil {
+		t.Fatalf("resolveStartHostPort backend error: %v", err)
+	}
+	if gotBackend != 26257 {
+		t.Fatalf("resolveStartHostPort backend got=%d, want=26257", gotBackend)
+	}
+
+	invalid := 70000
+	if _, err := resolveStartHostPort(&invalid, 26257); err == nil {
+		t.Fatal("resolveStartHostPort invalid port should return error")
 	}
 }

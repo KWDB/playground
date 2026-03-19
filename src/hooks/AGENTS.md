@@ -29,3 +29,4 @@ hooks/
 
 - Polling-based status checks (could use WebSocket)
 - Some logic duplicated in Learn.tsx
+- Hooks fragmented across two directories

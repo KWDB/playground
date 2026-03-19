@@ -71,7 +71,7 @@ export const useContainerActions = ({
     setConnectionError(null)
   }, [containerStatus, setConnectionError, setIsConnected])
 
-  const startCourseContainer = useCallback(async (id: string) => {
+  const startCourseContainer = useCallback(async (id: string, hostPort?: number) => {
     if (containerStatus === 'running' || containerStatus === 'starting') {
       return
     }
@@ -87,7 +87,13 @@ export const useContainerActions = ({
       startAbortControllerRef.current?.abort()
       const controller = new AbortController()
       startAbortControllerRef.current = controller
-      const requestBody = selectedImage ? { image: selectedImage } : {}
+      const requestBody: { image?: string; hostPort?: number } = {}
+      if (selectedImage) {
+        requestBody.image = selectedImage
+      }
+      if (typeof hostPort === 'number' && Number.isInteger(hostPort) && hostPort > 0) {
+        requestBody.hostPort = hostPort
+      }
       const data = await api.courses.start(
         id,
         Object.keys(requestBody).length > 0 ? requestBody : undefined,

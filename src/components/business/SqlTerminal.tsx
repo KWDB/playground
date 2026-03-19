@@ -101,6 +101,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
   // 镜像拉取进度状态
   const [showProgress, setShowProgress] = useState(false)
   const [localImagePullProgress, setLocalImagePullProgress] = useState<ImagePullProgressMessageOverlay | null>(null)
+  const displayPort = info?.port ?? port
 
   const hasTimestampColumn = useMemo(() => {
     return columns.some((c) => isTimestampColumnName(c))
@@ -413,7 +414,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
       <div className="flex items-center justify-between p-3 border-b border-[var(--color-border-light)] bg-[var(--color-bg-secondary)]">
         <div className="flex items-center gap-3 text-sm">
           <span className="px-2 py-0.5 rounded bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)] border border-[var(--color-accent-primary)]/20">SQL</span>
-          <span className="text-[var(--color-text-secondary)]">端口: {port}</span>
+          <span className="text-[var(--color-text-secondary)]">端口: {displayPort}</span>
         </div>
         <button
           onClick={() => fetchInfoRef.current()}
