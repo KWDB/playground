@@ -19,7 +19,7 @@ export const readNodeMeta = (node: unknown): string | null => {
 
 export const preprocessMarkdown = (content: string, variables: MarkdownVariables = {}) => {
   const normalizedLocalPort = String(variables.localPort || '').trim()
-  const withPortVariable = content.replace(/\{\{\s*(?:LOACL_PORT|LOCAL_PORT)\s*\}\}/gi, normalizedLocalPort)
+  const withPortVariable = content.replace(/\{\{\s*(?:LOCAL_PORT)\s*\}\}/gi, normalizedLocalPort)
 
   const normalizedOpeningExec = withPortVariable.replace(/```([^\n]*?)\{\{\s*exec\s*\}\}([^\n]*)\n([\s\S]*?)```/g, (match, before, after, code) => {
     const infoStr = `${String(before || '')} ${String(after || '')}`.trim()
