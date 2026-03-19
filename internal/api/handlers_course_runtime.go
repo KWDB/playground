@@ -75,12 +75,15 @@ func normalizeCourseCmd(cmd []string) []string {
 	return cmd
 }
 
-func resolveCoursePorts(port int) map[string]string {
-	if port <= 0 {
+func resolveCoursePorts(hostPort int, containerPort int) map[string]string {
+	if hostPort <= 0 {
 		return nil
 	}
+	if containerPort <= 0 {
+		containerPort = 26257
+	}
 	return map[string]string{
-		"26257": fmt.Sprintf("%d", port),
+		fmt.Sprintf("%d", containerPort): fmt.Sprintf("%d", hostPort),
 	}
 }
 
@@ -273,7 +276,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 		WorkingDir:  workingDir,
 		Cmd:         cmd,
 		Privileged:  course.Backend.Privileged,
-		Ports:       resolveCoursePorts(course.Backend.Port),
+		Ports:       resolveCoursePorts(course.Backend.Port, course.Backend.ContainerPort),
 		Volumes:     volumes,
 		Env:         env,
 		MemoryLimit: memoryLimit,

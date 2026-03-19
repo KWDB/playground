@@ -16,6 +16,22 @@ describe('learn markdown utils', () => {
     expect(output).toContain('data-command-enc=')
   })
 
+  it('injects inline copy button for inline code copy', () => {
+    const input = '`http://localhost:3000` {{copy}}'
+    const output = preprocessMarkdown(input)
+    expect(output).toContain('class="copy-btn"')
+    expect(output).toContain('data-copy-enc=')
+    expect(output).toContain('inline-code-copy')
+  })
+
+  it('injects target blank anchor for markdown target syntax', () => {
+    const input = '[http://localhost:3000](http://localhost:3000){:target="_blank"}'
+    const output = preprocessMarkdown(input)
+    expect(output).toContain('target="_blank"')
+    expect(output).toContain('rel="noopener noreferrer"')
+    expect(output).toContain('<a href="http://localhost:3000"')
+  })
+
   it('reads meta from node and node.data', () => {
     expect(readNodeMeta({ meta: 'exec' })).toBe('exec')
     expect(readNodeMeta({ data: { meta: 'exec2' } })).toBe('exec2')

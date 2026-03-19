@@ -103,21 +103,31 @@ func TestParseStartCourseRequest(t *testing.T) {
 }
 
 func TestResolveCoursePorts(t *testing.T) {
-	got := resolveCoursePorts(26257)
+	got := resolveCoursePorts(26257, 26257)
 	if got == nil {
-		t.Fatal("resolveCoursePorts(26257) should not be nil")
+		t.Fatal("resolveCoursePorts(26257,26257) should not be nil")
 	}
 	if len(got) != 1 {
-		t.Fatalf("resolveCoursePorts(26257) len=%d, want=1", len(got))
+		t.Fatalf("resolveCoursePorts(26257,26257) len=%d, want=1", len(got))
 	}
 	if got["26257"] != "26257" {
-		t.Fatalf(`resolveCoursePorts(26257)["26257"]=%q, want="26257"`, got["26257"])
+		t.Fatalf(`resolveCoursePorts(26257,26257)["26257"]=%q, want="26257"`, got["26257"])
 	}
 
-	if got := resolveCoursePorts(0); got != nil {
-		t.Fatalf("resolveCoursePorts(0)=%v, want nil", got)
+	mapped := resolveCoursePorts(3000, 9090)
+	if mapped["9090"] != "3000" {
+		t.Fatalf(`resolveCoursePorts(3000,9090)["9090"]=%q, want="3000"`, mapped["9090"])
 	}
-	if got := resolveCoursePorts(-1); got != nil {
-		t.Fatalf("resolveCoursePorts(-1)=%v, want nil", got)
+
+	defaultContainer := resolveCoursePorts(3000, 0)
+	if defaultContainer["26257"] != "3000" {
+		t.Fatalf(`resolveCoursePorts(3000,0)["26257"]=%q, want="3000"`, defaultContainer["26257"])
+	}
+
+	if got := resolveCoursePorts(0, 26257); got != nil {
+		t.Fatalf("resolveCoursePorts(0,26257)=%v, want nil", got)
+	}
+	if got := resolveCoursePorts(-1, 26257); got != nil {
+		t.Fatalf("resolveCoursePorts(-1,26257)=%v, want nil", got)
 	}
 }

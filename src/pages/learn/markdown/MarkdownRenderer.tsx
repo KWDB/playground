@@ -40,9 +40,22 @@ export const MarkdownRenderer = ({ content, onExecClick }: Props) => {
           li: ({ children, ...props }) => (
             <li className="markdown-list-item" {...props}>{children}</li>
           ),
-          a: ({ children, ...props }) => (
-            <a className="markdown-link" {...props}>{children}</a>
-          ),
+          a: ({ children, className, href, target, rel, ...props }) => {
+            const hrefValue = typeof href === 'string' ? href : ''
+            const isExternal = /^https?:\/\//i.test(hrefValue)
+            const mergedClassName = [className, 'markdown-link'].filter(Boolean).join(' ')
+            return (
+              <a
+                className={mergedClassName}
+                href={href}
+                target={target || (isExternal ? '_blank' : undefined)}
+                rel={rel || (isExternal ? 'noopener noreferrer' : undefined)}
+                {...props}
+              >
+                {children}
+              </a>
+            )
+          },
           blockquote: ({ children, ...props }) => (
             <blockquote className="markdown-blockquote" {...props}>{children}</blockquote>
           ),
