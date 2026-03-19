@@ -167,12 +167,19 @@ func (h *Handler) handleSqlWebSocket(c *gin.Context) {
 				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "课程不存在"})
 				continue
 			}
-			if err := h.sqlDriverManager.EnsureReady(ctx, courseObj, h.resolveDBHost(ctx, courseID)); err != nil {
+			port := h.resolveSQLRuntimePort(ctx, courseObj)
+			if port <= 0 {
+				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "课程未配置 backend.port"})
+				continue
+			}
+			courseForConnect := *courseObj
+			courseForConnect.Backend.Port = port
+			if err := h.sqlDriverManager.EnsureReady(ctx, &courseForConnect, h.resolveDBHost(ctx, courseID)); err != nil {
 				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": fmt.Sprintf("KWDB未就绪: %v", err)})
 				continue
 			}
 			_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
-			_ = conn.WriteJSON(map[string]interface{}{"type": "info", "port": courseObj.Backend.Port, "connected": true})
+			_ = conn.WriteJSON(map[string]interface{}{"type": "info", "port": port, "connected": true})
 		case "query":
 			if courseObj == nil || h.sqlDriverManager.Pool(courseObj.ID) == nil {
 				_ = conn.WriteJSON(map[string]interface{}{"type": "error", "message": "连接未初始化"})

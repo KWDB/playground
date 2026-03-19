@@ -11,10 +11,10 @@ Course content loading, progress management, step navigation. Handles YAML + Mar
 ```
 course/
 ├── models.go         # Course, Step, Progress types
-├── service.go        # Course CRUD, file loading
+├── service.go        # Course CRUD, file loading (803 lines)
 ├── progress.go       # Progress tracking
 ├── service_test.go   # Service unit tests
-└── progress_test.go # Progress unit tests
+└── progress_test.go  # Progress unit tests
 ```
 
 ## WHERE TO LOOK

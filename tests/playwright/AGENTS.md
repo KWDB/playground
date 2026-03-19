@@ -18,11 +18,9 @@ playwright/
 ├── code-terminal.spec.ts        # Python code terminal test
 ├── course-list-status.spec.ts   # Course list test
 ├── course-pause.spec.ts         # Pause/resume test
-├── port-conflict.spec.ts       # Port conflict test
-└── docker-deploy.spec.ts       # Docker deployment test
+├── port-conflict.spec.ts        # Port conflict test
+└── docker-deploy.spec.ts        # Docker deployment test
 ```
-
-## RUN COMMANDS
 
 ## RUN COMMANDS
 
@@ -44,6 +42,7 @@ npx playwright test --project=quick-start -g "test name"
 - Project ordering in config: tests run serially (dependency chain)
 - State reset via API endpoints before each test
 - LocalStorage cleared via `page.addInitScript`
+- Chinese test descriptions (e.g., `test('SQL 终端测试', ...)`)
 
 ## STATE RESET PATTERN
 
@@ -59,5 +58,4 @@ await request.post('/api/courses/:id/stop')
 - No dedicated test fixtures - reset done manually in beforeEach
 - Screenshots on failure saved to `tests/screenshots/`
 - Reports saved to `tests/reports/`
-
-
+- E2E tests run serially with `workers: 1`

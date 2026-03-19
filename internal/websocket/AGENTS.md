@@ -33,3 +33,4 @@ websocket/
 
 - No ping/pong heartbeat (relies on TCP keepalive)
 - Session cleanup on disconnect only
+- NOTE: Do NOT close conn in handler, writePump closes on ctx.Done()

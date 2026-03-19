@@ -150,7 +150,7 @@ export const api = {
 
     start: (
       id: string,
-      body?: { image?: string },
+      body?: { image?: string; hostPort?: number },
       signal?: AbortSignal
     ): Promise<StartCourseResponse> =>
       request<StartCourseResponse>(`/courses/${id}/start`, {

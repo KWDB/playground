@@ -22,7 +22,7 @@
 
 5. **在浏览器中登录 Grafana**
 
-- 默认地址：[http://localhost:3000](http://localhost:3000)
+- 默认地址：[http://localhost:{{LOCAL_PORT}}](http://localhost:{{LOCAL_PORT}})
 - 默认账号：`admin`{{copy}}
 - 默认密码：`admin`{{copy}}
 

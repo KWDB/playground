@@ -7,11 +7,12 @@ import { MarkdownCodeBlock } from './MarkdownCodeBlock'
 
 type Props = {
   content: string
+  localPort?: string
   onExecClick: (event: React.MouseEvent) => void
 }
 
-export const MarkdownRenderer = ({ content, onExecClick }: Props) => {
-  const processedContent = preprocessMarkdown(content)
+export const MarkdownRenderer = ({ content, localPort, onExecClick }: Props) => {
+  const processedContent = preprocessMarkdown(content, { localPort })
 
   return (
     <div onClick={onExecClick} className="markdown-container">

@@ -20,14 +20,16 @@ func (h *Handler) sqlInfo(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "课程不存在"})
 		return
 	}
-	port := courseObj.Backend.Port
+	port := h.resolveSQLRuntimePort(c.Request.Context(), courseObj)
 	if port <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "课程未配置 backend.port"})
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj, h.resolveDBHost(ctx, courseID)); err != nil {
+	courseForConnect := *courseObj
+	courseForConnect.Backend.Port = port
+	if err := h.sqlDriverManager.EnsureReady(ctx, &courseForConnect, h.resolveDBHost(ctx, courseID)); err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"connected": false,
 			"port":      port,
@@ -66,14 +68,16 @@ func (h *Handler) sqlHealth(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "课程不存在"})
 		return
 	}
-	port := courseObj.Backend.Port
+	port := h.resolveSQLRuntimePort(c.Request.Context(), courseObj)
 	if port <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "课程未配置 backend.port"})
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := h.sqlDriverManager.EnsureReady(ctx, courseObj, h.resolveDBHost(ctx, courseID)); err != nil {
+	courseForConnect := *courseObj
+	courseForConnect.Backend.Port = port
+	if err := h.sqlDriverManager.EnsureReady(ctx, &courseForConnect, h.resolveDBHost(ctx, courseID)); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "down", "message": err.Error(), "port": port})
 		return
 	}

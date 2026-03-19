@@ -68,10 +68,16 @@ export interface ApiError {
 }
 
 export interface PortConflictInfo {
-  hasConflict: boolean
-  conflictingContainerId?: string
-  conflictingPort?: number
   courseId?: string
+  port?: string
+  isConflicted: boolean
+  conflictContainers: Array<{
+    id: string
+    name: string
+    courseId: string
+    port: string
+    state: string
+  }>
 }
 
 // Backend raw response from /progress/:courseId

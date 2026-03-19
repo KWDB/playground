@@ -1,6 +1,25 @@
 import { test, expect } from './test-setup';
+import type { APIRequestContext } from '@playwright/test';
+
+type PortConflictResponse = {
+  isConflicted?: boolean
+}
 
 test.describe('SQL 终端', () => {
+  const findAvailablePort = async (request: APIRequestContext, courseId: string) => {
+    for (let candidate = 31000; candidate < 31030; candidate++) {
+      const response = await request.get(`/api/courses/${courseId}/check-port-conflict?port=${candidate}`)
+      if (!response.ok()) {
+        continue
+      }
+      const result = await response.json() as PortConflictResponse
+      if (!result.isConflicted) {
+        return candidate
+      }
+    }
+    throw new Error('未找到可用端口用于 SQL E2E 测试')
+  }
+
   test.beforeEach(async ({ request, page }) => {
     // 确保从干净状态开始
     try { await request.post('/api/courses/sql/stop'); } catch { /* ignore */ }
@@ -116,4 +135,25 @@ test.describe('SQL 终端', () => {
     await expect(page.getByText('容器: 运行中')).toBeVisible({ timeout: 5000 });
     console.log('✅ 已返回介绍页');
   });
+
+  test('修改主机端口后 SQL 终端连接到新端口', async ({ page, request }) => {
+    await page.goto('/')
+    await page.getByRole('link', { name: '开始学习' }).click()
+    await page.locator('a[href="/learn/sql"]').click()
+    await expect(page.getByText('终端未连接')).toBeVisible({ timeout: 10000 })
+
+    const selectedPort = await findAvailablePort(request, 'sql')
+    const portSelector = page.locator('[data-tour-id="learn-host-port-selector"]')
+    await expect(portSelector).toBeVisible({ timeout: 10000 })
+    await portSelector.locator('input[type="number"]').fill(String(selectedPort))
+
+    await page.getByRole('button', { name: '启动容器' }).click()
+    await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(`端口: ${selectedPort}`)).toBeVisible({ timeout: 10000 })
+
+    const input = page.getByRole('textbox')
+    await input.fill('SELECT 1')
+    await input.press('Enter')
+    await expect(page.getByRole('columnheader', { name: '?column?' })).toBeVisible({ timeout: 10000 })
+  })
 });

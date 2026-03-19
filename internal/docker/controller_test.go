@@ -1,6 +1,8 @@
 package docker
 
 import (
+	"fmt"
+	"net"
 	"testing"
 	"time"
 
@@ -228,4 +230,51 @@ func TestResolveStartedAt(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveContainerCourseID(t *testing.T) {
+	gotLabel := resolveContainerCourseID("kwdb-playground-sql-123456", map[string]string{
+		LabelCourseID: "db-monitor",
+	})
+	if gotLabel != "db-monitor" {
+		t.Fatalf("resolveContainerCourseID label got=%q, want=db-monitor", gotLabel)
+	}
+
+	gotName := resolveContainerCourseID("kwdb-playground-quick-start-123456", nil)
+	if gotName != "quick-start" {
+		t.Fatalf("resolveContainerCourseID name got=%q, want=quick-start", gotName)
+	}
+
+	gotEmpty := resolveContainerCourseID("random-container", nil)
+	if gotEmpty != "" {
+		t.Fatalf("resolveContainerCourseID invalid got=%q, want empty", gotEmpty)
+	}
+}
+
+func TestIsHostPortAvailable(t *testing.T) {
+	controller := &dockerController{
+		logger: logger.NewLogger(logger.ERROR),
+	}
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen failed: %v", err)
+	}
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	if controller.isHostPortAvailable(port) {
+		_ = listener.Close()
+		t.Fatalf("port %d should be unavailable while listening", port)
+	}
+
+	_ = listener.Close()
+
+	for i := 0; i < 5; i++ {
+		if controller.isHostPortAvailable(port) {
+			return
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+
+	t.Fatalf("port %s should become available after close", fmt.Sprintf("%d", port))
 }

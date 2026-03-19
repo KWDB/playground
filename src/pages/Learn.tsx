@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import CourseContentPanel from '../components/business/CourseContentPanel'
@@ -22,6 +22,7 @@ import {
   useLearnMarkdown,
 } from './learn/index'
 import { getCourseNotFoundError, getErrorInfo } from './learn/index'
+import { api } from '../lib/api/client'
 import '../styles/markdown.css'
 
 export function Learn() {
@@ -44,6 +45,9 @@ export function Learn() {
     isLoadingProgress,
   } = useLearnStore()
   const { seenPages, startTour, nextStep, prevStep, skipTour, currentStep: tourCurrentStep, isActive: isTourActive, hasHydrated } = useTourStore()
+  const [hostPortValue, setHostPortValue] = useState('')
+  const [hostPortConflictMessage, setHostPortConflictMessage] = useState<string | null>(null)
+  const [isHostPortChecking, setIsHostPortChecking] = useState(false)
 
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
   const terminalRef = useRef<TerminalRef>(null)
@@ -60,6 +64,17 @@ export function Learn() {
       startTour(tourKey)
     }
   }, [hasHydrated, isTourActive, seenPages, startTour, tourKey])
+
+  useEffect(() => {
+    const defaultPort = course?.backend?.port
+    if (typeof defaultPort === 'number' && defaultPort > 0) {
+      setHostPortValue(String(defaultPort))
+      setHostPortConflictMessage(null)
+      return
+    }
+    setHostPortValue('')
+    setHostPortConflictMessage(null)
+  }, [course?.id, course?.backend?.port])
 
   const effectiveImage = effectiveImageSelector(useLearnStore.getState() as never)
   const imageSourceLabel = imageSourceLabelSelector(useLearnStore.getState() as never)
@@ -95,7 +110,8 @@ export function Learn() {
     terminalRef,
     codeTerminalRef,
   })
-  const renderMarkdown = useLearnMarkdown(onExecClick)
+  const markdownLocalPort = hostPortValue.trim() || (typeof course?.backend?.port === 'number' && course.backend.port > 0 ? String(course.backend.port) : '')
+  const renderMarkdown = useLearnMarkdown(onExecClick, markdownLocalPort)
 
   const {
     handleBackClick,
@@ -107,9 +123,87 @@ export function Learn() {
   } = useLearnActions({ stopContainer })
 
   const handlePortConflictClose = useCallback(() => setShowPortConflictHandler(false), [setShowPortConflictHandler])
+  const showHostPortSelector = typeof course?.backend?.port === 'number' && (course?.backend?.port ?? 0) > 0
+
+  const parseSelectedHostPort = useCallback(() => {
+    const parsed = Number.parseInt(hostPortValue.trim(), 10)
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+      return null
+    }
+    return parsed
+  }, [hostPortValue])
+
+  const checkHostPortConflict = useCallback(async (courseIdValue: string, selectedPort: number, signal?: AbortSignal) => {
+    setIsHostPortChecking(true)
+    try {
+      const conflict = await api.courses.checkPortConflict(courseIdValue, selectedPort, signal)
+      if (conflict.isConflicted) {
+        const containerName = conflict.conflictContainers?.[0]?.name
+        setHostPortConflictMessage(
+          containerName && containerName !== 'host-process'
+            ? `${selectedPort} 已占用（${containerName}）`
+            : `已被占用`
+        )
+        return true
+      }
+      setHostPortConflictMessage(null)
+      return false
+    } catch (err) {
+      const maybeAbortError = err as { name?: string }
+      if (maybeAbortError?.name === 'AbortError') {
+        return false
+      }
+      setHostPortConflictMessage(err instanceof Error ? err.message : '端口检测失败，请稍后重试')
+      return true
+    } finally {
+      setIsHostPortChecking(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!course?.id || !showHostPortSelector) return
+    const selectedPort = parseSelectedHostPort()
+    if (selectedPort == null) return
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      void checkHostPortConflict(course.id, selectedPort, controller.signal)
+    }, 200)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [checkHostPortConflict, course?.id, parseSelectedHostPort, showHostPortSelector])
+
+  const handleStartWithPort = useCallback(async () => {
+    if (!course?.id) return
+    if (!showHostPortSelector) {
+      await startCourseContainer(course.id)
+      return
+    }
+
+    const selectedPort = parseSelectedHostPort()
+    if (selectedPort == null) {
+      setHostPortConflictMessage('请输入 1-65535 之间的有效主机端口')
+      return
+    }
+
+    try {
+      const hasConflict = await checkHostPortConflict(course.id, selectedPort)
+      if (hasConflict) {
+        return
+      }
+
+      await startCourseContainer(course.id, selectedPort)
+    } catch (err) {
+      setHostPortConflictMessage(err instanceof Error ? err.message : '端口检测失败，请稍后重试')
+    }
+  }, [checkHostPortConflict, course?.id, parseSelectedHostPort, showHostPortSelector, startCourseContainer])
+
   const handlePortConflictRetry = useCallback(() => {
-    if (course?.id) startCourseContainer(course.id)
-  }, [course?.id, startCourseContainer])
+    void handleStartWithPort()
+  }, [handleStartWithPort])
   const handlePortConflictSuccess = useCallback(() => setShowPortConflictHandler(false), [setShowPortConflictHandler])
 
   if (course && course.id !== courseId) return <LearnLoadingState />
@@ -130,7 +224,15 @@ export function Learn() {
         onBack={handleBackClick}
         onOpenTour={() => startTour(tourKey)}
         onOpenImageSelector={() => setShowImageSelector(true)}
-        onStart={() => course?.id && startCourseContainer(course.id)}
+        showHostPortSelector={showHostPortSelector}
+        hostPortValue={hostPortValue}
+        hostPortConflictMessage={hostPortConflictMessage}
+        isHostPortChecking={isHostPortChecking}
+        onHostPortChange={(value) => {
+          setHostPortValue(value)
+          setHostPortConflictMessage(null)
+        }}
+        onStart={() => void handleStartWithPort()}
         onResume={() => course?.id && resumeContainer(course.id)}
         onPause={() => course?.id && pauseContainer(course.id)}
         onStop={() => course?.id && stopContainer(course.id)}

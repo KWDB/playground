@@ -1,5 +1,9 @@
 import React from 'react'
 
+type MarkdownVariables = {
+  localPort?: string
+}
+
 export const extractTextFromNode = (n: React.ReactNode): string => {
   if (n == null) return ''
   if (typeof n === 'string' || typeof n === 'number') return String(n)
@@ -13,8 +17,11 @@ export const readNodeMeta = (node: unknown): string | null => {
   return metaContainer?.meta ?? metaContainer?.data?.meta ?? null
 }
 
-export const preprocessMarkdown = (content: string) => {
-  const normalizedOpeningExec = content.replace(/```([^\n]*?)\{\{\s*exec\s*\}\}([^\n]*)\n([\s\S]*?)```/g, (match, before, after, code) => {
+export const preprocessMarkdown = (content: string, variables: MarkdownVariables = {}) => {
+  const normalizedLocalPort = String(variables.localPort || '').trim()
+  const withPortVariable = content.replace(/\{\{\s*(?:LOACL_PORT|LOCAL_PORT)\s*\}\}/gi, normalizedLocalPort)
+
+  const normalizedOpeningExec = withPortVariable.replace(/```([^\n]*?)\{\{\s*exec\s*\}\}([^\n]*)\n([\s\S]*?)```/g, (match, before, after, code) => {
     const infoStr = `${String(before || '')} ${String(after || '')}`.trim()
     const [langRaw, ...restParts] = infoStr.split(/\s+/).filter(Boolean)
     const langOrDefault = langRaw || 'bash'
