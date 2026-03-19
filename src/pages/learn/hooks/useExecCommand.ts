@@ -23,6 +23,34 @@ export const useExecCommand = ({
   codeTerminalRef,
 }: Params) => {
   return useCallback((e: React.MouseEvent) => {
+    const copyButton = (e.target as HTMLElement).closest('.copy-btn') as HTMLButtonElement | null
+    if (copyButton) {
+      const encoded = copyButton.getAttribute('data-copy-enc')
+      if (!encoded) return
+
+      let textToCopy = encoded
+      try {
+        textToCopy = decodeURIComponent(encoded)
+      } catch {
+        textToCopy = encoded
+      }
+
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          const original = copyButton.textContent || 'Copy'
+          copyButton.textContent = 'Copied'
+          window.setTimeout(() => {
+            copyButton.textContent = original
+          }, 1200)
+        }).catch(() => {
+          alert('复制失败，请手动复制')
+        })
+      } else {
+        alert('当前浏览器不支持自动复制')
+      }
+      return
+    }
+
     const button = (e.target as HTMLElement).closest('.exec-btn') as HTMLElement
     if (!button) return
 

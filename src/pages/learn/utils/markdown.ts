@@ -32,7 +32,18 @@ export const preprocessMarkdown = (content: string) => {
     return `\`\`\`${newInfo}\n${code}\`\`\``
   })
 
-  return withExecMeta.replace(/`([^`]+)`\s*\{\{\s*exec\s*\}\}/g, (match, rawCmd) => {
+  const withOpenInNewWindowLink = withExecMeta.replace(/\[([^\]]+)\]\(([^)]+)\)\s*\{:\s*target\s*=\s*"_blank"\s*\}/g, (match, rawLabel, rawHref) => {
+    const label = String(rawLabel)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    const href = String(rawHref)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`
+  })
+
+  const withExecButton = withOpenInNewWindowLink.replace(/`([^`]+)`\s*\{\{\s*exec\s*\}\}/g, (match, rawCmd) => {
     const cmd = String(rawCmd)
     const escapedText = cmd
       .replace(/&/g, '&amp;')
@@ -40,5 +51,15 @@ export const preprocessMarkdown = (content: string) => {
       .replace(/>/g, '&gt;')
     const encoded = encodeURIComponent(cmd)
     return `<code class="inline-code-exec">${escapedText}</code><button class="exec-btn" data-command-enc="${encoded}" title="执行命令">Run</button>`
+  })
+
+  return withExecButton.replace(/`([^`]+)`\s*\{\{\s*copy\s*\}\}/g, (match, rawText) => {
+    const copyText = String(rawText)
+    const escapedText = copyText
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    const encoded = encodeURIComponent(copyText)
+    return `<code class="inline-code-copy">${escapedText}</code><button class="copy-btn" data-copy-enc="${encoded}" title="复制内容">Copy</button>`
   })
 }

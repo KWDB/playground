@@ -8,9 +8,7 @@
 
 Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebSocket) + React 18 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
 
-**Stats:** 448 files, 31,333 lines of code (Go + TS/TSX), 4-level depth
-
-Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebSocket) + React 18 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
+**Stats:** 173 code files, 64,096 lines (Go + TS/TSX), 4-level depth
 
 ## Quick Commands
 
@@ -112,35 +110,7 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 - **AtomGit sync**: `.github/workflows/sync-to-atomgit.yml` (China-centric)
 
 ## Commands
-
-```bash
-make install      # Install all deps
-make dev          # Hot reload dev (air + vite)
-make build        # Production build
-make release      # Release binaries
-make e2e-playwright  # Run E2E tests
 ```
-
-# NV|- **Release dead code**: ~140 lines commented-out Homebrew job in release.yml
-# JQ|- **Duplicate check package**: Both `/cmd/check/` and `/internal/check/` exist (CLI vs core logic)
-# VR|- **Hooks fragmented**: Most hooks in `/src/pages/learn/hooks/` not centralized
-# MV|- **Check command deprecated**: `cmd/check/check.go` uses Cobra's Deprecated field
-# KW|- **Format check**: Uses `go fmt` + `git diff` instead of golangci-lint
-# TQ|- **Lenient frontend**: TypeScript/ESlint runs with `|| true` in CI
-# MV|- **Multi-registry**: Pushes to ghcr.io, Docker Hub, and Alibaba Cloud ACR
-- **Duplicate check package**: Both `/cmd/check/` and `/internal/check/` exist (CLI vs core logic)
-- **Hooks fragmented**: Most hooks in `/src/pages/learn/hooks/` not centralized
-- **Check command deprecated**: `cmd/check/check.go` uses Cobra's Deprecated field
-- **Format check**: Uses `go fmt` + `git diff` instead of golangci-lint
-- **Lenient frontend**: TypeScript/ESlint runs with `|| true` in CI
-- **Multi-registry**: Pushes to ghcr.io, Docker Hub, and Alibaba Cloud ACR
-- **Release dead code**: ~140 lines commented-out Homebrew job in release.yml
-- **Duplicate check package**: Both `/cmd/check/` and `/internal/check/` exist (CLI vs core logic)
-- **Hooks fragmented**: Most hooks in `/src/pages/learn/hooks/` not centralized
-- **Check command deprecated**: `cmd/check/check.go` uses Cobra's Deprecated field
-
-## Known Bugs
-
 ## Sub-AGENTS.md
 
 | Path | Description |

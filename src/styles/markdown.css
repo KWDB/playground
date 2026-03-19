@@ -137,6 +137,24 @@
   border-color: var(--color-accent-primary);
 }
 
+.inline-code-copy {
+  display: inline;
+  padding: 2px 6px;
+  margin: 0 2px;
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-light);
+}
+
+.inline-code-copy:hover {
+  background-color: var(--color-accent-subtle);
+  border-color: var(--color-accent-primary);
+}
+
 .exec-btn {
   display: inline-block;
   padding: 4px 10px;
@@ -159,6 +177,30 @@
 
 .exec-btn:active {
   background-color: var(--color-accent-active);
+}
+
+.copy-btn {
+  display: inline-block;
+  padding: 4px 10px;
+  margin-left: 4px;
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  border: 1px solid var(--color-border-light);
+  border-radius: 4px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background-color 0.15s ease;
+}
+
+.copy-btn:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.copy-btn:active {
+  background-color: var(--color-bg-secondary);
 }
 
 .markdown-code-block {
@@ -363,7 +405,17 @@
     border-color: var(--color-border-default);
   }
 
+  .inline-code-copy {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-default);
+  }
+
   .inline-code-exec:hover {
+    background-color: var(--color-accent-subtle);
+  }
+
+  .inline-code-copy:hover {
     background-color: var(--color-accent-subtle);
   }
 
@@ -438,7 +490,9 @@
 @media (prefers-reduced-motion: reduce) {
   .markdown-inline-code,
   .inline-code-exec,
+  .inline-code-copy,
   .exec-btn,
+  .copy-btn,
   .markdown-link {
     transition: none;
   }
@@ -446,12 +500,17 @@
 
 @media (prefers-contrast: high) {
   .markdown-inline-code,
-  .inline-code-exec {
+  .inline-code-exec,
+  .inline-code-copy {
     border-width: 1px;
   }
 
   .exec-btn {
     border: 1px solid var(--color-accent-active);
+  }
+
+  .copy-btn {
+    border: 1px solid var(--color-border-default);
   }
 
   .markdown-code-block {
@@ -460,7 +519,8 @@
 }
 
 @media print {
-  .exec-btn {
+  .exec-btn,
+  .copy-btn {
     display: none;
   }
 

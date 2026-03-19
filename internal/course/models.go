@@ -1,6 +1,13 @@
 package course
 
-import "time"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
 
 // Course 课程模型
 type Course struct {
@@ -49,7 +56,8 @@ type Backend struct {
 	MemoryLimit int64    `json:"memoryLimit,omitempty" yaml:"-"`
 	CPULimit    float64  `json:"cpuLimit,omitempty" yaml:"-"`
 	// Port KWDB服务端口（主机映射端口）
-	Port int `json:"port" yaml:"port"`
+	Port          int `json:"port" yaml:"-"`
+	ContainerPort int `json:"containerPort,omitempty" yaml:"-"`
 	// Volumes 主机与容器的挂载绑定，例如:
 	// - "./meta.sql:/kaiwudb/bin/meta.sql"
 	// 采用列表形式便于在 YAML 中书写
@@ -57,6 +65,111 @@ type Backend struct {
 	// Env 环境变量，例如:
 	// - "KW_VERSION=3.0.0"
 	Env []string `json:"env" yaml:"env"`
+}
+
+func (b *Backend) UnmarshalYAML(value *yaml.Node) error {
+	type backendAlias struct {
+		ImageID    string      `yaml:"imageid"`
+		Workspace  string      `yaml:"workspace"`
+		Cmd        []string    `yaml:"cmd"`
+		Privileged bool        `yaml:"privileged"`
+		Port       interface{} `yaml:"port"`
+		Volumes    []string    `yaml:"volumes"`
+		Env        []string    `yaml:"env"`
+	}
+
+	var raw backendAlias
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+
+	b.ImageID = raw.ImageID
+	b.Workspace = raw.Workspace
+	b.Cmd = raw.Cmd
+	b.Privileged = raw.Privileged
+	b.Volumes = raw.Volumes
+	b.Env = raw.Env
+	b.Port = 0
+	b.ContainerPort = 0
+
+	hostPort, containerPort, err := parseBackendPort(raw.Port)
+	if err != nil {
+		return err
+	}
+	b.Port = hostPort
+	b.ContainerPort = containerPort
+	return nil
+}
+
+func parseBackendPort(portRaw interface{}) (int, int, error) {
+	if portRaw == nil {
+		return 0, 0, nil
+	}
+
+	parsePortInt := func(value string) (int, error) {
+		v := strings.TrimSpace(value)
+		if v == "" {
+			return 0, fmt.Errorf("端口不能为空")
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return 0, fmt.Errorf("无效端口 %q", value)
+		}
+		if n <= 0 || n > 65535 {
+			return 0, fmt.Errorf("端口 %d 超出范围", n)
+		}
+		return n, nil
+	}
+
+	switch v := portRaw.(type) {
+	case int:
+		if v <= 0 || v > 65535 {
+			return 0, 0, fmt.Errorf("端口 %d 超出范围", v)
+		}
+		return v, 26257, nil
+	case int64:
+		if v <= 0 || v > 65535 {
+			return 0, 0, fmt.Errorf("端口 %d 超出范围", v)
+		}
+		return int(v), 26257, nil
+	case float64:
+		n := int(v)
+		if float64(n) != v {
+			return 0, 0, fmt.Errorf("端口必须是整数")
+		}
+		if n <= 0 || n > 65535 {
+			return 0, 0, fmt.Errorf("端口 %d 超出范围", n)
+		}
+		return n, 26257, nil
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return 0, 0, nil
+		}
+		if strings.Contains(trimmed, ":") {
+			parts := strings.Split(trimmed, ":")
+			if len(parts) != 2 {
+				return 0, 0, fmt.Errorf("端口映射格式无效: %q", trimmed)
+			}
+			hostPort, err := parsePortInt(parts[0])
+			if err != nil {
+				return 0, 0, err
+			}
+			containerPort, err := parsePortInt(parts[1])
+			if err != nil {
+				return 0, 0, err
+			}
+			return hostPort, containerPort, nil
+		}
+
+		hostPort, err := parsePortInt(trimmed)
+		if err != nil {
+			return 0, 0, err
+		}
+		return hostPort, 26257, nil
+	default:
+		return 0, 0, fmt.Errorf("不支持的端口类型: %T", portRaw)
+	}
 }
 
 // UserProgress 用户课程进度

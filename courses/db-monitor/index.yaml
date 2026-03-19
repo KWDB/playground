@@ -1,0 +1,32 @@
+title: 部署 KWDB 监控
+description: 基于官方实践，使用 Prometheus 和 Grafana 采集、展示 KWDB 监控指标。
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: 启动 KWDB 并验证指标接口
+      text: step1.md
+    - title: 部署 Prometheus 采集指标
+      text: step2.md
+    - title: 部署 Grafana 并接入 Prometheus
+      text: step3.md
+  finish:
+    text: finish.md
+backend:
+  imageid: kwdb/kwdb-monitor:3.1.0
+  workspace: /kaiwudb/bin
+  port: 3000:3000
+  volumes:
+    - ./prometheus.yml://kaiwudb/monitoring/prometheus.yml
+    - ./rules:/kaiwudb/monitoring/rules:ro
+    # - ./grafana-dashboards:/kaiwudb/monitoring/grafana-dashboards:ro
+  env:
+    - "PROM_VERSION=2.53.0"
+    - "GRAFANA_VERSION=11.1.0"
+estimatedMinutes: 20
+difficulty: intermediate
+tags:
+  - 监控
+  - Prometheus
+  - Grafana
+  - KWDB
