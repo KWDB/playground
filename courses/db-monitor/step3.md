@@ -1,5 +1,7 @@
 ## 步骤 3：部署 Grafana 并接入 Prometheus
 
+> 本示例采用 Grafana v11.1.0 版本。
+
 完成 Prometheus 后，我们继续启动镜像中预装的 Grafana。当前镜像已内置数据源与 Dashboard provisioning 配置，启动后会自动导入。
 
 1. **启动 Grafana 服务**
@@ -29,6 +31,8 @@
 6. **查看自动导入结果**
 
 进入左侧 `Dashboards`，在 `KaiwuDB` 文件夹中可直接看到概览、硬件、运行时、SQL、存储、副本、分布式、队列、慢查询等面板。
+
+Grafana 支持查看 KWDB 集群及各个节点的监控指标，包括指标概览、硬件指标、运行指标、SQL 指标、存储指标、副本指标、分布式指标、队列指标和慢查询指标。详细介绍请参考 [使用 Grafana 查看指标数据](https://www.kaiwudb.com/kaiwudb_docs/#/oss_dev/db-monitor/view-metrics-grafana.html)。
 
 ## 补充信息
 

@@ -1,5 +1,7 @@
 ## 步骤 2：部署 Prometheus 采集指标
 
+> 本示例采用 Prometheus v2.53.0 版本。
+
 镜像已预装 Prometheus，本步骤直接使用已挂载在 `/kaiwudb/monitoring` 的配置与规则文件启动采集。
 
 1. **检查监控配置挂载**

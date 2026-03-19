@@ -14,7 +14,7 @@
 
     `vim deploy.cfg`{{exec}}
 
-    在 `vim` 编辑器中，请将 `[cluster]` 部分的配置注释掉，然后输入 `:wq`{{exec}} 保存并退出。
+    在 `vim` 编辑器中，请将 `[cluster]` 部分的配置注释掉，然后输入 `:wq` 保存并退出。
 
     ```ini
     [global]

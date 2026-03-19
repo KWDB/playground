@@ -19,9 +19,6 @@ backend:
   volumes:
     - ./prometheus.yml://kaiwudb/monitoring/prometheus.yml
     - ./rules:/kaiwudb/monitoring/rules:ro
-  env:
-    - "PROM_VERSION=2.53.0"
-    - "GRAFANA_VERSION=11.1.0"
 estimatedMinutes: 20
 difficulty: intermediate
 tags:
