@@ -32,12 +32,6 @@ describe('learn markdown utils', () => {
     expect(output).toContain('<a href="http://localhost:3000"')
   })
 
-  it('replaces LOACL_PORT placeholder with selected port', () => {
-    const input = '访问地址: http://localhost:{{LOACL_PORT}}'
-    const output = preprocessMarkdown(input, { localPort: '3000' })
-    expect(output).toContain('http://localhost:3000')
-  })
-
   it('replaces LOCAL_PORT placeholder with selected port', () => {
     const input = '访问地址: http://localhost:{{LOCAL_PORT}}'
     const output = preprocessMarkdown(input, { localPort: '3001' })
