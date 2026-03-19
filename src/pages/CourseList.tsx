@@ -65,6 +65,7 @@ export function CourseList() {
     timeRange: [0, 1000],
   });
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [gridCardHeight, setGridCardHeight] = useState<number | null>(null);
 
   const { 
     seenPages, 
@@ -140,6 +141,43 @@ export function CourseList() {
       return true;
     });
   }, [courses, debouncedSearchQuery, filters, progressMap]);
+
+  useEffect(() => {
+    if (viewMode !== 'grid') {
+      setGridCardHeight(null);
+      return;
+    }
+
+    if (typeof window === 'undefined') return;
+
+    const measure = () => {
+      const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-course-grid-card="true"]'));
+      if (cards.length === 0) {
+        setGridCardHeight(null);
+        return;
+      }
+
+      cards.forEach((card) => {
+        card.style.height = 'auto';
+      });
+
+      const maxHeight = cards.reduce((max, card) => Math.max(max, card.getBoundingClientRect().height), 0);
+      if (maxHeight > 0) {
+        setGridCardHeight(Math.ceil(maxHeight));
+      }
+    };
+
+    const rafId = window.requestAnimationFrame(measure);
+    const handleResize = () => measure();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [viewMode, filteredCourses.length, progressMap, containers]);
+
+  const gridCardStyle = viewMode === 'grid' && gridCardHeight ? { height: `${gridCardHeight}px` } : undefined;
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -919,6 +957,8 @@ export function CourseList() {
                   <Link
                     to={`/learn/${course.id}`}
                     data-tour-id={index === 0 ? 'course-card-first' : undefined}
+                    data-course-grid-card="true"
+                    style={gridCardStyle}
                     className={`
                       group h-full p-5 rounded-xl flex flex-col
                       border transition-all duration-200 ease-out
@@ -1032,10 +1072,12 @@ export function CourseList() {
               );
             })}
             <ScrollReveal delay={120} className="w-full h-full">
-              <ProposeCourseCard
-                mode={viewMode}
-                className={viewMode === 'grid' ? 'h-full flex flex-col justify-between' : undefined}
-              />
+              <div data-course-grid-card="true" style={gridCardStyle} className="h-full">
+                <ProposeCourseCard
+                  mode={viewMode}
+                  className={viewMode === 'grid' ? 'h-full flex flex-col justify-between' : undefined}
+                />
+              </div>
             </ScrollReveal>
           </div>
         )}
