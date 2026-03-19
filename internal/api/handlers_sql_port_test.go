@@ -36,7 +36,7 @@ func TestResolveSQLPortByRuntime(t *testing.T) {
 			expectedPort: 26257,
 		},
 		{
-			name: "native mode uses mapped host port",
+			name:      "native mode uses mapped host port",
 			courseObj: baseCourse,
 			container: &docker.ContainerInfo{
 				Ports: map[string]string{
@@ -47,14 +47,14 @@ func TestResolveSQLPortByRuntime(t *testing.T) {
 			expectedPort: 35432,
 		},
 		{
-			name: "fallback to backend port when no mapping",
+			name:         "fallback to backend port when no mapping",
 			courseObj:    baseCourse,
 			container:    &docker.ContainerInfo{Ports: map[string]string{}},
 			dockerDeploy: false,
 			expectedPort: 3000,
 		},
 		{
-			name: "compat old key fallback to backend port key",
+			name:      "compat old key fallback to backend port key",
 			courseObj: baseCourse,
 			container: &docker.ContainerInfo{
 				Ports: map[string]string{
