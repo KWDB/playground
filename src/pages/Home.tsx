@@ -33,12 +33,10 @@ export function Home() {
 
   return (
     <div className={homeStyles.pageRoot}>
-      <div className={homeStyles.pageBackdrop}>
-        <div className={homeStyles.backdropGrid} />
-        <div className={homeStyles.backdropOrbPrimary} />
-        <div className={homeStyles.backdropOrbSecondary} />
-        <div className={homeStyles.backdropBottomBlend} />
-      </div>
+      <div className={homeStyles.backdropGrid} />
+      <div className={homeStyles.backdropOrbPrimary} />
+      <div className={homeStyles.backdropOrbSecondary} />
+      <div className={homeStyles.backdropBottomBlend} />
       <div className={homeStyles.contentContainer}>
         <ScrollReveal>
           <HomeHeroSection ctaTourId="home-start-learning" />

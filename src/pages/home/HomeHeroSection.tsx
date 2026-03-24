@@ -12,7 +12,6 @@ interface HomeHeroSectionProps {
 export function HomeHeroSection({ ctaTourId }: HomeHeroSectionProps) {
   return (
     <header className={cn(homeStyles.heroHeader, homeStyles.sectionSpacing)}>
-      <div className={homeStyles.heroTopAccent} />
       <div className={homeStyles.heroBadge}>
         <span className="relative flex h-2 w-2">
           <span className={homeStyles.heroBadgePing}></span>
@@ -26,14 +25,12 @@ export function HomeHeroSection({ ctaTourId }: HomeHeroSectionProps) {
       <p className={homeStyles.heroDescription}>
         通过容器化环境实时练习命令，在安全的隔离环境中掌握 KWDB 数据库操作。
       </p>
-      <div className={homeStyles.heroActions}>
-        <Link to="/courses" className="w-full sm:w-auto">
-          <Button size="lg" className={homeStyles.heroCtaButton} data-tour-id={ctaTourId}>
-            开始学习
-            <ChevronRight className={homeStyles.heroCtaIcon} />
-          </Button>
-        </Link>
-      </div>
+      <Link to="/courses" className="inline-flex w-full sm:w-auto justify-center">
+        <Button size="lg" className={homeStyles.heroCtaButton} data-tour-id={ctaTourId}>
+          开始学习
+          <ChevronRight className={homeStyles.heroCtaIcon} />
+        </Button>
+      </Link>
     </header>
   );
 }
