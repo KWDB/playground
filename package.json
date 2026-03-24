@@ -63,7 +63,7 @@
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^4.4.1",
+    "@vitejs/plugin-react": "^5.2.0",
     "@vitest/coverage-v8": "4.0.18",
     "autoprefixer": "^10.4.27",
     "babel-plugin-react-dev-locator": "^1.0.0",
