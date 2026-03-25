@@ -3,8 +3,9 @@ import { EditorView, placeholder as cmPlaceholder, keymap, lineNumbers, highligh
 import { EditorState, Compartment } from '@codemirror/state'
 import { python } from '@codemirror/lang-python'
 import { java } from '@codemirror/lang-java'
-import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldGutter, indentOnInput } from '@codemirror/language'
+import { HighlightStyle, syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldGutter, indentOnInput } from '@codemirror/language'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { tags } from '@lezer/highlight'
 
 
 
@@ -24,6 +25,246 @@ export interface CodeEditorProps {
   isDark?: boolean
 }
 
+const getLanguageExtension = (lang: string) => {
+  switch (lang) {
+    case 'java': return java()
+    default: return python()
+  }
+}
+
+const darkHighlightStyle = HighlightStyle.define([
+  { tag: [tags.keyword, tags.modifier, tags.controlKeyword, tags.operatorKeyword], color: '#c084fc', fontWeight: '600' },
+  { tag: [tags.string, tags.special(tags.string)], color: '#86efac' },
+  { tag: [tags.number, tags.integer, tags.float], color: '#fdba74' },
+  { tag: [tags.comment, tags.lineComment, tags.blockComment], color: '#94a3b8', fontStyle: 'italic' },
+  { tag: [tags.variableName, tags.self], color: '#93c5fd' },
+  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: '#7dd3fc' },
+  { tag: [tags.definition(tags.variableName), tags.definition(tags.propertyName)], color: '#67e8f9' },
+  { tag: [tags.className, tags.typeName], color: '#f9a8d4' },
+  { tag: [tags.propertyName, tags.attributeName], color: '#f0abfc' },
+  { tag: [tags.bool, tags.null, tags.atom], color: '#fda4af' },
+  { tag: [tags.operator, tags.compareOperator, tags.logicOperator, tags.arithmeticOperator], color: '#fda4af' },
+  { tag: [tags.punctuation, tags.separator, tags.bracket], color: '#cbd5e1' },
+  { tag: [tags.meta, tags.annotation], color: '#94a3b8' },
+])
+
+const lightHighlightExtension = syntaxHighlighting(defaultHighlightStyle, { fallback: true })
+const darkHighlightExtension = syntaxHighlighting(darkHighlightStyle)
+
+const editorLightTheme = EditorView.theme({
+  '&': {
+    backgroundColor: 'transparent',
+    color: 'var(--color-text-primary)',
+    height: '100%',
+    borderRadius: 'var(--radius-md)',
+    overflow: 'hidden',
+  },
+
+  '&.cm-focused': {
+    outline: 'none !important',
+    border: 'none !important',
+  },
+
+  '.cm-editor': {
+    outline: 'none !important',
+    border: 'none !important',
+  },
+
+  '.cm-content': {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '14px',
+    lineHeight: '1.6',
+    color: 'var(--color-text-primary)',
+    padding: '12px',
+    caretColor: 'var(--color-accent-primary)',
+    outline: 'none !important',
+    border: 'none !important',
+  },
+
+  '.cm-line': {
+    padding: '2px 0',
+  },
+
+  '.cm-scroller': {
+    overflow: 'auto',
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'var(--color-border-default) transparent',
+  },
+
+  '.cm-scroller::-webkit-scrollbar': {
+    width: '6px',
+    height: '6px',
+  },
+  '.cm-scroller::-webkit-scrollbar-track': {
+    background: 'transparent',
+  },
+  '.cm-scroller::-webkit-scrollbar-thumb': {
+    background: 'var(--color-border-default)',
+    borderRadius: '3px',
+  },
+  '.cm-scroller::-webkit-scrollbar-thumb:hover': {
+    background: 'var(--color-border-dark)',
+  },
+
+  '.cm-gutters': {
+    backgroundColor: 'var(--color-bg-secondary)',
+    border: 'none',
+    color: 'var(--color-text-tertiary)',
+    borderRadius: 'var(--radius-md) 0 0 var(--radius-md)',
+    paddingRight: '8px',
+  },
+
+  '.cm-lineNumbers .cm-gutterElement': {
+    paddingLeft: '8px',
+    paddingRight: '8px',
+    minWidth: '40px',
+  },
+
+  '.cm-foldGutter .cm-gutterElement': {
+    padding: '0 4px',
+    cursor: 'pointer',
+  },
+
+  '.cm-activeLineGutter': {
+    backgroundColor: 'var(--color-bg-tertiary)',
+  },
+
+  '.cm-activeLine': {
+    backgroundColor: 'var(--color-bg-secondary)',
+  },
+
+  '.cm-selectionBackground': {
+    backgroundColor: 'var(--color-accent-subtle)',
+    borderRadius: '2px',
+  },
+
+  '.cm-cursor': {
+    borderLeftColor: 'var(--color-accent-primary)',
+    borderLeftWidth: '2px',
+  },
+
+  '.cm-placeholder': {
+    color: 'var(--color-text-tertiary)',
+    fontStyle: 'italic',
+  },
+
+  '.cm-foldPlaceholder': {
+    backgroundColor: 'var(--color-bg-tertiary)',
+    border: '1px solid var(--color-border-default)',
+    borderRadius: '4px',
+    padding: '0 4px',
+    color: 'var(--color-text-tertiary)',
+    fontSize: '12px',
+  },
+})
+
+const editorDarkTheme = EditorView.theme({
+  '&': {
+    backgroundColor: 'transparent',
+    color: 'var(--color-text-primary)',
+    height: '100%',
+    borderRadius: 'var(--radius-md)',
+    overflow: 'hidden',
+  },
+
+  '&.cm-focused': {
+    outline: 'none !important',
+    border: 'none !important',
+  },
+
+  '.cm-editor': {
+    outline: 'none !important',
+    border: 'none !important',
+  },
+
+  '.cm-content': {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '14px',
+    lineHeight: '1.6',
+    color: 'var(--color-text-primary)',
+    padding: '12px',
+    caretColor: 'var(--color-accent-primary)',
+    outline: 'none !important',
+    border: 'none !important',
+  },
+
+  '.cm-line': {
+    padding: '2px 0',
+  },
+
+  '.cm-scroller': {
+    overflow: 'auto',
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'rgba(148, 163, 184, 0.45) transparent',
+  },
+
+  '.cm-scroller::-webkit-scrollbar': {
+    width: '6px',
+    height: '6px',
+  },
+  '.cm-scroller::-webkit-scrollbar-track': {
+    background: 'transparent',
+  },
+  '.cm-scroller::-webkit-scrollbar-thumb': {
+    background: 'rgba(148, 163, 184, 0.45)',
+    borderRadius: '3px',
+  },
+  '.cm-scroller::-webkit-scrollbar-thumb:hover': {
+    background: 'rgba(148, 163, 184, 0.6)',
+  },
+
+  '.cm-gutters': {
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    border: 'none',
+    color: 'rgba(148, 163, 184, 0.9)',
+    borderRadius: 'var(--radius-md) 0 0 var(--radius-md)',
+    paddingRight: '8px',
+  },
+
+  '.cm-lineNumbers .cm-gutterElement': {
+    paddingLeft: '8px',
+    paddingRight: '8px',
+    minWidth: '40px',
+  },
+
+  '.cm-foldGutter .cm-gutterElement': {
+    padding: '0 4px',
+    cursor: 'pointer',
+  },
+
+  '.cm-activeLineGutter': {
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+  },
+
+  '.cm-activeLine': {
+    backgroundColor: 'rgba(30, 41, 59, 0.55)',
+  },
+
+  '.cm-selectionBackground': {
+    backgroundColor: 'rgba(59, 130, 246, 0.22)',
+    borderRadius: '2px',
+  },
+
+  '.cm-cursor': {
+    borderLeftColor: 'var(--color-accent-primary)',
+    borderLeftWidth: '2px',
+  },
+
+  '.cm-placeholder': {
+    color: 'rgba(148, 163, 184, 0.75)',
+    fontStyle: 'italic',
+  },
+
+  '.cm-foldPlaceholder': {
+    backgroundColor: 'rgba(30, 41, 59, 0.85)',
+    border: '1px solid rgba(148, 163, 184, 0.28)',
+    borderRadius: '4px',
+    padding: '0 4px',
+    color: 'rgba(226, 232, 240, 0.88)',
+    fontSize: '12px',
+  },
+}, { dark: true })
+
 const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   value,
   onChange,
@@ -39,128 +280,15 @@ const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   const viewRef = useRef<EditorView | null>(null)
   const readOnlyCompartment = useRef(new Compartment())
   const languageCompartment = useRef(new Compartment())
-
-  const getLanguageExtension = (lang: string) => {
-    switch (lang) {
-      case 'java': return java()
-      default: return python()
-    }
-  }
+  const themeCompartment = useRef(new Compartment())
+  const highlightCompartment = useRef(new Compartment())
 
   useImperativeHandle(ref, () => ({
     getValue: () => viewRef.current?.state.doc.toString() || ''
   }), [])
 
-  // Python 风格浅色主题
-  const pythonTheme = EditorView.theme({
-    '&': {
-      backgroundColor: 'transparent',
-      color: 'var(--color-text-primary)',
-      height: '100%',
-      borderRadius: 'var(--radius-md)',
-      overflow: 'hidden',
-    },
-
-
-    '&.cm-focused': {
-      outline: 'none !important',
-      border: 'none !important',
-    },
-
-    '.cm-editor': {
-      outline: 'none !important',
-      border: 'none !important',
-    },
-
-    '.cm-content': {
-      fontFamily: 'var(--font-mono)',
-      fontSize: '14px',
-      lineHeight: '1.6',
-      color: 'var(--color-text-primary)',
-      padding: '12px',
-      caretColor: 'var(--color-accent-primary)',
-      outline: 'none !important',
-      border: 'none !important',
-    },
-
-    '.cm-line': {
-      padding: '2px 0',
-    },
-
-    '.cm-scroller': {
-      overflow: 'auto',
-      scrollbarWidth: 'thin',
-      scrollbarColor: 'var(--color-border-default) transparent',
-    },
-
-
-    '.cm-scroller::-webkit-scrollbar': {
-      width: '6px',
-      height: '6px',
-    },
-    '.cm-scroller::-webkit-scrollbar-track': {
-      background: 'transparent',
-    },
-    '.cm-scroller::-webkit-scrollbar-thumb': {
-      background: 'var(--color-border-default)',
-      borderRadius: '3px',
-    },
-    '.cm-scroller::-webkit-scrollbar-thumb:hover': {
-      background: 'var(--color-border-dark)',
-    },
-
-    '.cm-gutters': {
-      backgroundColor: 'var(--color-bg-secondary)',
-      border: 'none',
-      color: 'var(--color-text-tertiary)',
-      borderRadius: 'var(--radius-md) 0 0 var(--radius-md)',
-      paddingRight: '8px',
-    },
-
-    '.cm-lineNumbers .cm-gutterElement': {
-      paddingLeft: '8px',
-      paddingRight: '8px',
-      minWidth: '40px',
-    },
-
-    '.cm-foldGutter .cm-gutterElement': {
-      padding: '0 4px',
-      cursor: 'pointer',
-    },
-
-    '.cm-activeLineGutter': {
-      backgroundColor: 'var(--color-bg-tertiary)',
-    },
-
-    '.cm-activeLine': {
-      backgroundColor: 'var(--color-bg-secondary)',
-    },
-
-    '.cm-selectionBackground': {
-      backgroundColor: 'var(--color-accent-subtle)',
-      borderRadius: '2px',
-    },
-
-    '.cm-cursor': {
-      borderLeftColor: 'var(--color-accent-primary)',
-      borderLeftWidth: '2px',
-    },
-
-    '.cm-placeholder': {
-      color: 'var(--color-text-tertiary)',
-      fontStyle: 'italic',
-    },
-
-    // 代码折叠
-    '.cm-foldPlaceholder': {
-      backgroundColor: 'var(--color-bg-tertiary)',
-      border: '1px solid var(--color-border-default)',
-      borderRadius: '4px',
-      padding: '0 4px',
-      color: 'var(--color-text-tertiary)',
-      fontSize: '12px',
-    },
-  })
+  const themeExtension = isDark ? editorDarkTheme : editorLightTheme
+  const highlightExtension = isDark ? darkHighlightExtension : lightHighlightExtension
 
   useEffect(() => {
     if (!hostRef.current || viewRef.current) return
@@ -179,8 +307,8 @@ const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
       bracketMatching(),
       highlightActiveLine(),
       languageCompartment.current.of(getLanguageExtension(language)),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-      pythonTheme,
+      themeCompartment.current.of(themeExtension),
+      highlightCompartment.current.of(highlightExtension),
       keymap.of([
         ...defaultKeymap,
         ...historyKeymap,
@@ -242,6 +370,22 @@ const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
       effects: languageCompartment.current.reconfigure(getLanguageExtension(language)),
     })
   }, [language])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({
+      effects: themeCompartment.current.reconfigure(themeExtension),
+    })
+  }, [themeExtension])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({
+      effects: highlightCompartment.current.reconfigure(highlightExtension),
+    })
+  }, [highlightExtension])
 
   return (
     <div
