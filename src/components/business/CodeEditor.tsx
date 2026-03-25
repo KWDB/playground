@@ -2,8 +2,47 @@ import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react
 import { EditorView, placeholder as cmPlaceholder, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, highlightActiveLine } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { python } from '@codemirror/lang-python'
-import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldGutter, indentOnInput } from '@codemirror/language'
+import { syntaxHighlighting, HighlightStyle, bracketMatching, foldGutter, indentOnInput } from '@codemirror/language'
+import { tags } from '@lezer/highlight'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+
+const lightHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: '#7c3aed', fontWeight: '600' },
+  { tag: tags.string, color: '#059669' },
+  { tag: tags.number, color: '#d97706', fontWeight: '500' },
+  { tag: tags.comment, color: '#64748b', fontStyle: 'italic' },
+  { tag: tags.operator, color: '#dc2626' },
+  { tag: tags.punctuation, color: '#475569' },
+  { tag: tags.variableName, color: '#0369a1' },
+  { tag: tags.definition(tags.variableName), color: '#0891b2' },
+  { tag: tags.typeName, color: '#db2777' },
+  { tag: tags.propertyName, color: '#7c3aed' },
+  { tag: tags.function(tags.variableName), color: '#2563eb' },
+  { tag: tags.atom, color: '#db2777' },
+  { tag: tags.bool, color: '#db2777' },
+  { tag: tags.meta, color: '#64748b' },
+  { tag: tags.className, color: '#db2777' },
+  { tag: tags.self, color: '#7c3aed', fontWeight: '600' },
+])
+
+const darkHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: '#c084fc', fontWeight: '600' },
+  { tag: tags.string, color: '#86efac' },
+  { tag: tags.number, color: '#fbbf24', fontWeight: '500' },
+  { tag: tags.comment, color: '#9caec7', fontStyle: 'italic' },
+  { tag: tags.operator, color: '#fda4af' },
+  { tag: tags.punctuation, color: '#e2e8f0' },
+  { tag: tags.variableName, color: '#7dd3fc' },
+  { tag: tags.definition(tags.variableName), color: '#67e8f9' },
+  { tag: tags.typeName, color: '#f9a8d4' },
+  { tag: tags.propertyName, color: '#c084fc' },
+  { tag: tags.function(tags.variableName), color: '#93c5fd' },
+  { tag: tags.atom, color: '#f9a8d4' },
+  { tag: tags.bool, color: '#f9a8d4' },
+  { tag: tags.meta, color: '#9caec7' },
+  { tag: tags.className, color: '#f9a8d4' },
+  { tag: tags.self, color: '#c084fc', fontWeight: '600' },
+])
 
 export interface CodeEditorRef {
   getValue: () => string
@@ -18,6 +57,7 @@ export interface CodeEditorProps {
   onFocus?: () => void
   onBlur?: () => void
   language?: string
+  isDark?: boolean
 }
 
 const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
@@ -29,10 +69,12 @@ const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   onFocus,
   onBlur,
   language = 'python',
+  isDark = false,
 }, ref) => {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
   const readOnlyCompartment = useRef(new Compartment())
+  const highlightCompartment = useRef(new Compartment())
   const languageExtension = language === 'python' ? python() : python()
 
   useImperativeHandle(ref, () => ({
@@ -139,65 +181,6 @@ const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
       fontStyle: 'italic',
     },
 
-    // Python 语法高亮
-    '.cm-keyword': {
-      color: '#7c3aed',
-      fontWeight: '600',
-    },
-    '.cm-string': {
-      color: '#059669',
-    },
-    '.cm-number': {
-      color: '#d97706',
-      fontWeight: '500',
-    },
-    '.cm-comment': {
-      color: 'var(--color-text-tertiary)',
-      fontStyle: 'italic',
-    },
-    '.cm-operator': {
-      color: '#dc2626',
-    },
-    '.cm-punctuation': {
-      color: 'var(--color-text-secondary)',
-    },
-    '.cm-variableName': {
-      color: 'var(--color-accent-primary)',
-    },
-    '.cm-definition': {
-      color: '#0891b2',
-    },
-    '.cm-typeName': {
-      color: '#db2777',
-    },
-    '.cm-propertyName': {
-      color: '#7c3aed',
-    },
-    '.cm-function': {
-      color: '#2563eb',
-    },
-    '.cm-call': {
-      color: '#2563eb',
-    },
-    '.cm-atom': {
-      color: '#db2777',
-    },
-    '.cm-bool': {
-      color: '#db2777',
-    },
-    '.cm-builtin': {
-      color: '#7c3aed',
-    },
-    '.cm-meta': {
-      color: 'var(--color-text-tertiary)',
-    },
-    '.cm-tag': {
-      color: '#dc2626',
-    },
-    '.cm-attribute': {
-      color: '#059669',
-    },
-
     // 代码折叠
     '.cm-foldPlaceholder': {
       backgroundColor: 'var(--color-bg-tertiary)',
@@ -225,8 +208,10 @@ const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
       indentOnInput(),
       bracketMatching(),
       highlightActiveLine(),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       languageExtension,
+      highlightCompartment.current.of(
+        syntaxHighlighting(isDark ? darkHighlightStyle : lightHighlightStyle)
+      ),
       pythonTheme,
       keymap.of([
         ...defaultKeymap,
@@ -281,6 +266,16 @@ const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
       effects: readOnlyCompartment.current.reconfigure(EditorView.editable.of(!readOnly)),
     })
   }, [readOnly])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({
+      effects: highlightCompartment.current.reconfigure(
+        syntaxHighlighting(isDark ? darkHighlightStyle : lightHighlightStyle)
+      ),
+    })
+  }, [isDark])
 
   return (
     <div
