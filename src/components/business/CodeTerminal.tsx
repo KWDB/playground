@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, u
 import CodeEditor from './CodeEditor'
 import CodeExecutionResult from './CodeExecutionResult'
 import ImagePullProgressOverlay, { ImagePullProgressMessageOverlay } from './terminal/ImagePullProgressOverlay'
+import { useTheme } from '../../hooks/useTheme'
 
 type Props = {
   courseId: string
@@ -44,6 +45,7 @@ export interface CodeTerminalRef {
 }
 
 const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus, onImagePullComplete }, ref) => {
+  const { isDark } = useTheme()
   const [error, setError] = useState<string | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
   const [codeText, setCodeText] = useState<string>('')
@@ -388,6 +390,7 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
               value={codeText}
               onChange={setCodeText}
               language={language}
+              isDark={isDark}
             />
           </div>
         </div>

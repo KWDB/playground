@@ -1,14 +1,14 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-03-19
-**Commit:** e269349
-**Branch:** feat/port-select
+**Generated:** 2026-03-25
+**Commit:** 74b5c4c
+**Branch:** fix/progress
 
 ## OVERVIEW
 
 Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebSocket) + React 18 frontend (TypeScript, Vite, Tailwind). Runs isolated Docker containers for hands-on courses.
 
-**Stats:** 173 code files, 65,702 lines (Go + TS/TSX), 4-level depth
+**Stats:** 470 files, 32,879 code lines (Go + TS/TSX), 8-level depth
 
 ## Quick Commands
 
@@ -56,11 +56,12 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 
 ## Non-Standard Patterns
 
-- **Nested Learn page**: `src/pages/Learn.tsx` (file, 1464 lines) + `src/pages/learn/` (directory with 11 hooks)
+- **Nested Learn page**: `src/pages/Learn.tsx` (302 lines) + `src/pages/learn/` (directory with hooks/components)
 - **Hooks fragmented**: Business hooks in `src/pages/learn/hooks/` instead of centralized `src/hooks/`
 - **Duplicate check package**: Both `cmd/check/` (17-line wrapper) and `internal/check/` (835 lines) exist
 - **Scattered config**: `src/config/tourSteps.ts` alongside store-based config
 - **AI tool dirs**: `.trae/`, `.sisyphus/`, `.qoder/` (non-standard)
+- **TypeScript strict mode OFF**: `strict: false` in tsconfig
 
 ## Architecture Hotspots
 
@@ -68,7 +69,7 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 |------|------|-------|------|
 | Docker orchestration | internal/docker/controller.go | 2661 | Concurrency |
 | API routes | internal/api/routes.go | 528 | Long handlers |
-| Learn page | src/pages/Learn.tsx | 1464 | Modularization needed |
+| Learn page | src/pages/learn/ | fragmented | Modularization needed |
 
 ## Code Map
 
