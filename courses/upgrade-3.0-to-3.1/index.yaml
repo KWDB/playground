@@ -1,0 +1,29 @@
+title: 单机升级：3.0.0 到 3.1.0
+description: 在 Ubuntu 20.04 环境中演练将单机部署的 KaiwuDB 从 3.0.0 离线升级到 3.1.0。
+details:
+  intro:
+    text: intro.md
+  steps:
+    - title: 安装 3.0.0
+      text: step1.md
+    - title: 升级前检查与备份
+      text: step2.md
+    - title: 执行 3.1.0 升级
+      text: step3.md
+    - title: 启动并验证
+      text: step4.md
+  finish:
+    text: finish.md
+backend:
+  imageid: kwdb/ubuntu:20.04
+  cmd: ["/sbin/init"]
+  privileged: true
+  env:
+    - "OLD_KW_VERSION=3.0.0"
+    - "NEW_KW_VERSION=3.1.0"
+estimatedMinutes: 20
+difficulty: intermediate
+tags:
+  - 升级
+  - 单机
+  - 3.1.0
