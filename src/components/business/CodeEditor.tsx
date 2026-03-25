@@ -25,10 +25,15 @@ export interface CodeEditorProps {
   isDark?: boolean
 }
 
+const languageExtensions = {
+  python: python(),
+  java: java(),
+} as const
+
 const getLanguageExtension = (lang: string) => {
   switch (lang) {
-    case 'java': return java()
-    default: return python()
+    case 'java': return languageExtensions.java
+    default: return languageExtensions.python
   }
 }
 
