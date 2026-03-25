@@ -22,6 +22,7 @@
     "@base-ui/react": "^1.2.0",
     "@codemirror/autocomplete": "^6.19.0",
     "@codemirror/commands": "^6.10.2",
+    "@codemirror/lang-java": "^6.0.2",
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/language": "^6.12.2",
@@ -80,6 +81,11 @@
     "vite-plugin-trae-solo-badge": "^1.0.0",
     "vite-tsconfig-paths": "^6.0.3",
     "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "overrides": {
+      "@lezer/common": "^1.5.1"
+    }
   },
   "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be"
 }

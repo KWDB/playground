@@ -38,7 +38,7 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge', 'react-resizable-panels'],
           'vendor-terminal': ['xterm', 'xterm-addon-fit', '@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-web-links'],
-          'vendor-editor': ['@codemirror/view', '@codemirror/state', '@codemirror/language', '@codemirror/lang-sql', '@codemirror/autocomplete', '@codemirror/lint'],
+          'vendor-editor': ['@codemirror/view', '@codemirror/state', '@codemirror/language', '@codemirror/lang-sql', '@codemirror/lang-python', '@codemirror/lang-java', '@codemirror/commands', '@codemirror/autocomplete', '@codemirror/lint', '@lezer/highlight'],
           'vendor-markdown': ['react-markdown', 'remark-gfm', 'rehype-raw', 'rehype-highlight', 'highlight.js', 'react-syntax-highlighter']
         }
       }
