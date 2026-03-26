@@ -180,12 +180,15 @@ export const api = {
       id: string,
       body: { stepIndex: number; completed?: boolean; userId?: string },
       signal?: AbortSignal
-    ): Promise<UserProgress> =>
-      request<UserProgress>(`/progress/${id}`, {
+    ): Promise<UserProgress> => {
+      const { stepIndex, completed, userId } = body
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
+      return request<UserProgress>(`/progress/${id}${query}`, {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify({ currentStep: stepIndex, completed }),
         signal,
-      }),
+      })
+    },
 
     resetProgress: (id: string, userId?: string, signal?: AbortSignal): Promise<void> => {
       const query = userId ? `?userId=${encodeURIComponent(userId)}` : ''
