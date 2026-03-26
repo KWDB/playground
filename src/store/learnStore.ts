@@ -34,6 +34,9 @@ export interface Course {
     port?: number;
     imageid?: string;
   };
+  tags?: string[];
+  difficulty?: string;
+  estimatedMinutes?: number;
 }
 
 export type ContainerStatus =

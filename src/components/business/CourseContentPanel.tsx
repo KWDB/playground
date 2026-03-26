@@ -3,6 +3,7 @@ import { RotateCcw } from 'lucide-react';
 
 export interface CourseContentPanelProps {
   title: string;
+  tags?: string[];
   content: string;
   renderMarkdown: (content: string) => React.ReactNode;
   currentStep: number;
@@ -17,6 +18,7 @@ export interface CourseContentPanelProps {
 
 export default function CourseContentPanel({
   title,
+  tags,
   content,
   renderMarkdown,
   currentStep,
@@ -47,7 +49,18 @@ export default function CourseContentPanel({
   return (
     <div className="h-full bg-[var(--color-bg-primary)] border-r border-[var(--color-border-light)] flex flex-col overflow-hidden">
       <div className="flex-shrink-0 p-4 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-light)]">
-        <h2 className="text-base font-medium text-[var(--color-text-primary)] text-balance">{title}</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-medium text-[var(--color-text-primary)] text-balance">{title}</h2>
+          {tags && tags.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {tags.map(tag => (
+                <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto markdown-scroll-container">
         <div className="markdown-main-content">

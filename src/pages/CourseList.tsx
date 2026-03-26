@@ -150,32 +150,44 @@ export function CourseList() {
 
     if (typeof window === 'undefined') return;
 
+    let rafId: number;
+    let resizeRafId: number;
+
     const measure = () => {
-      const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-course-grid-card="true"]'));
-      if (cards.length === 0) {
-        setGridCardHeight(null);
-        return;
-      }
+      rafId = window.requestAnimationFrame(() => {
+        const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-course-grid-card="true"]'));
+        if (cards.length === 0) {
+          setGridCardHeight(null);
+          return;
+        }
 
-      cards.forEach((card) => {
-        card.style.height = 'auto';
+        cards.forEach((card) => {
+          card.style.height = 'auto';
+        });
+
+        const maxHeight = cards.reduce((max, card) => Math.max(max, card.getBoundingClientRect().height), 0);
+        if (maxHeight > 0) {
+          setGridCardHeight(Math.ceil(maxHeight));
+        }
       });
-
-      const maxHeight = cards.reduce((max, card) => Math.max(max, card.getBoundingClientRect().height), 0);
-      if (maxHeight > 0) {
-        setGridCardHeight(Math.ceil(maxHeight));
-      }
     };
 
-    const rafId = window.requestAnimationFrame(measure);
-    const handleResize = () => measure();
+    rafId = window.requestAnimationFrame(() => {
+      resizeRafId = window.requestAnimationFrame(measure);
+    });
+
+    const handleResize = () => {
+      if (resizeRafId) window.cancelAnimationFrame(resizeRafId);
+      resizeRafId = window.requestAnimationFrame(measure);
+    };
     window.addEventListener('resize', handleResize);
 
     return () => {
-      window.cancelAnimationFrame(rafId);
+      if (rafId) window.cancelAnimationFrame(rafId);
+      if (resizeRafId) window.cancelAnimationFrame(resizeRafId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [viewMode, filteredCourses.length, progressMap, containers]);
+  }, [viewMode, filteredCourses.length]);
 
   const gridCardStyle = viewMode === 'grid' && gridCardHeight ? { height: `${gridCardHeight}px` } : undefined;
 
@@ -905,6 +917,18 @@ export function CourseList() {
                         <p className="text-xs text-[var(--color-text-tertiary)] truncate leading-relaxed">
                           {course.description}
                         </p>
+                        {course.tags && course.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {course.tags.slice(0, 3).map(tag => (
+                              <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                                {tag}
+                              </span>
+                            ))}
+                            {course.tags.length > 3 && (
+                              <span className="text-[10px] text-[var(--color-text-tertiary)]">+{course.tags.length - 3}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
@@ -1011,6 +1035,19 @@ export function CourseList() {
                           {course.description}
                         </p>
                         
+                        {course.tags && course.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {course.tags.slice(0, 3).map(tag => (
+                              <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                                {tag}
+                              </span>
+                            ))}
+                            {course.tags.length > 3 && (
+                              <span className="text-[10px] text-[var(--color-text-tertiary)]">+{course.tags.length - 3}</span>
+                            )}
+                          </div>
+                        )}
+                          
                         {courseStatus === 'in-progress' && (
                           <div className="mt-2 h-1.5 w-full bg-[var(--color-accent-subtle)] rounded-full overflow-hidden">
                             <div 
