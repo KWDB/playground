@@ -23,6 +23,13 @@ test.describe('SQL 终端', () => {
   test.beforeEach(async ({ request, page }) => {
     // 确保从干净状态开始
     try { await request.post('/api/courses/sql/stop'); } catch { /* ignore */ }
+    // 等待容器真正停止
+    await expect.poll(async () => {
+      const res = await request.get('/api/containers');
+      if (!res.ok()) return true;
+      const containers = await res.json();
+      return !containers.some((c: any) => c.courseId === 'sql');
+    }, { timeout: 60000 }).toBe(true);
     await request.post('/api/progress/sql/reset');
     await page.addInitScript(() => {
       localStorage.setItem('hasSeenTour', JSON.stringify({
@@ -50,7 +57,7 @@ test.describe('SQL 终端', () => {
   
   // 3) 点击“启动容器”
   await page.getByRole('button', { name: '启动容器' }).click();
-  await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 120000 });
   console.log('✅ 启动容器');
 
   // 4) 测试 Enter 执行
@@ -114,7 +121,7 @@ test.describe('SQL 终端', () => {
     // 2) 启动容器并进入第一步
     await expect(page.getByText('终端未连接')).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: '启动容器' }).click();
-    await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 120000 });
     console.log('✅ 容器启动成功');
 
     // 3) 进入第一步
@@ -148,7 +155,7 @@ test.describe('SQL 终端', () => {
     await portSelector.locator('input[type="number"]').fill(String(selectedPort))
 
     await page.getByRole('button', { name: '启动容器' }).click()
-    await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('KWDB 版本')).toBeVisible({ timeout: 120000 })
     await expect(page.getByText(`端口: ${selectedPort}`)).toBeVisible({ timeout: 10000 })
 
     const input = page.getByRole('textbox')

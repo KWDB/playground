@@ -138,9 +138,18 @@ async function waitForContainerReady(courseId: string, port: number, maxWaitTime
   
   console.log(`等待容器 ${courseId} 的端口 ${port} 映射生效...`);
   
-  // 首先等待10秒让容器有时间启动
+  // 首先等待容器启动
   console.log('等待容器初始化...');
-  await sleep(10000);
+  await expect.poll(async () => {
+    try {
+      const conflictInfo = await checkPortConflict(courseId, port, 2);
+      return conflictInfo.isConflicted && 
+             conflictInfo.conflictContainers.length > 0 && 
+             conflictInfo.conflictContainers[0].state === 'running';
+    } catch {
+      return false;
+    }
+  }, { timeout: 90000 }).toBe(true);
   
   let consecutiveErrors = 0;
   const maxConsecutiveErrors = 5;
@@ -313,8 +322,15 @@ test.describe('端口冲突智能处理功能测试', () => {
     expect(cleanupResult.totalCleaned).toBeGreaterThanOrEqual(0);
     console.log(`✅ 容器清理成功，清理了 ${cleanupResult.totalCleaned} 个容器`);
     
-    // 等待清理完成，增加等待时间
-    await sleep(15000); // 增加到15秒，确保端口完全释放
+    // 等待端口释放
+    await expect.poll(async () => {
+      try {
+        const info = await checkPortConflict('sql', 26257, 2);
+        return !info.isConflicted && info.conflictContainers.length === 0;
+      } catch {
+        return false;
+      }
+    }, { timeout: 120000 }).toBe(true);
     
     // 6. 验证清理后端口释放（带重试机制）
     console.log('步骤6: 验证清理后端口释放');

@@ -4,6 +4,13 @@ test.describe('代码终端', () => {
   test.beforeEach(async ({ request, page }) => {
     // 确保从干净状态开始
     try { await request.post('/api/courses/python-kwdb/stop'); } catch { /* ignore */ }
+    // 等待容器真正停止
+    await expect.poll(async () => {
+      const res = await request.get('/api/containers');
+      if (!res.ok()) return true;
+      const containers = await res.json();
+      return !containers.some((c: any) => c.courseId === 'python-kwdb');
+    }, { timeout: 60000 }).toBe(true);
     await request.post('/api/progress/python-kwdb/reset');
     await page.addInitScript(() => {
       localStorage.setItem('hasSeenTour', JSON.stringify({
