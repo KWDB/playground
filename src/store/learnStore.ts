@@ -2,6 +2,23 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { api } from '@/lib/api/client';
 
+const DEBOUNCE_DELAY = 500;
+
+const debouncedSaveProgressRef = {
+  current: (() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    return (_courseId: string, _stepIndex: number, saveFn: () => void) => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        saveFn();
+        timer = null;
+      }, DEBOUNCE_DELAY);
+    };
+  })(),
+};
+
 export interface Course {
   id: string;
   title: string;
@@ -105,9 +122,11 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         setCourse: (course) => set({ course, loading: false }),
         setCurrentStep: (currentStep) => {
           set({ currentStep });
-          const { course } = get();
+          const { course, saveProgress } = get();
           if (course && currentStep >= 0) {
-            get().saveProgress(course.id, currentStep);
+            debouncedSaveProgressRef.current(course.id, currentStep, () => {
+              saveProgress(course.id, currentStep);
+            });
           }
         },
         setLoading: (loading) => set({ loading }),
