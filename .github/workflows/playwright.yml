@@ -64,6 +64,14 @@ jobs:
             exit 1
           fi
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+
       - name: Install Playwright browsers and system deps
         run: pnpm exec playwright install --with-deps
 
@@ -146,6 +154,14 @@ jobs:
 
       - name: Install Playwright browsers and system deps
         run: pnpm exec playwright install --with-deps
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
 
       - name: Build Docker image
         run: docker build -f docker/playground/Dockerfile -t kwdb/playground:latest .
