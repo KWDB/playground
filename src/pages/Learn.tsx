@@ -243,6 +243,7 @@ export function Learn() {
             <div className="h-full" data-tour-id="learn-steps">
               <CourseContentPanel
                 title={currentTitle}
+                tags={course.tags}
                 content={currentContent}
                 renderMarkdown={renderMarkdown}
                 currentStep={currentStep}

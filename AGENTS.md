@@ -130,14 +130,19 @@ make doctor        # Check dev environment
 
 | Path | Description |
 |------|-------------|
+| cmd/ | CLI entry point |
 | internal/api/ | HTTP handlers |
-| internal/docker/ | Container orchestration |
+| internal/check/ | Diagnostics + auto-fix |
 | internal/course/ | Course service |
+| internal/docker/ | Container orchestration |
+| internal/upgrade/ | Self-update service |
 | internal/websocket/ | WebSocket handlers |
-| src/components/business/ | UI components |
-| src/store/ | Zustand stores |
-| src/hooks/ | Custom hooks |
+| src/components/business/ | Interactive UI components |
+| src/components/ui/ | Reusable UI primitives |
+| src/hooks/ | Custom React hooks |
 | src/lib/ | Shared utilities |
-| src/pages/learn | Learn page |
+| src/pages/ | Page components |
+| src/pages/learn/ | Learn page module |
+| src/store/ | Zustand stores |
 | tests/playwright/ | E2E tests |
 | courses/ | Course content |
