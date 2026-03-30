@@ -27,7 +27,7 @@
     "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/language": "^6.12.2",
     "@codemirror/lint": "^6.9.5",
-    "@codemirror/state": "^6.5.2",
+    "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.39.4",
     "@lezer/highlight": "^1.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
