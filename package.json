@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
-    "@codemirror/autocomplete": "^6.19.0",
+    "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.2",
     "@codemirror/lang-java": "^6.0.2",
     "@codemirror/lang-python": "^6.2.1",
