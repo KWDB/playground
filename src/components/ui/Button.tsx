@@ -17,10 +17,10 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, children, disabled, type = 'button', ...props }, ref) => {
     const variants = {
-      primary: 'bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-hover)] active:bg-[var(--color-accent-active)]',
+      primary: 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] active:bg-[var(--color-accent-active)]',
       secondary: 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-dark)]',
       ghost: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]',
-      danger: 'bg-[var(--color-error)] text-white hover:bg-red-700',
+      danger: 'bg-[var(--color-error)] text-[var(--color-on-accent)] hover:bg-[var(--color-error-hover)]',
     };
 
     const sizes = {
@@ -164,8 +164,8 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
             className={cn(
               'inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors',
               variant === 'danger'
-                ? 'bg-[var(--color-error)] text-white hover:bg-red-700'
-                : 'bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-hover)]'
+                ? 'bg-[var(--color-error)] text-[var(--color-on-accent)] hover:bg-[var(--color-error-hover)]'
+                : 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]'
             )}
           >
             {confirmText}

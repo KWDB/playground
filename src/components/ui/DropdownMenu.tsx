@@ -1,8 +1,9 @@
 import React, { useState, createContext, useContext } from 'react';
 import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs: ClassValue[]) {
-  return clsx(inputs);
+  return twMerge(clsx(inputs));
 }
 
 interface DropdownContextType {

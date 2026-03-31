@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs: ClassValue[]) {
-  return clsx(inputs);
+  return twMerge(clsx(inputs));
 }
 
 export interface TourStep {
@@ -165,7 +166,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
     <div className="fixed inset-0 z-50 overflow-hidden" data-testid="tour-tooltip">
 
       <div
-        className="fixed z-50 pointer-events-none transition-all duration-300 ease-in-out border-2 border-blue-500 rounded-md"
+        className="fixed z-50 pointer-events-none transition-all duration-300 ease-in-out border-2 border-[var(--color-accent-primary)] rounded-md"
         style={{
           top: targetRect.top,
           left: targetRect.left,
@@ -219,7 +220,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
             )}
             <button
               onClick={currentStep === totalSteps - 1 ? onSkip : onNext}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-hover)] rounded transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-[var(--color-on-accent)] bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-hover)] rounded transition-colors"
               data-testid={currentStep === totalSteps - 1 ? 'tour-finish-btn' : 'tour-next-btn'}
             >
               {currentStep === totalSteps - 1 ? 'Finish' : 'Next'}

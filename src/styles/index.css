@@ -21,13 +21,19 @@
     --color-accent-hover: #4f5bd1;
     --color-accent-active: #4048aa;
     --color-accent-subtle: rgba(94, 106, 210, 0.1);
+    --color-on-accent: #ffffff;
 
     --color-success: #0a9f53;
     --color-success-subtle: rgba(10, 159, 83, 0.1);
     --color-warning: #d97706;
     --color-warning-subtle: rgba(217, 119, 6, 0.1);
     --color-error: #dc2626;
+    --color-error-hover: #b91c1c;
     --color-error-subtle: rgba(220, 38, 38, 0.1);
+
+    --color-success-on-accent: #ffffff;
+    --color-warning-on-accent: #ffffff;
+    --color-error-on-accent: #ffffff;
 
     /* Course type colors */
     --color-course-sql: #7c3aed;
@@ -94,13 +100,19 @@
     --color-accent-hover: #7a7ae0;
     --color-accent-active: #6a6ad5;
     --color-accent-subtle: rgba(139, 139, 235, 0.12);
+    --color-on-accent: #1a1a1a;
 
     --color-success: #3cc76a;
     --color-success-subtle: rgba(60, 199, 106, 0.12);
     --color-warning: #f59e0b;
     --color-warning-subtle: rgba(245, 158, 11, 0.12);
     --color-error: #ef4444;
+    --color-error-hover: #f87171;
     --color-error-subtle: rgba(239, 68, 68, 0.12);
+
+    --color-success-on-accent: #1a1a1a;
+    --color-warning-on-accent: #1a1a1a;
+    --color-error-on-accent: #1a1a1a;
 
     /* Course type colors - Dark */
     --color-course-sql: #a78bfa;

@@ -82,7 +82,7 @@ export const LearnTopBar = ({
                 value={hostPortValue}
                 onChange={(e) => onHostPortChange(e.target.value)}
                 aria-label="主机端口号"
-                className="h-8 w-[70px] rounded border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-2 text-xs text-[var(--color-text-primary)] outline-none transition-colors duration-150 focus:border-[var(--color-accent-primary)]"
+                className="h-8 w-[70px] sm:w-[80px] rounded border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-2 text-xs text-[var(--color-text-primary)] outline-none transition-colors duration-150 focus:border-[var(--color-accent-primary)]"
                 placeholder="3000"
               />
               {isHostPortChecking && !hasPortConflict && (

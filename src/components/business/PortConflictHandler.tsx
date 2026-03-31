@@ -202,17 +202,17 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
   const getStatusInfo = (status: ConflictHandlingStatus) => {
     switch (status) {
       case 'checking':
-        return { icon: RefreshCw, text: '正在检查端口冲突...', color: 'text-blue-600' };
+        return { icon: RefreshCw, text: '正在检查端口冲突...', color: 'text-[var(--color-accent-primary)]' };
       case 'cleaning':
-        return { icon: Trash2, text: '正在清理容器...', color: 'text-orange-600' };
+        return { icon: Trash2, text: '正在清理容器...', color: 'text-[var(--color-warning)]' };
       case 'retrying':
-        return { icon: RefreshCw, text: '正在重试启动...', color: 'text-green-600' };
+        return { icon: RefreshCw, text: '正在重试启动...', color: 'text-[var(--color-success)]' };
       case 'success':
-        return { icon: CheckCircle, text: '处理成功！', color: 'text-green-600' };
+        return { icon: CheckCircle, text: '处理成功！', color: 'text-[var(--color-success)]' };
       case 'error':
-        return { icon: AlertTriangle, text: '处理失败', color: 'text-red-600' };
+        return { icon: AlertTriangle, text: '处理失败', color: 'text-[var(--color-error)]' };
       default:
-        return { icon: Server, text: '端口冲突处理', color: 'text-gray-600' };
+        return { icon: Server, text: '端口冲突处理', color: 'text-[var(--color-text-secondary)]' };
     }
   };
 
@@ -228,24 +228,35 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
   const StatusIcon = statusInfo.icon;
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      role="presentation"
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="port-conflict-title"
+        className="bg-[var(--color-bg-primary)] rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto"
+      >
         {/* 头部 */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center space-x-3">
             <StatusIcon 
-              className={`w-6 h-6 ${statusInfo.color} ${state.isProcessing ? 'animate-spin' : ''}`} 
+              className={`w-6 h-6 ${statusInfo.color} ${state.isProcessing ? 'animate-spin' : ''}`}
+              aria-hidden="true"
             />
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 id="port-conflict-title" className="text-lg font-semibold text-[var(--color-text-primary)]">
               端口冲突处理
             </h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
             disabled={state.isProcessing}
+            aria-label="关闭"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -256,15 +267,15 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
             <p className={`text-sm font-medium ${statusInfo.color}`}>
               {statusInfo.text}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
               课程: {courseId} | 端口: {port}
             </p>
           </div>
 
           {/* 错误信息 */}
           {state.error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-700">{state.error}</p>
+            <div className="mb-4 p-3 bg-[var(--color-error-subtle)] border border-[var(--color-error)] rounded-lg">
+              <p className="text-sm text-[var(--color-error)]">{state.error}</p>
             </div>
           )}
 
@@ -272,23 +283,23 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
           {state.conflictInfo && (
             <div className="mb-4">
               {state.conflictInfo.isConflicted ? (
-                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="p-4 bg-[var(--color-warning-subtle)] border border-[var(--color-warning)] rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
-                    <AlertTriangle className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-800">
+                    <AlertTriangle className="w-4 h-4 text-[var(--color-warning)]" />
+                    <span className="text-sm font-medium text-[var(--color-warning)]">
                       检测到端口冲突
                     </span>
                   </div>
-                  <p className="text-sm text-orange-700 mb-3">
+                  <p className="text-sm text-[var(--color-text-secondary)] mb-3">
                     端口 {state.conflictInfo.port} 被以下容器占用：
                   </p>
                   <div className="space-y-2">
                     {state.conflictInfo.conflictContainers.map((container, index) => (
-                      <div key={index} className="bg-white p-2 rounded border">
-                        <p className="text-xs font-medium text-gray-900">
+                      <div key={index} className="bg-[var(--color-bg-primary)] p-2 rounded border border-[var(--color-border-light)]">
+                        <p className="text-xs font-medium text-[var(--color-text-primary)]">
                           {container.name}
                         </p>
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-[var(--color-text-secondary)]">
                           ID: {container.id.substring(0, 12)}... | 状态: {container.state}
                         </p>
                       </div>
@@ -296,10 +307,10 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="p-4 bg-[var(--color-success-subtle)] border border-[var(--color-success)] rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">
+                    <CheckCircle className="w-4 h-4 text-[var(--color-success)]" />
+                    <span className="text-sm font-medium text-[var(--color-success)]">
                       端口 {state.conflictInfo.port} 可用
                     </span>
                   </div>
@@ -313,31 +324,31 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
             <div className="mb-4">
               <div className={`p-4 rounded-lg border ${
                 state.cleanupResult.success 
-                  ? 'bg-green-50 border-green-200' 
-                  : 'bg-red-50 border-red-200'
+                  ? 'bg-[var(--color-success-subtle)] border-[var(--color-success)]' 
+                  : 'bg-[var(--color-error-subtle)] border-[var(--color-error)]'
               }`}>
                 <div className="flex items-center space-x-2 mb-2">
                   {state.cleanupResult.success ? (
-                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <CheckCircle className="w-4 h-4 text-[var(--color-success)]" />
                   ) : (
-                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <AlertTriangle className="w-4 h-4 text-[var(--color-error)]" />
                   )}
                   <span className={`text-sm font-medium ${
-                    state.cleanupResult.success ? 'text-green-800' : 'text-red-800'
+                    state.cleanupResult.success ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'
                   }`}>
                     {state.cleanupResult.success ? '清理成功' : '清理失败'}
                   </span>
                 </div>
                 <p className={`text-sm ${
-                  state.cleanupResult.success ? 'text-green-700' : 'text-red-700'
+                  state.cleanupResult.success ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'
                 }`}>
                   共清理了 {state.cleanupResult.totalCleaned} 个容器
                 </p>
                 {state.cleanupResult.errors.length > 0 && (
                   <div className="mt-2">
-                    <p className="text-xs text-red-600 font-medium">错误信息：</p>
+                    <p className="text-xs text-[var(--color-error)] font-medium">错误信息：</p>
                     {state.cleanupResult.errors.map((error, index) => (
-                      <p key={index} className="text-xs text-red-600">• {error}</p>
+                      <p key={index} className="text-xs text-[var(--color-error)]">• {error}</p>
                     ))}
                   </div>
                 )}
@@ -347,10 +358,11 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
         </div>
 
         {/* 操作按钮 */}
-        <div className="flex justify-end space-x-3 p-6 border-t bg-gray-50">
+        <div className="flex justify-end space-x-3 p-6 border-t border-[var(--color-border-light)] bg-[var(--color-bg-secondary)]">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
             disabled={state.isProcessing}
           >
             取消
@@ -359,33 +371,36 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
           {/* 根据状态显示不同的操作按钮 */}
           {state.conflictInfo?.isConflicted && state.status !== 'cleaning' && state.status !== 'success' && (
             <button
+              type="button"
               onClick={handleCleanup}
               disabled={state.isProcessing}
-              className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              className="px-4 py-2 text-sm font-medium text-[var(--color-warning-on-accent)] bg-[var(--color-warning)] rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
               <span>智能清理</span>
             </button>
           )}
 
           {(state.status === 'success' || (!state.conflictInfo?.isConflicted && state.conflictInfo)) && (
             <button
+              type="button"
               onClick={handleRetryStart}
               disabled={state.isProcessing}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              className="px-4 py-2 text-sm font-medium text-[var(--color-success-on-accent)] bg-[var(--color-success)] rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
               <span>重试启动</span>
             </button>
           )}
 
           {state.status === 'error' && (
             <button
+              type="button"
               onClick={handleCheckConflict}
               disabled={state.isProcessing}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              className="px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] bg-[var(--color-accent-primary)] rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
               <span>重新检查</span>
             </button>
           )}

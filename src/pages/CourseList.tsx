@@ -673,7 +673,7 @@ export function CourseList() {
               <Filter className="w-4 h-4" />
               筛选
               {activeFilterCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-xs bg-white/20">{activeFilterCount}</span>
+                <span className="px-1.5 py-0.5 rounded-full text-xs bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]">{activeFilterCount}</span>
               )}
             </Button>
             {activeFilterCount > 0 && (
@@ -709,7 +709,7 @@ export function CourseList() {
                             ? 'bg-[var(--color-course-code-bg)] text-[var(--color-course-code)] border-[var(--color-course-code)] shadow-sm'
                             : type.value === 'shell'
                             ? 'bg-[var(--color-course-shell-bg)] text-[var(--color-course-shell)] border-[var(--color-course-shell)] shadow-sm'
-                            : 'bg-[var(--color-accent-primary)] text-white border-[var(--color-accent-primary)] shadow-sm'
+                            : 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] border-[var(--color-accent-primary)] shadow-sm'
                           : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)]'
                       }`}
                     >
@@ -742,7 +742,7 @@ export function CourseList() {
                             ? 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)] border-[var(--color-course-sql)] shadow-sm'
                             : status.value === 'pending'
                             ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] border-[var(--color-text-tertiary)] shadow-sm'
-                            : 'bg-[var(--color-accent-primary)] text-white border-[var(--color-accent-primary)] shadow-sm'
+                            : 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] border-[var(--color-accent-primary)] shadow-sm'
                           : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)]'
                       }`}
                     >
@@ -817,7 +817,7 @@ export function CourseList() {
                           }}
                           className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 border ${
                             isSelected
-                              ? 'bg-[var(--color-accent-primary)] text-white border-[var(--color-accent-primary)] shadow-sm'
+                              ? 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] border-[var(--color-accent-primary)] shadow-sm'
                               : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]/50 hover:text-[var(--color-accent-primary)]'
                           }`}
                         >

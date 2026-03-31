@@ -368,7 +368,7 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
               {executing ? (
                 <button
                   onClick={cancelExecution}
-                  className="btn text-xs bg-[var(--color-error)] text-white hover:bg-[var(--color-error)]/80"
+                  className="btn text-xs bg-[var(--color-error)] text-[var(--color-error-on-accent)] hover:bg-[var(--color-error)]/80"
                 >
                   停止
                 </button>

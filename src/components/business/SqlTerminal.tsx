@@ -521,12 +521,12 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
                       <span className="text-xs text-[var(--color-text-tertiary)]">时区</span>
                       <div className="inline-flex rounded border border-[var(--color-border-default)] overflow-hidden">
                         <button
-                          className={`px-2 py-1 text-xs ${tzMode === 'UTC' ? 'bg-[var(--color-accent-primary)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'}`}
+                          className={`px-2 py-1 text-xs ${tzMode === 'UTC' ? 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'}`}
                           onClick={() => setTzMode('UTC')}
                           aria-pressed={tzMode === 'UTC'}
                         >UTC</button>
                         <button
-                          className={`px-2 py-1 text-xs ${tzMode === 'LOCAL' ? 'bg-[var(--color-accent-primary)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'}`}
+                          className={`px-2 py-1 text-xs ${tzMode === 'LOCAL' ? 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'}`}
                           onClick={() => setTzMode('LOCAL')}
                           aria-pressed={tzMode === 'LOCAL'}
                         >UTC+8</button>

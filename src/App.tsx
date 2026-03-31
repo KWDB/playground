@@ -33,7 +33,7 @@ function AppContent() {
     <div className="min-h-screen flex flex-col bg-[var(--color-bg-primary)]">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-[var(--color-accent-primary)] focus:text-white focus:rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-primary)]"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-[var(--color-accent-primary)] focus:text-[var(--color-on-accent)] focus:rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-primary)]"
       >
         跳过导航
       </a>
