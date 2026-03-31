@@ -459,6 +459,7 @@ const SqlTerminal = forwardRef<SqlTerminalRef, Props>(({ courseId, port, contain
               placeholder="输入 SQL，最后一行按 Enter 或点击执行"
               className="w-full bg-[var(--color-bg-primary)]"
               disabled={executing}
+              aria-label="SQL 查询输入"
               onEnterExecute={(text) => {
                 if (executing) return
                 setQueryText(text)

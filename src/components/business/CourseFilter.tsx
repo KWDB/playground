@@ -100,11 +100,14 @@ export function CourseFilter({
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+          <label htmlFor="course-filter-search" className="sr-only">搜索课程</label>
           <input
+            id="course-filter-search"
             type="text"
             value={searchQuery}
             onChange={handleSearchChange}
             placeholder="搜索课程..."
+            maxLength={100}
             className="input pl-9"
           />
         </div>

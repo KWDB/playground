@@ -11,10 +11,11 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
+  type?: 'button' | 'submit' | 'reset';
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', loading, children, disabled, ...props }, ref) => {
+  ({ className, variant = 'primary', size = 'md', loading, children, disabled, type = 'button', ...props }, ref) => {
     const variants = {
       primary: 'bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-hover)] active:bg-[var(--color-accent-active)]',
       secondary: 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-dark)]',
@@ -31,6 +32,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
+        type={type}
         className={cn(
           'inline-flex items-center justify-center gap-2 font-medium rounded-md outline-none transform-gpu',
           'transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out',
@@ -94,7 +96,7 @@ export const DialogContent: React.FC<{ children: React.ReactNode; className?: st
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => context.onOpenChange(false)} />
+      <div className="fixed inset-0 bg-black/50 animate-fade-in" onClick={() => context.onOpenChange(false)} />
       <div className={cn(
         'relative w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl p-5 animate-scale-in',
         className
@@ -119,6 +121,7 @@ export const DialogClose: React.FC<{ children?: React.ReactNode; onClick?: () =>
   if (!context) throw new Error('DialogClose must be used within Dialog');
   return (
     <button
+      type="button"
       onClick={() => { context.onOpenChange(false); onClick?.(); }}
       className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
     >
@@ -156,6 +159,7 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
         <div className="mt-5 flex justify-end gap-2">
           <DialogClose>{cancelText}</DialogClose>
           <button
+            type="button"
             onClick={() => { onConfirm?.(); onOpenChange(false); }}
             className={cn(
               'inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors',

@@ -544,7 +544,7 @@ export function CourseList() {
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="min-w-[220px]">
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">当前筛选学习进度</p>
                   <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
                     已完成 {overallProgress.completedCourses}/{overallProgress.totalCourses} 门课程
@@ -570,8 +570,8 @@ export function CourseList() {
                   <CheckCircle className="w-3.5 h-3.5" />
                   已完成 {overallProgress.completedCourses}
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-course-sql)]" />
                   进行中 {overallProgress.inProgressCourses}
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
@@ -651,12 +651,15 @@ export function CourseList() {
         <div className="mb-6 p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)]">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1" data-tour-id="course-search">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" aria-hidden="true" />
+              <label htmlFor="course-list-search" className="sr-only">搜索课程</label>
               <input
+                id="course-list-search"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索课程..."
+                maxLength={100}
                 className="input pl-9"
               />
             </div>
@@ -691,9 +694,9 @@ export function CourseList() {
                 <div className="flex gap-2">
                   {([
                     { value: 'all', label: '全部', icon: null, color: '' },
-                    { value: 'sql', label: 'SQL', icon: Database, color: '#7c3aed' },
-                    { value: 'code', label: 'Code', icon: Code, color: '#f32bd8ff' },
-                    { value: 'shell', label: 'Shell', icon: Terminal, color: '#16a34a' },
+                    { value: 'sql', label: 'SQL', icon: Database, color: 'var(--color-course-sql)' },
+                    { value: 'code', label: 'Code', icon: Code, color: 'var(--color-course-code)' },
+                    { value: 'shell', label: 'Shell', icon: Terminal, color: 'var(--color-course-shell)' },
                   ] as const).map((type) => (
                     <button
                       key={type.value}
@@ -701,11 +704,11 @@ export function CourseList() {
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 border ${
                         filters.type === type.value
                           ? type.value === 'sql'
-                            ? 'bg-[#ede9fe] text-[#7c3aed] border-[#7c3aed] shadow-sm'
+                            ? 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)] border-[var(--color-course-sql)] shadow-sm'
                             : type.value === 'code'
-                            ? 'bg-[#f3e8ff] text-[#f32bd8ff] border-[#f32bd8ff] shadow-sm'
+                            ? 'bg-[var(--color-course-code-bg)] text-[var(--color-course-code)] border-[var(--color-course-code)] shadow-sm'
                             : type.value === 'shell'
-                            ? 'bg-[#dcfce7] text-[#16a34a] border-[#16a34a] shadow-sm'
+                            ? 'bg-[var(--color-course-shell-bg)] text-[var(--color-course-shell)] border-[var(--color-course-shell)] shadow-sm'
                             : 'bg-[var(--color-accent-primary)] text-white border-[var(--color-accent-primary)] shadow-sm'
                           : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)]'
                       }`}
@@ -736,7 +739,7 @@ export function CourseList() {
                           ? status.value === 'completed'
                             ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)] border-[var(--color-success)] shadow-sm'
                             : status.value === 'in-progress'
-                            ? 'bg-[rgba(59,130,246,0.1)] text-[#3b82f6] border-[#3b82f6] shadow-sm'
+                            ? 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)] border-[var(--color-course-sql)] shadow-sm'
                             : status.value === 'pending'
                             ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] border-[var(--color-text-tertiary)] shadow-sm'
                             : 'bg-[var(--color-accent-primary)] text-white border-[var(--color-accent-primary)] shadow-sm'
@@ -759,10 +762,10 @@ export function CourseList() {
                     const isSelected = filters.difficulty.includes(diff);
                     const getDifficultyColor = (d: string) => {
                       switch (d) {
-                        case 'beginner': return { bg: '#dcfce7', text: '#16a34a', border: '#16a34a' };
-                        case 'intermediate': return { bg: '#fef3c7', text: '#d97706', border: '#d97706' };
-                        case 'advanced': return { bg: '#fee2e2', text: '#dc2626', border: '#dc2626' };
-                        default: return { bg: '#f3f4f6', text: '#6b7280', border: '#6b7280' };
+                        case 'beginner': return { bg: 'var(--color-difficulty-beginner-bg)', text: 'var(--color-difficulty-beginner)', border: 'var(--color-difficulty-beginner)' };
+                        case 'intermediate': return { bg: 'var(--color-difficulty-intermediate-bg)', text: 'var(--color-difficulty-intermediate)', border: 'var(--color-difficulty-intermediate)' };
+                        case 'advanced': return { bg: 'var(--color-difficulty-advanced-bg)', text: 'var(--color-difficulty-advanced)', border: 'var(--color-difficulty-advanced)' };
+                        default: return { bg: 'var(--color-bg-secondary)', text: 'var(--color-text-secondary)', border: 'var(--color-border-default)' };
                       }
                     };
                     const color = getDifficultyColor(diff);
@@ -865,19 +868,19 @@ export function CourseList() {
                         group flex items-center gap-4 p-5 rounded-xl 
                         border bg-[var(--color-bg-primary)]
                         transition-all duration-200 ease-out
-                        hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5
+                        hover:shadow-[var(--shadow-md)]
                         active:translate-y-0 active:shadow-[var(--shadow-sm)]
                         ${isRunning 
                           ? course.sqlTerminal 
                             ? 'border-l-[3px] border-l-[var(--color-accent-primary)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
                             : course.codeTerminal
-                            ? 'border-l-[3px] border-l-[#f32bd8ff] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
-                            : 'border-l-[3px] border-l-[#3b82f6] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
+                            ? 'border-l-[3px] border-l-[var(--color-course-code)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
+                            : 'border-l-[3px] border-l-[var(--color-course-sql)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]'
                           : course.sqlTerminal
                             ? 'border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]'
                             : course.codeTerminal
-                            ? 'border-[var(--color-border-light)] hover:border-[#f32bd8ff]'
-                            : 'border-[var(--color-border-light)] hover:border-[#3b82f6]'
+                            ? 'border-[var(--color-border-light)] hover:border-[var(--color-course-code)]'
+                            : 'border-[var(--color-border-light)] hover:border-[var(--color-course-sql)]'
                         }
                       `}
                     >
@@ -887,16 +890,16 @@ export function CourseList() {
                         ${course.sqlTerminal 
                           ? 'bg-[var(--color-accent-subtle)] border-[var(--color-border-default)] group-hover:border-[var(--color-accent-primary)]' 
                           : course.codeTerminal
-                          ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
-                          : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
+                          ? 'bg-[var(--color-course-code-bg)] border-[var(--color-course-code)]/20 group-hover:border-[var(--color-course-code)]/40'
+                          : 'bg-[var(--color-course-sql-bg)] border-[var(--color-course-sql)]/20 group-hover:border-[var(--color-course-sql)]/40'
                         }
                       `}>
                         {course.sqlTerminal ? (
                           <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
                         ) : course.codeTerminal ? (
-                          <Code className="w-5 h-5 text-[#f32bd8ff]" />
+                          <Code className="w-5 h-5 text-[var(--color-course-code)]" />
                         ) : (
-                          <Terminal className="w-5 h-5 text-[#3b82f6]" />
+                          <Terminal className="w-5 h-5 text-[var(--color-course-sql)]" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -906,10 +909,10 @@ export function CourseList() {
                           </h3>
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                             course.sqlTerminal 
-                              ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
+                              ? 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)] border border-[var(--color-course-sql)]/40' 
                               : course.codeTerminal
-                              ? 'bg-[#f3e8ff] text-[#f32bd8ff] border border-[#f32bd8ff]/40'
-                              : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
+                              ? 'bg-[var(--color-course-code-bg)] text-[var(--color-course-code)] border border-[var(--color-course-code)]/40'
+                              : 'bg-[var(--color-course-shell-bg)] text-[var(--color-course-shell)] border border-[var(--color-course-shell)]/40'
                           }`}>
                             {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
                           </span>
@@ -931,7 +934,7 @@ export function CourseList() {
                         )}
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
-                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
                           course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
                           course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
                           'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
@@ -943,29 +946,29 @@ export function CourseList() {
                           {course.estimatedMinutes} 分钟
                         </span>
                         {progressMap[course.id]?.completed ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
                             <CheckCircle className="w-3.5 h-3.5" />
                             已完成
                           </span>
                         ) : progressMap[course.id] ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)]">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-course-sql)]" />
                             进行中 ({course.totalSteps ? Math.round((progressMap[course.id].stepIndex + 1) / course.totalSteps * 100) : 0}%)
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
                             <Circle className="w-3.5 h-3.5" />
                             待学习
                           </span>
                         )}
                         {isRunning && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
                             运行中
                           </span>
                         )}
                         {isPaused && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
                             已暂停
                           </span>
@@ -1004,16 +1007,16 @@ export function CourseList() {
                         ${course.sqlTerminal 
                           ? 'bg-[var(--color-accent-subtle)] border-[var(--color-border-default)] group-hover:border-[var(--color-accent-primary)]' 
                           : course.codeTerminal
-                          ? 'bg-[rgba(139,92,246,0.1)] border-[#f32bd8ff]/20 group-hover:border-[#f32bd8ff]/40'
-                          : 'bg-[rgba(59,130,246,0.1)] border-[#3b82f6]/20 group-hover:border-[#3b82f6]/40'
+                          ? 'bg-[var(--color-course-code-bg)] border-[var(--color-course-code)]/20 group-hover:border-[var(--color-course-code)]/40'
+                          : 'bg-[var(--color-course-sql-bg)] border-[var(--color-course-sql)]/20 group-hover:border-[var(--color-course-sql)]/40'
                         }
                       `}>
                         {course.sqlTerminal ? (
                           <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
                         ) : course.codeTerminal ? (
-                          <Code className="w-5 h-5 text-[#f32bd8ff]" />
+                          <Code className="w-5 h-5 text-[var(--color-course-code)]" />
                         ) : (
-                          <Terminal className="w-5 h-5 text-[#3b82f6]" />
+                          <Terminal className="w-5 h-5 text-[var(--color-course-sql)]" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1023,10 +1026,10 @@ export function CourseList() {
                           </h3>
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                             course.sqlTerminal 
-                              ? 'bg-[#ede9fe] text-[#7c3aed] border border-[#7c3aed]/40' 
+                              ? 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)] border border-[var(--color-course-sql)]/40' 
                               : course.codeTerminal
-                              ? 'bg-[#f3e8ff] text-[#f32bd8ff] border border-[#f32bd8ff]/40'
-                              : 'bg-[#dcfce7] text-[#16a34a] border border-[#16a34a]/40'
+                              ? 'bg-[var(--color-course-code-bg)] text-[var(--color-course-code)] border border-[var(--color-course-code)]/40'
+                              : 'bg-[var(--color-course-shell-bg)] text-[var(--color-course-shell)] border border-[var(--color-course-shell)]/40'
                           }`}>
                             {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
                           </span>
@@ -1060,7 +1063,7 @@ export function CourseList() {
                     </div>
                     <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-light)]">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
                           course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
                           course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
                           'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
@@ -1074,30 +1077,30 @@ export function CourseList() {
                       </div>
                       <div className="flex items-center gap-2">
                         {courseStatus === 'completed' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
                             <CheckCircle className="w-3.5 h-3.5" />
                             已完成
                           </span>
                         ) : courseStatus === 'in-progress' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]">
                             <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)] animate-pulse" />
                             进行中 {progressPercent}%
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
                             <Circle className="w-3.5 h-3.5" />
                             待学习
                           </span>
                         )}
                         
                         {isRunning && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
                             运行中
                           </span>
                         )}
                         {isPaused && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
                             已暂停
                           </span>
@@ -1146,7 +1149,7 @@ export function CourseList() {
                     type="checkbox"
                     checked={selectedCourses.size === containers.length && containers.length > 0}
                     onChange={handleSelectAll}
-                    className="w-4 h-4 rounded border-[var(--color-border-default)] text-[var(--color-accent-primary)] focus:ring-[var(--color-accent-primary)] cursor-pointer"
+                    className="w-4 h-4 rounded border-[var(--color-border-default)] text-[var(--color-accent-primary)] focus-visible:ring-[var(--color-accent-primary)] cursor-pointer"
                   />
                   <span className="text-sm font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-text-secondary)] transition-colors">
                     全选
@@ -1190,9 +1193,9 @@ export function CourseList() {
                         {isSql ? (
                           <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
                         ) : isCode ? (
-                          <Code className="w-5 h-5 text-[#f32bd8ff]" />
+                          <Code className="w-5 h-5 text-[var(--color-course-code)]" />
                         ) : (
-                          <Terminal className="w-5 h-5 text-[#3b82f6]" />
+                          <Terminal className="w-5 h-5 text-[var(--color-course-sql)]" />
                         )}
                       </div>
 
@@ -1208,8 +1211,8 @@ export function CourseList() {
                             isSql 
                               ? 'bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]' 
                               : isCode
-                              ? 'bg-[rgba(139,92,246,0.1)] text-[#f32bd8ff]'
-                              : 'bg-[rgba(59,130,246,0.1)] text-[#3b82f6]'
+                              ? 'bg-[var(--color-course-code-bg)] text-[var(--color-course-code)]'
+                              : 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)]'
                           }`}>
                             {isSql ? 'SQL' : isCode ? 'Code' : 'Shell'}
                           </span>

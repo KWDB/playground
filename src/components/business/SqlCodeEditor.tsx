@@ -113,14 +113,14 @@ export default function SqlCodeEditor({
 
     // 语法高亮
     '.cm-keyword': { 
-      color: '#7c3aed', 
+      color: 'var(--color-syntax-keyword)', 
       fontWeight: '600',
     },
     '.cm-string': { 
-      color: '#059669',
+      color: 'var(--color-syntax-string)',
     },
     '.cm-number': { 
-      color: '#d97706',
+      color: 'var(--color-syntax-number)',
       fontWeight: '500',
     },
     '.cm-comment': { 
@@ -128,7 +128,7 @@ export default function SqlCodeEditor({
       fontStyle: 'italic',
     },
     '.cm-operator': { 
-      color: '#dc2626',
+      color: 'var(--color-syntax-operator)',
     },
     '.cm-punctuation': { 
       color: 'var(--color-text-secondary)',
@@ -222,7 +222,7 @@ export default function SqlCodeEditor({
 
     '.cm-completionIcon-keyword': { 
       color: '#ffffff',
-      backgroundColor: '#7c3aed',
+      backgroundColor: 'var(--color-syntax-keyword)',
     },
     '.cm-completionIcon-function': { 
       color: '#ffffff',
@@ -230,7 +230,7 @@ export default function SqlCodeEditor({
     },
     '.cm-completionIcon-variable': { 
       color: '#ffffff',
-      backgroundColor: '#ea580c',
+      backgroundColor: 'var(--color-syntax-number)',
     },
     '.cm-completionIcon-property': { 
       color: '#ffffff',

@@ -74,7 +74,7 @@ const ImagePullProgressOverlay = memo(({ show, imagePullProgress, onRefresh }: P
   const widthStyle = percent != null ? { width: `${Math.max(0, Math.min(100, percent))}%` } : undefined;
 
   return (
-    <div className="absolute inset-0 bg-[var(--color-bg-primary)]/95 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
+    <div className="absolute inset-0 bg-[var(--color-bg-primary)]/95 flex items-center justify-center z-50 transition-all duration-300">
       <div className="bg-[var(--color-bg-secondary)] rounded-lg p-6 max-w-md w-full mx-4 border border-[var(--color-border-default)] shadow-lg">
         <div className="text-center">
           <div className="mb-4">

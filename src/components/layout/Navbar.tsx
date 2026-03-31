@@ -97,6 +97,8 @@ const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
                 src={LogoUrl}
                 alt="KWDB Logo"
                 className="w-8 h-8 object-contain"
+                loading="eager"
+                fetchPriority="high"
               />
               <span className="hidden max-w-[12rem] truncate text-balance text-sm font-semibold text-[var(--color-text-primary)] sm:inline">
                 KWDB Playground

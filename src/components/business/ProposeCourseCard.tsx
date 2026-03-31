@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId, useEffect, useRef } from 'react';
 import { Plus, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
@@ -59,6 +59,46 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
 
   const canSubmit = formData.courseName.trim().length > 0 && formData.description.trim().length > 0;
 
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<Element | null>(null);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      previousActiveElement.current = document.activeElement;
+      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      firstFocusable?.focus();
+    } else {
+      if (previousActiveElement.current instanceof HTMLElement) {
+        previousActiveElement.current.focus();
+      }
+    }
+  }, [isModalOpen]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Tab') {
+      const focusableElements = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusableElements || focusableElements.length === 0) return;
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    }
+    if (e.key === 'Escape') {
+      closeModal();
+    }
+  };
+
   const submitIssue = async (target: IssueTarget) => {
     if (submitStatus === 'submitting') return;
     setSubmitError(null);
@@ -111,13 +151,13 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
             'bg-[var(--color-bg-secondary)]',
             'transition-all duration-200 ease-out',
             'hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]',
-            'hover:-translate-y-0.5 active:translate-y-0',
+            'active:translate-y-0',
             className
           )}
         >
           <div className="flex items-start gap-3 mb-4">
             <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[var(--color-bg-tertiary)] flex items-center justify-center group-hover:bg-[var(--color-accent-subtle)] transition-colors duration-200">
-              <Plus className="w-5 h-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200" />
+              <Plus className="w-5 h-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200" aria-hidden="true" />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200 text-left">
@@ -130,7 +170,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
           </div>
           <div className="flex items-center justify-between pt-3 border-t border-dashed border-[var(--color-border-light)]">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] group-hover:bg-[var(--color-accent-subtle)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] group-hover:bg-[var(--color-accent-subtle)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
                 建议
               </span>
             </div>
@@ -145,12 +185,12 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
             'bg-[var(--color-bg-secondary)]',
             'transition-all duration-200 ease-out',
             'hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]',
-            'hover:-translate-y-0.5 active:translate-y-0',
+            'active:translate-y-0',
             className
           )}
         >
           <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[var(--color-bg-tertiary)] flex items-center justify-center group-hover:bg-[var(--color-accent-subtle)] transition-colors duration-200">
-            <Plus className="w-5 h-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200" />
+            <Plus className="w-5 h-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0 flex flex-col">
             <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200 text-left">
@@ -161,7 +201,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
             </p>
           </div>
           <div className="flex-shrink-0">
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] group-hover:bg-[var(--color-accent-subtle)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] group-hover:bg-[var(--color-accent-subtle)] group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
               建议
             </span>
           </div>
@@ -169,20 +209,27 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
       )}
 
       {isModalOpen && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/40" onClick={closeModal} />
-          <div className="relative z-10 w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl overflow-hidden animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation" onKeyDown={handleKeyDown}>
+          <div className="fixed inset-0 bg-black/40" onClick={closeModal} aria-hidden="true" />
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
+            className="relative z-10 w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl overflow-hidden animate-fade-in"
+          >
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)]">
               <div>
-                <h3 className="text-sm font-medium text-[var(--color-text-primary)]">反馈/提议新课程</h3>
-                <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">反馈您的课程建议或发现的 BUG</p>
+                <h3 id={titleId} className="text-sm font-medium text-[var(--color-text-primary)]">反馈/提议新课程</h3>
+                <p id={descriptionId} className="text-xs text-[var(--color-text-tertiary)] mt-0.5">反馈您的课程建议或发现的 BUG</p>
               </div>
               <button
                 onClick={closeModal}
                 aria-label="关闭提议新课程弹窗"
                 className="p-1 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -245,7 +292,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                 <label htmlFor="courseName" className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
                   课程名称
                 </label>
-                <input
+                  <input
                   type="text"
                   id="courseName"
                   name="courseName"
@@ -255,7 +302,10 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                   onChange={handleInputChange}
                   className="input"
                   placeholder="例如：KWDB 高级查询优化"
+                  aria-describedby="courseName-hint"
+                  aria-invalid={!canSubmit && submitStatus === 'error'}
                 />
+                <span id="courseName-hint" className="sr-only">最多80个字符</span>
               </div>
 
               <div>
@@ -272,6 +322,8 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                   onChange={handleInputChange}
                   className="input resize-none"
                   placeholder="请简要描述您希望学习的内容..."
+                  aria-describedby="description-count"
+                  aria-invalid={!canSubmit && submitStatus === 'error'}
                 />
               </div>
 
@@ -288,10 +340,12 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                   onChange={handleInputChange}
                   className="input"
                   placeholder="邮箱或微信号"
+                  aria-describedby="contact-hint"
                 />
+                <span id="contact-hint" className="sr-only">最多120个字符</span>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-[var(--color-text-tertiary)] tabular-nums">
+              <div id="description-count" className="flex items-center justify-between text-xs text-[var(--color-text-tertiary)] tabular-nums">
                 <span>需求描述</span>
                 <span>{formData.description.length}/1000</span>
               </div>
@@ -313,10 +367,10 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                         : '提交到 GitHub'}
                 </Button>
                 {submitStatus === 'error' && submitError && (
-                  <p className="text-xs text-[var(--color-error)] text-center mt-2">{submitError}</p>
+                  <p className="text-xs text-[var(--color-error)] text-center mt-2" role="alert">{submitError}</p>
                 )}
                 {submitStatus === 'success' && submitSuccess && (
-                  <p className="text-xs text-[var(--color-success)] text-center mt-2">{submitSuccess}</p>
+                  <p className="text-xs text-[var(--color-success)] text-center mt-2" role="status">{submitSuccess}</p>
                 )}
                 <p className="text-xs text-[var(--color-text-tertiary)] text-center mt-3">
                   点击后将跳转至对应平台的新建 Issue 页面

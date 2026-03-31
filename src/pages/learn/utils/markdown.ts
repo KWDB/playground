@@ -57,7 +57,7 @@ export const preprocessMarkdown = (content: string, variables: MarkdownVariables
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
     const encoded = encodeURIComponent(cmd)
-    return `<code class="inline-code-exec">${escapedText}</code><button class="exec-btn" data-command-enc="${encoded}" title="执行命令">Run</button>`
+    return `<code class="inline-code-exec">${escapedText}</code><button type="button" class="exec-btn" data-command-enc="${encoded}" title="执行命令">Run</button>`
   })
 
   return withExecButton.replace(/`([^`]+)`\s*\{\{\s*copy\s*\}\}/g, (match, rawText) => {
@@ -67,6 +67,6 @@ export const preprocessMarkdown = (content: string, variables: MarkdownVariables
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
     const encoded = encodeURIComponent(copyText)
-    return `<code class="inline-code-copy">${escapedText}</code><button class="copy-btn" data-copy-enc="${encoded}" title="复制内容">Copy</button>`
+    return `<code class="inline-code-copy">${escapedText}</code><button type="button" class="copy-btn" data-copy-enc="${encoded}" title="复制内容">Copy</button>`
   })
 }

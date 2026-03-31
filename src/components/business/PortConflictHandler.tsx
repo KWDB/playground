@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, RefreshCw, X, CheckCircle, Server } from 'lucide-react';
 import {
@@ -26,6 +26,10 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
   onRetry,
   onSuccess
 }) => {
+  // Timeout refs for cleanup
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // 组件状态管理
   const [state, setState] = useState<PortConflictHandlerState>({
     status: 'idle',
@@ -34,6 +38,22 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
     error: null,
     isProcessing: false
   });
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+      if (cleanupTimeoutRef.current) clearTimeout(cleanupTimeoutRef.current);
+    };
+  }, []);
+
+  // Cleanup on close
+  useEffect(() => {
+    if (!isVisible) {
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+      if (cleanupTimeoutRef.current) clearTimeout(cleanupTimeoutRef.current);
+    }
+  }, [isVisible]);
 
   // 检查端口冲突
   const checkPortConflict = useCallback(async (): Promise<PortConflictInfo | null> => {
@@ -127,7 +147,8 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
     onRetry();
     
     // 延迟关闭对话框，让用户看到重试状态
-    setTimeout(() => {
+    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+    retryTimeoutRef.current = setTimeout(() => {
       setState(prev => ({ ...prev, status: 'idle', isProcessing: false }));
       onClose();
       onSuccess?.();
@@ -151,7 +172,8 @@ const PortConflictHandler: React.FC<PortConflictHandlerProps> = ({
 
       // 如果清理成功，延迟后自动重试启动
       if (cleanupResult?.success) {
-        setTimeout(() => {
+        if (cleanupTimeoutRef.current) clearTimeout(cleanupTimeoutRef.current);
+        cleanupTimeoutRef.current = setTimeout(() => {
           handleRetryStart();
         }, 1500);
       }
