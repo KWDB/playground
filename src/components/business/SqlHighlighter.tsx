@@ -33,18 +33,18 @@ const lightTheme = {
     whiteSpace: 'pre-wrap',
   },
   '.token.keyword': {
-    color: '#7c3aed',
+    color: 'var(--color-syntax-keyword)',
     fontWeight: '600',
   },
   '.token.string': {
-    color: '#059669',
+    color: 'var(--color-syntax-string)',
   },
   '.token.number': {
-    color: '#d97706',
+    color: 'var(--color-syntax-number)',
     fontWeight: '500',
   },
   '.token.operator': {
-    color: '#dc2626',
+    color: 'var(--color-syntax-operator)',
     fontWeight: '500',
   },
   '.token.function': {
@@ -58,13 +58,13 @@ const lightTheme = {
     color: 'var(--color-text-secondary)',
   },
   '.token.class-name': {
-    color: '#d97706',
+    color: 'var(--color-syntax-number)',
   },
   '.token.variable': {
     color: 'var(--color-accent-primary)',
   },
   '.token.boolean': {
-    color: '#7c3aed',
+    color: 'var(--color-syntax-keyword)',
   },
 }
 

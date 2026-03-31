@@ -100,11 +100,14 @@ export function CourseFilter({
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+          <label htmlFor="course-filter-search" className="sr-only">搜索课程</label>
           <input
+            id="course-filter-search"
             type="text"
             value={searchQuery}
             onChange={handleSearchChange}
             placeholder="搜索课程..."
+            maxLength={100}
             className="input pl-9"
           />
         </div>
@@ -118,7 +121,7 @@ export function CourseFilter({
             <Filter className="w-4 h-4" />
             筛选
             {filterCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-xs bg-white/20">{filterCount}</span>
+              <span className="px-1.5 py-0.5 rounded-full text-xs bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]">{filterCount}</span>
             )}
           </Button>
           {filterCount > 0 && (
@@ -146,7 +149,7 @@ export function CourseFilter({
                   className={cn(
                     'px-3 py-1.5 rounded-md text-sm transition-colors',
                     filters.type === type.value
-                      ? 'bg-[var(--color-accent-primary)] text-white'
+                      ? 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]'
                       : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
                   )}
                 >
@@ -166,7 +169,7 @@ export function CourseFilter({
                   className={cn(
                     'px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1.5 whitespace-nowrap',
                     filters.difficulty.includes(diff)
-                      ? 'bg-[var(--color-accent-primary)] text-white'
+                      ? 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]'
                       : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
                   )}
                 >
@@ -190,7 +193,7 @@ export function CourseFilter({
                     className={cn(
                       'px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1.5 whitespace-nowrap min-w-0',
                       filters.tags.includes(tag)
-                        ? 'bg-[var(--color-accent-primary)] text-white'
+                        ? 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]'
                         : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
                     )}
                   >

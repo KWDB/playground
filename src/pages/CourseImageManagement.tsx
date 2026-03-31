@@ -821,7 +821,8 @@ export function CourseImageManagement() {
                 value={customSourcePrefix}
                 onChange={(event) => setCustomSourcePrefix(event.target.value)}
                 placeholder="输入自定义镜像源前缀，例如 registry.example.com/team/"
-                className="h-9 min-w-[20rem] rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-primary)] px-3 text-sm text-[var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)]"
+                maxLength={200}
+                className="h-9 min-w-0 sm:min-w-[20rem] rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-primary)] px-3 text-sm text-[var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)]"
               />
             )}
             <Button
@@ -995,7 +996,7 @@ export function CourseImageManagement() {
                           {isReady ? (
                             <CheckCircle2 className="size-4 text-[var(--color-success)]" aria-hidden="true" />
                           ) : (
-                            <Download className={cn('size-4', loadingState.preload && 'animate-bounce')} aria-hidden="true" />
+                            <Download className={cn('size-4', loadingState.preload && 'animate-pulse')} aria-hidden="true" />
                           )}
                         </Button>
                           )

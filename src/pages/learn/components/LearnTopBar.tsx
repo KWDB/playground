@@ -57,7 +57,7 @@ export const LearnTopBar = ({
           </button>
           <div className="flex items-center space-x-2">
             <h1 className="text-base font-medium text-[var(--color-text-primary)]">{title}</h1>
-            <button onClick={onOpenTour} className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors" title="查看引导" data-tour-id="learn-help-btn">
+            <button type="button" onClick={onOpenTour} className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors" title="查看引导" data-tour-id="learn-help-btn">
               <HelpCircle className="w-4 h-4" />
             </button>
           </div>
@@ -81,7 +81,8 @@ export const LearnTopBar = ({
                 max={65535}
                 value={hostPortValue}
                 onChange={(e) => onHostPortChange(e.target.value)}
-                className="h-6 w-[70px] rounded border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-1.5 text-[11px] text-[var(--color-text-primary)] outline-none transition-colors duration-150 focus:border-[var(--color-accent-primary)]"
+                aria-label="主机端口号"
+                className="h-8 w-[70px] sm:w-[80px] rounded border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-2 text-xs text-[var(--color-text-primary)] outline-none transition-colors duration-150 focus:border-[var(--color-accent-primary)]"
                 placeholder="3000"
               />
               {isHostPortChecking && !hasPortConflict && (

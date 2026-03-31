@@ -160,7 +160,7 @@
   padding: 4px 10px;
   margin-left: 4px;
   background-color: var(--color-accent-primary);
-  color: white;
+  color: var(--color-on-accent, #ffffff);
   font-size: 0.75rem;
   font-weight: 500;
   font-family: var(--font-sans);
@@ -168,15 +168,17 @@
   border-radius: 4px;
   cursor: pointer;
   vertical-align: middle;
-  transition: background-color 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .exec-btn:hover {
-  background-color: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .exec-btn:active {
-  background-color: var(--color-accent-active);
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .copy-btn {
@@ -192,14 +194,18 @@
   border-radius: 4px;
   cursor: pointer;
   vertical-align: middle;
-  transition: background-color 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .copy-btn:hover {
   background-color: var(--color-bg-tertiary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .copy-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
   background-color: var(--color-bg-secondary);
 }
 
@@ -233,15 +239,15 @@
 }
 
 .markdown-code-dot--red {
-  background-color: #ff5f56;
+  background-color: var(--color-code-dot-red, #ff5f56);
 }
 
 .markdown-code-dot--yellow {
-  background-color: #ffbd2e;
+  background-color: var(--color-code-dot-yellow, #ffbd2e);
 }
 
 .markdown-code-dot--green {
-  background-color: #27c93f;
+  background-color: var(--color-code-dot-green, #27c93f);
 }
 
 .markdown-code-language {

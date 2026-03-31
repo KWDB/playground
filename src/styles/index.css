@@ -21,13 +21,41 @@
     --color-accent-hover: #4f5bd1;
     --color-accent-active: #4048aa;
     --color-accent-subtle: rgba(94, 106, 210, 0.1);
+    --color-on-accent: #ffffff;
 
     --color-success: #0a9f53;
     --color-success-subtle: rgba(10, 159, 83, 0.1);
     --color-warning: #d97706;
     --color-warning-subtle: rgba(217, 119, 6, 0.1);
     --color-error: #dc2626;
+    --color-error-hover: #b91c1c;
     --color-error-subtle: rgba(220, 38, 38, 0.1);
+
+    --color-success-on-accent: #ffffff;
+    --color-warning-on-accent: #ffffff;
+    --color-error-on-accent: #ffffff;
+
+    /* Course type colors */
+    --color-course-sql: #7c3aed;
+    --color-course-sql-bg: rgba(124, 58, 237, 0.1);
+    --color-course-code: #d946ef;
+    --color-course-code-bg: rgba(217, 70, 239, 0.1);
+    --color-course-shell: #16a34a;
+    --color-course-shell-bg: rgba(22, 163, 74, 0.1);
+
+    /* Difficulty colors */
+    --color-difficulty-beginner: #16a34a;
+    --color-difficulty-beginner-bg: rgba(22, 163, 74, 0.1);
+    --color-difficulty-intermediate: #d97706;
+    --color-difficulty-intermediate-bg: rgba(217, 119, 6, 0.1);
+    --color-difficulty-advanced: #dc2626;
+    --color-difficulty-advanced-bg: rgba(220, 38, 38, 0.1);
+
+    /* Syntax highlighting */
+    --color-syntax-keyword: #7c3aed;
+    --color-syntax-string: #059669;
+    --color-syntax-number: #d97706;
+    --color-syntax-operator: #dc2626;
 
     --radius-sm: 4px;
     --radius-md: 6px;
@@ -72,13 +100,41 @@
     --color-accent-hover: #7a7ae0;
     --color-accent-active: #6a6ad5;
     --color-accent-subtle: rgba(139, 139, 235, 0.12);
+    --color-on-accent: #1a1a1a;
 
     --color-success: #3cc76a;
     --color-success-subtle: rgba(60, 199, 106, 0.12);
     --color-warning: #f59e0b;
     --color-warning-subtle: rgba(245, 158, 11, 0.12);
     --color-error: #ef4444;
+    --color-error-hover: #f87171;
     --color-error-subtle: rgba(239, 68, 68, 0.12);
+
+    --color-success-on-accent: #1a1a1a;
+    --color-warning-on-accent: #1a1a1a;
+    --color-error-on-accent: #1a1a1a;
+
+    /* Course type colors - Dark */
+    --color-course-sql: #a78bfa;
+    --color-course-sql-bg: rgba(167, 139, 250, 0.15);
+    --color-course-code: #f0abfc;
+    --color-course-code-bg: rgba(240, 171, 252, 0.15);
+    --color-course-shell: #4ade80;
+    --color-course-shell-bg: rgba(74, 222, 128, 0.15);
+
+    /* Difficulty colors - Dark */
+    --color-difficulty-beginner: #4ade80;
+    --color-difficulty-beginner-bg: rgba(74, 222, 128, 0.15);
+    --color-difficulty-intermediate: #fbbf24;
+    --color-difficulty-intermediate-bg: rgba(251, 191, 36, 0.15);
+    --color-difficulty-advanced: #f87171;
+    --color-difficulty-advanced-bg: rgba(248, 113, 113, 0.15);
+
+    /* Syntax highlighting - Dark */
+    --color-syntax-keyword: #a78bfa;
+    --color-syntax-string: #34d399;
+    --color-syntax-number: #fbbf24;
+    --color-syntax-operator: #f87171;
 
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);

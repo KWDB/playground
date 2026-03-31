@@ -39,6 +39,8 @@ export default function UpgradeButton({ onClick }: UpgradeButtonProps) {
           const upgradeJson = await upgradeResp.json();
           setUpgradeCheck(upgradeJson);
         }
+      } catch (err) {
+        console.error('Failed to check version:', err);
       } finally {
         setLoading(false);
       }

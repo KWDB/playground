@@ -43,6 +43,10 @@ export const MarkdownRenderer = ({ content, localPort, onExecClick }: Props) => 
           ),
           a: ({ children, className, href, target, rel, ...props }) => {
             const hrefValue = typeof href === 'string' ? href : ''
+            const isJavascript = /^javascript:/i.test(hrefValue)
+            if (isJavascript) {
+              return <span className={[className, 'markdown-link'].filter(Boolean).join(' ')}>{children}</span>
+            }
             const isExternal = /^https?:\/\//i.test(hrefValue)
             const mergedClassName = [className, 'markdown-link'].filter(Boolean).join(' ')
             return (
@@ -76,6 +80,14 @@ export const MarkdownRenderer = ({ content, localPort, onExecClick }: Props) => 
             <th className="markdown-table-cell" {...props}>{children}</th>
           ),
           code: (props) => <MarkdownCodeBlock {...props} />,
+          span: ({ className, children, ...props }) => {
+            const classValue = typeof className === 'string' ? className : ''
+            return (
+              <span className={classValue} {...props}>
+                {children}
+              </span>
+            )
+          },
         }}
       >
         {processedContent}
