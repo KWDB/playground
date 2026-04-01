@@ -63,6 +63,7 @@ interface LearnState {
   showImageSelector: boolean;
   selectedImage: string;
   selectedImageSourceId: string;
+  customImageName: string;
   isConnected: boolean;
   connectionError: string | null;
   confirmDialogMode: 'back' | 'exit';
@@ -84,6 +85,7 @@ interface LearnActions {
   setShowImageSelector: (show: boolean) => void;
   setSelectedImage: (image: string) => void;
   setSelectedImageSourceId: (sourceId: string) => void;
+  setCustomImageName: (name: string) => void;
   setIsConnected: (connected: boolean) => void;
   setConnectionError: (error: string | null) => void;
   setConfirmDialogMode: (mode: 'back' | 'exit') => void;
@@ -116,6 +118,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         showImageSelector: false,
         selectedImage: '',
         selectedImageSourceId: '',
+        customImageName: '',
         isConnected: false,
         connectionError: null,
         confirmDialogMode: 'back',
@@ -146,8 +149,8 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         },
         setSelectedImageSourceId: (selectedImageSourceId) => {
           set({ selectedImageSourceId });
-          localStorage.setItem('imageSourceId', selectedImageSourceId);
         },
+        setCustomImageName: (customImageName) => set({ customImageName }),
         setIsConnected: (isConnected) => set({ isConnected }),
         setConnectionError: (connectionError) => set({ connectionError }),
         setConfirmDialogMode: (confirmDialogMode) => set({ confirmDialogMode }),
@@ -215,7 +218,8 @@ export const useLearnStore = create<LearnState & LearnActions>()(
           isLoadingProgress: false,
           isCompleted: false,
           selectedImage: '',
-          selectedImageSourceId: localStorage.getItem('imageSourceId')?.trim() || '',
+          selectedImageSourceId: '',
+          customImageName: '',
         }),
 
         startCourseContainer: async (courseId, image) => {
@@ -353,6 +357,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         name: 'learn-storage',
         partialize: (state) => ({
           selectedImageSourceId: state.selectedImageSourceId,
+          customImageName: state.customImageName,
         }),
       }
     ),

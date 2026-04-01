@@ -10,6 +10,7 @@ import PinyinMatch from 'pinyin-match';
 import { AlertDialog, Button, Dialog, DialogContent, DialogTitle } from '@/components/ui/Button';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { useTourStore } from '@/store/tourStore';
+import { useUIPreferencesStore } from '@/store/uiPreferencesStore';
 import { TourTooltip } from '@/components/ui/TourTooltip';
 import { getStepsForPage, getTotalSteps } from '@/config/tourSteps';
 
@@ -52,9 +53,6 @@ export function CourseList() {
   const [showResetProgressModal, setShowResetProgressModal] = useState(false);
   const [resettingProgress, setResettingProgress] = useState(false);
   const [resetProgressError, setResetProgressError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
-    return (localStorage.getItem('courseViewMode') as 'grid' | 'list') || 'grid';
-  });
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [filters, setFilters] = useState<FilterState>({
@@ -79,6 +77,8 @@ export function CourseList() {
     hasHydrated
   } = useTourStore();
 
+  const { courseViewMode: viewMode, setCourseViewMode } = useUIPreferencesStore();
+
   useEffect(() => {
     if (!hasHydrated) return;
     if (!seenPages?.courses && !isActive) {
@@ -91,8 +91,7 @@ export function CourseList() {
   const step = tourSteps[currentStep];
 
   const handleViewModeChange = (mode: 'grid' | 'list') => {
-    setViewMode(mode);
-    localStorage.setItem('courseViewMode', mode);
+    setCourseViewMode(mode);
   };
 
   const { availableTags, availableDifficulties, maxDuration } = useMemo(() => {

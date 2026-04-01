@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { useLearnStore } from '../../store/learnStore';
 
 interface ImageSource {
   id: string;
@@ -27,6 +28,7 @@ interface ImageSelectorProps {
 }
 
 export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: ImageSelectorProps) {
+  const { selectedImageSourceId, customImageName: storeCustomImageName, setSelectedImageSourceId, setCustomImageName } = useLearnStore();
   const [sources, setSources] = useState<ImageSource[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string>('docker-hub');
   const [customImage, setCustomImage] = useState<string>('');
@@ -35,10 +37,8 @@ export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedSourceId = localStorage.getItem('imageSourceId');
-    const savedCustomImage = localStorage.getItem('customImageName');
-    if (savedSourceId) setSelectedSourceId(savedSourceId);
-    if (savedCustomImage && savedSourceId === 'custom') setCustomImage(savedCustomImage);
+    if (selectedImageSourceId) setSelectedSourceId(selectedImageSourceId);
+    if (storeCustomImageName && selectedImageSourceId === 'custom') setCustomImage(storeCustomImageName);
   }, []);
 
   useEffect(() => {
@@ -91,8 +91,8 @@ export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: 
 
   const handleApply = () => {
     const fullImageName = getFullImageName();
-    localStorage.setItem('imageSourceId', selectedSourceId);
-    if (selectedSourceId === 'custom') localStorage.setItem('customImageName', customImage);
+    setSelectedImageSourceId(selectedSourceId);
+    if (selectedSourceId === 'custom') setCustomImageName(customImage);
     onImageSelect(fullImageName);
     onClose();
   };

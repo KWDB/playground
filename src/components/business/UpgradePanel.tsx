@@ -2,51 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
-
-// 缓存 key 和有效期
-const UPGRADE_CHECK_CACHE_KEY = 'kwdb_upgrade_check';
-const UPGRADE_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 小时
-
-type UpgradeCheck = {
-  currentVersion: string;
-  latestVersion: string;
-  hasUpdate: boolean;
-  canUpgrade: boolean;
-  message: string;
-  dockerDeploy: boolean;
-};
-
-// 缓存类型
-type CachedUpgradeCheck = {
-  data: UpgradeCheck;
-  timestamp: number;
-};
-
-// 获取缓存
-const getCachedUpgradeCheck = (): UpgradeCheck | null => {
-  try {
-    const cached = localStorage.getItem(UPGRADE_CHECK_CACHE_KEY);
-    if (!cached) return null;
-    const { data, timestamp }: CachedUpgradeCheck = JSON.parse(cached);
-    if (Date.now() - timestamp > UPGRADE_CACHE_DURATION) {
-      localStorage.removeItem(UPGRADE_CHECK_CACHE_KEY);
-      return null;
-    }
-    return data;
-  } catch {
-    return null;
-  }
-};
-
-// 设置缓存
-const setCachedUpgradeCheck = (data: UpgradeCheck) => {
-  try {
-    const cached: CachedUpgradeCheck = { data, timestamp: Date.now() };
-    localStorage.setItem(UPGRADE_CHECK_CACHE_KEY, JSON.stringify(cached));
-  } catch {
-    // 忽略缓存错误
-  }
-};
+import { useUpgradeStore, UpgradeCheck } from '@/store/upgradeStore';
 
 export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpanded?: boolean }) {
   const [version, setVersion] = useState<string>('dev');
@@ -59,6 +15,8 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
   const [upgradeCheckLoading, setUpgradeCheckLoading] = useState(false);
   const [upgradeCheckError, setUpgradeCheckError] = useState<string | null>(null);
   const unmountedRef = useRef(false);
+
+  const { getCachedUpgradeCheck, setCachedUpgradeCheck: storeSetCache } = useUpgradeStore();
 
   const loadVersion = async () => {
     try {
@@ -180,7 +138,7 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
       }
       setUpgradeCheck(json as UpgradeCheck);
       // 缓存结果
-      setCachedUpgradeCheck(json as UpgradeCheck);
+      storeSetCache(json as UpgradeCheck);
     } catch (e: unknown) {
       // 如果有缓存，显示缓存数据，不显示错误
       const cached = getCachedUpgradeCheck();
