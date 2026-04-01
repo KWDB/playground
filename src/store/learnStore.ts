@@ -143,7 +143,6 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         setShowImageSelector: (showImageSelector) => set({ showImageSelector }),
         setSelectedImage: (selectedImage) => {
           set({ selectedImage });
-          localStorage.setItem('selectedImageFullName', selectedImage);
         },
         setSelectedImageSourceId: (selectedImageSourceId) => {
           set({ selectedImageSourceId });
@@ -215,7 +214,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
           connectionError: null,
           isLoadingProgress: false,
           isCompleted: false,
-          selectedImage: localStorage.getItem('selectedImageFullName')?.trim() || '',
+          selectedImage: '',
           selectedImageSourceId: localStorage.getItem('imageSourceId')?.trim() || '',
         }),
 
@@ -353,7 +352,6 @@ export const useLearnStore = create<LearnState & LearnActions>()(
       {
         name: 'learn-storage',
         partialize: (state) => ({
-          selectedImage: state.selectedImage,
           selectedImageSourceId: state.selectedImageSourceId,
         }),
       }

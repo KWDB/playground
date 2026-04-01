@@ -93,7 +93,6 @@ export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: 
     const fullImageName = getFullImageName();
     localStorage.setItem('imageSourceId', selectedSourceId);
     if (selectedSourceId === 'custom') localStorage.setItem('customImageName', customImage);
-    localStorage.setItem('selectedImageFullName', fullImageName);
     onImageSelect(fullImageName);
     onClose();
   };
