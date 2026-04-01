@@ -65,17 +65,7 @@ jobs:
           fi
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package.json') }}
-          restore-keys: |
-            playwright-browsers-${{ runner.os }}-
-
-      - name: Install Playwright browsers and system deps
-        run: pnpm exec playwright install --with-deps
-
-      - name: Start server and run Playwright tests
+        uses: actions/cache@v5
         run: |
           set -euo pipefail
           make playwright > /tmp/playwright-server.log 2>&1 &
@@ -156,7 +146,7 @@ jobs:
         run: pnpm exec playwright install --with-deps
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package.json') }}
