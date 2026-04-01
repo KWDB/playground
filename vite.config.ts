@@ -34,12 +34,24 @@ export default defineConfig({
         warn(warning)
       },
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge', 'react-resizable-panels'],
-          'vendor-terminal': ['xterm', 'xterm-addon-fit', '@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-web-links'],
-          'vendor-editor': ['@codemirror/view', '@codemirror/state', '@codemirror/language', '@codemirror/lang-sql', '@codemirror/lang-python', '@codemirror/lang-java', '@codemirror/commands', '@codemirror/autocomplete', '@codemirror/lint', '@lezer/highlight'],
-          'vendor-markdown': ['react-markdown', 'remark-gfm', 'rehype-raw', 'rehype-highlight', 'highlight.js', 'react-syntax-highlighter']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (/[\\/](react|react-dom|react-router-dom)[\\/]/.test(id)) {
+              return 'vendor-react'
+            }
+            if (/[\\/](lucide-react|clsx|tailwind-merge|react-resizable-panels)[\\/]/.test(id)) {
+              return 'vendor-ui'
+            }
+            if (/[\\/](xterm|xterm-addon-fit|@xterm[\\/]xterm|@xterm[\\/]addon-fit|@xterm[\\/]addon-web-links)[\\/]/.test(id)) {
+              return 'vendor-terminal'
+            }
+            if (/[\\/](@codemirror[\\/]view|@codemirror[\\/]state|@codemirror[\\/]language|@codemirror[\\/]lang-sql|@codemirror[\\/]lang-python|@codemirror[\\/]lang-java|@codemirror[\\/]commands|@codemirror[\\/]autocomplete|@codemirror[\\/]lint|@lezer[\\/]highlight)[\\/]/.test(id)) {
+              return 'vendor-editor'
+            }
+            if (/[\\/](react-markdown|remark-gfm|rehype-raw|rehype-highlight|highlight\.js|react-syntax-highlighter)[\\/]/.test(id)) {
+              return 'vendor-markdown'
+            }
+          }
         }
       }
     },
