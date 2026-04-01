@@ -10,6 +10,10 @@ Full-stack interactive learning platform: Go 1.25 backend (Gin, Docker SDK, WebS
 
 **Stats:** 470 files, 32,879 code lines (Go + TS/TSX), 8-level depth
 
+## 个人偏好
+
+- 使用中文沟通
+
 ## Quick Commands
 
 | Task | Command |

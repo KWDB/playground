@@ -63,6 +63,7 @@ interface LearnState {
   showImageSelector: boolean;
   selectedImage: string;
   selectedImageSourceId: string;
+  customImageName: string;
   isConnected: boolean;
   connectionError: string | null;
   confirmDialogMode: 'back' | 'exit';
@@ -84,6 +85,7 @@ interface LearnActions {
   setShowImageSelector: (show: boolean) => void;
   setSelectedImage: (image: string) => void;
   setSelectedImageSourceId: (sourceId: string) => void;
+  setCustomImageName: (name: string) => void;
   setIsConnected: (connected: boolean) => void;
   setConnectionError: (error: string | null) => void;
   setConfirmDialogMode: (mode: 'back' | 'exit') => void;
@@ -116,6 +118,7 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         showImageSelector: false,
         selectedImage: '',
         selectedImageSourceId: '',
+        customImageName: '',
         isConnected: false,
         connectionError: null,
         confirmDialogMode: 'back',
@@ -143,12 +146,11 @@ export const useLearnStore = create<LearnState & LearnActions>()(
         setShowImageSelector: (showImageSelector) => set({ showImageSelector }),
         setSelectedImage: (selectedImage) => {
           set({ selectedImage });
-          localStorage.setItem('selectedImageFullName', selectedImage);
         },
         setSelectedImageSourceId: (selectedImageSourceId) => {
           set({ selectedImageSourceId });
-          localStorage.setItem('imageSourceId', selectedImageSourceId);
         },
+        setCustomImageName: (customImageName) => set({ customImageName }),
         setIsConnected: (isConnected) => set({ isConnected }),
         setConnectionError: (connectionError) => set({ connectionError }),
         setConfirmDialogMode: (confirmDialogMode) => set({ confirmDialogMode }),
@@ -215,8 +217,9 @@ export const useLearnStore = create<LearnState & LearnActions>()(
           connectionError: null,
           isLoadingProgress: false,
           isCompleted: false,
-          selectedImage: localStorage.getItem('selectedImageFullName')?.trim() || '',
-          selectedImageSourceId: localStorage.getItem('imageSourceId')?.trim() || '',
+          selectedImage: '',
+          selectedImageSourceId: '',
+          customImageName: '',
         }),
 
         startCourseContainer: async (courseId, image) => {
@@ -353,8 +356,8 @@ export const useLearnStore = create<LearnState & LearnActions>()(
       {
         name: 'learn-storage',
         partialize: (state) => ({
-          selectedImage: state.selectedImage,
           selectedImageSourceId: state.selectedImageSourceId,
+          customImageName: state.customImageName,
         }),
       }
     ),

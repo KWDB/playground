@@ -291,7 +291,7 @@ export function Learn() {
         onPortConflictSuccess={handlePortConflictSuccess}
         onImageSelect={(image) => {
           setSelectedImage(image)
-          setSelectedImageSourceId(localStorage.getItem('imageSourceId')?.trim() || '')
+          setSelectedImageSourceId(useLearnStore.getState().selectedImageSourceId)
         }}
         onImageSelectorClose={() => setShowImageSelector(false)}
         onNextTour={nextStep}
