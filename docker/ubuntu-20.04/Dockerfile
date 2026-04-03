@@ -25,7 +25,7 @@ EOF
 
 # 更新并安装所需服务
 RUN apt-get update && \
-    apt-get install -y systemd systemd-sysv ssh wget vim sudo && \
+    apt-get install -y --no-install-recommends systemd systemd-sysv ssh wget vim sudo && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     systemctl enable ssh

@@ -23,16 +23,7 @@ RUN set -eux; \
     mv "prometheus-${PROM_VERSION}.linux-${ARCH_SUFFIX}" /opt/prometheus; \
     ln -sf /opt/prometheus/prometheus /usr/local/bin/prometheus; \
     ln -sf /opt/prometheus/promtool /usr/local/bin/promtool; \
-    rm -f "prometheus-${PROM_VERSION}.linux-${ARCH_SUFFIX}.tar.gz"
-
-RUN set -eux; \
-    ARCH="$(dpkg --print-architecture)"; \
-    case "${ARCH}" in \
-      amd64) ARCH_SUFFIX="amd64" ;; \
-      arm64) ARCH_SUFFIX="arm64" ;; \
-      *) echo "unsupported arch: ${ARCH}" && exit 1 ;; \
-    esac; \
-    cd /tmp; \
+    rm -f "prometheus-${PROM_VERSION}.linux-${ARCH_SUFFIX}.tar.gz"; \
     wget -q "https://dl.grafana.com/enterprise/release/grafana-enterprise-${GRAFANA_VERSION}.linux-${ARCH_SUFFIX}.tar.gz"; \
     tar -zxf "grafana-enterprise-${GRAFANA_VERSION}.linux-${ARCH_SUFFIX}.tar.gz"; \
     mv "grafana-v${GRAFANA_VERSION}" /opt/grafana; \
