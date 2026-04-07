@@ -54,11 +54,10 @@
 
     `chmod +x deploy.sh`{{exec}}
 
----
 
-### 附录：详细说明
+## 附录：详细说明
 
-#### 配置文件 (`deploy.cfg`) 解析
+### 配置文件 (`deploy.cfg`) 解析
 
 `deploy.cfg` 文件是 KaiwuDB 部署的核心，它定义了数据库的各项关键参数。
 

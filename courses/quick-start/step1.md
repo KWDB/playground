@@ -2,17 +2,25 @@
 
 在这一步，我们将启动 KWDB 并进入 SQL Shell。
 
-1.  **进入 kwabase 目录**
+1.  **进入 kwbase 目录**
 
 切换至程序目录： `cd /kaiwudb/bin`{{exec}}
 
 2.  **启动数据库**
 
-启动 KWDB（非安全模式）：`./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=/var/lib/kaiwudb --background > kwbase.log 2>&1`{{exec}}
+启动 KWDB（非安全模式）：
+
+```bash {{exec}}
+./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=/var/lib/kaiwudb --background > kwbase.log 2>&1
+```
 
 3.  **检查节点状态**
 
-检查节点状态：`./kwbase node status --insecure --host=127.0.0.1`{{exec}}
+检查节点状态：
+
+```bash {{exec}}
+./kwbase node status --insecure --host=127.0.0.1
+```
 
 4.  **连接到数据库**
 

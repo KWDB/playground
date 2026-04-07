@@ -13,3 +13,13 @@
 - 基于 SQL、慢查询面板定位热点语句
 
 至此，您已具备在测试环境部署 KWDB 监控体系的核心能力。
+
+### 获取帮助与资源
+
+- **官方文档**：[https://www.kaiwudb.com/docs](https://www.kaiwudb.com/docs)
+- **KWDB 社区**：[https://kwdb.tech](https://kwdb.tech/)
+- **KWDB 开发站**：[https://kwdb.atomgit.net/dev](https://kwdb.atomgit.net/dev/)
+- **Gitee 仓库**：[https://gitee.com/kwdb/kwdb](https://gitee.com/kwdb/kwdb)
+- **GitHub 仓库**：[https://github.com/kwdb/kwdb](https://github.com/kwdb/kwdb)
+
+感谢学习本课程！

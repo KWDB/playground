@@ -2,11 +2,13 @@
 
 > 本示例采用 Grafana v11.1.0 版本。
 
-完成 Prometheus 后，我们继续启动镜像中预装的 Grafana。当前镜像已内置数据源与 Dashboard provisioning 配置，启动后会自动导入。
+完成 Prometheus 后，我们继续启动镜像中预装的 Grafana。当前镜像已内置数据源与 Dashboard provisioning 配置，启动后会自动导入。**在实际应用环境中，您可以直接导入 KWDB 官方监控面板模板配置。**
 
 1. **启动 Grafana 服务**
 
-`grafana-server --homepath=/opt/grafana --config=/opt/grafana/conf/defaults.ini > /tmp/grafana.log 2>&1 &`{{exec}}
+```bash {{exec}}
+grafana-server --homepath=/opt/grafana --config=/opt/grafana/conf/defaults.ini > /tmp/grafana.log 2>&1 &
+```
 
 2. **确认 Grafana 端口可访问**
 
@@ -14,7 +16,9 @@
 
 3. **检查 provisioning 配置是否存在**
 
-`ls -lah /opt/grafana/conf/provisioning/datasources && ls -lah /opt/grafana/conf/provisioning/dashboards`{{exec}}
+```bash {{exec}}
+ls -lah /opt/grafana/conf/provisioning/datasources && ls -lah /opt/grafana/conf/provisioning/dashboards
+```
 
 4. **验证已自动注册的数据源与面板**
 

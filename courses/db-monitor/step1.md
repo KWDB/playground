@@ -8,7 +8,9 @@
 
 2. **启动单节点 KWDB**
 
-`./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=/var/lib/kaiwudb --background > kwbase.log 2>&1`{{exec}}
+```bash {{exec}}
+./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=/var/lib/kaiwudb --background > kwbase.log 2>&1
+```
 
 3. **检查节点状态**
 

@@ -14,7 +14,9 @@
 
 3. **启动 Prometheus**
 
-`prometheus --config.file=/kaiwudb/monitoring/prometheus.yml --web.listen-address=:9090 > /tmp/prometheus.log 2>&1 &`{{exec}}
+```bash {{exec}}
+prometheus --config.file=/kaiwudb/monitoring/prometheus.yml --web.listen-address=:9090 > /tmp/prometheus.log 2>&1 &
+```
 
 4. **检查 Prometheus 就绪状态**
 
