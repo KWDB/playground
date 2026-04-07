@@ -39,7 +39,7 @@ export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: 
   useEffect(() => {
     if (selectedImageSourceId) setSelectedSourceId(selectedImageSourceId);
     if (storeCustomImageName && selectedImageSourceId === 'custom') setCustomImage(storeCustomImageName);
-  }, []);
+  }, [selectedImageSourceId, storeCustomImageName]);
 
   useEffect(() => {
     const fetchSources = async () => {

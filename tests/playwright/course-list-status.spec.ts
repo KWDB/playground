@@ -1,5 +1,10 @@
 import { test, expect } from './test-setup';
 
+type ContainerSummary = {
+  courseId?: string
+  state?: string
+}
+
 test.describe('课程列表状态与交互测试', () => {
   test.beforeEach(async ({ request, page }) => {
     const res = await request.delete('/api/containers');
@@ -45,8 +50,8 @@ test.describe('课程列表状态与交互测试', () => {
     await expect.poll(async () => {
       const containersRes = await request.get('/api/containers');
       if (!containersRes.ok()) return false;
-      const containers = await containersRes.json();
-      return containers.some((c: any) => c.courseId === 'quick-start' && c.state === 'running');
+      const containers = await containersRes.json() as ContainerSummary[];
+      return containers.some((container) => container.courseId === 'quick-start' && container.state === 'running');
     }, { timeout: 120000 }).toBe(true);
     
     // 刷新页面获取最新状态

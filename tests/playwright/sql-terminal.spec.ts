@@ -5,6 +5,11 @@ type PortConflictResponse = {
   isConflicted?: boolean
 }
 
+type ContainerSummary = {
+  courseId?: string
+  state?: string
+}
+
 test.describe('SQL 终端', () => {
   const findAvailablePort = async (request: APIRequestContext, courseId: string) => {
     for (let candidate = 31000; candidate < 31030; candidate++) {
@@ -27,8 +32,8 @@ test.describe('SQL 终端', () => {
     await expect.poll(async () => {
       const res = await request.get('/api/containers');
       if (!res.ok()) return true;
-      const containers = await res.json();
-      return !containers.some((c: any) => c.courseId === 'sql');
+      const containers = await res.json() as ContainerSummary[];
+      return !containers.some((container) => container.courseId === 'sql');
     }, { timeout: 60000 }).toBe(true);
     await request.post('/api/progress/sql/reset');
     await page.addInitScript(() => {
