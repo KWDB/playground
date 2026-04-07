@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
@@ -18,7 +18,7 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
 
   const { getCachedUpgradeCheck, setCachedUpgradeCheck: storeSetCache } = useUpgradeStore();
 
-  const loadVersion = async () => {
+  const loadVersion = useCallback(async () => {
     try {
       const resp = await fetch('/api/version');
       if (resp.ok) {
@@ -28,7 +28,7 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
     } catch {
       setVersion('dev');
     }
-  };
+  }, []);
 
   const normalizeVersion = (value: unknown) => String(value || '').replace(/^v/, '').trim();
 
@@ -117,7 +117,7 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
     }
   };
 
-  const loadUpgradeCheck = async (forceRefresh = false) => {
+  const loadUpgradeCheck = useCallback(async (forceRefresh = false) => {
     // 如果不是强制刷新，先尝试使用缓存
     if (!forceRefresh) {
       const cached = getCachedUpgradeCheck();
@@ -150,7 +150,7 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
     } finally {
       setUpgradeCheckLoading(false);
     }
-  };
+  }, [getCachedUpgradeCheck, storeSetCache]);
 
   useEffect(() => {
     loadVersion();
@@ -159,7 +159,7 @@ export default function UpgradePanel({ alwaysExpanded = false }: { alwaysExpande
     return () => {
       unmountedRef.current = true;
     };
-  }, []);
+  }, [loadUpgradeCheck, loadVersion]);
 
   const isUpgradeInProgress = upgradeLoading || upgradeStage === 'in_progress';
 

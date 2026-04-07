@@ -5,7 +5,8 @@
 ### 获取帮助与资源
 
 - **官方文档**：[https://www.kaiwudb.com/docs](https://www.kaiwudb.com/docs)
-- **KWDB 开发站**：[https://kwdb.atomgit.net/dev/](https://kwdb.atomgit.net/dev/)
+- **KWDB 社区**：[https://kwdb.tech](https://kwdb.tech/)
+- **KWDB 开发站**：[https://kwdb.atomgit.net/dev](https://kwdb.atomgit.net/dev/)
 - **Gitee 仓库**：[https://gitee.com/kwdb/kwdb](https://gitee.com/kwdb/kwdb)
 - **GitHub 仓库**：[https://github.com/kwdb/kwdb](https://github.com/kwdb/kwdb)
 

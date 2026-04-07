@@ -4,7 +4,7 @@
 
 启动 KWDB（非安全模式）：
 ```bash {{exec}}
-./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=./kwbase-data --background
+./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=./kwbase-data --background > kwbase.log 2>&1
 ```
 
 ### 解压数据压缩包

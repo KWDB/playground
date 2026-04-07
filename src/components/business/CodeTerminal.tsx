@@ -327,6 +327,8 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
     setError(null)
   }
 
+  const showDisconnectedState = containerStatus !== 'running' && containerStatus !== 'starting'
+
   return (
     <div className="relative h-full flex flex-col bg-[var(--color-bg-primary)] overflow-hidden">
       {/* 顶部状态栏 */}
@@ -353,82 +355,91 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
 
       {/* 主内容区域 - 使用固定比例布局 */}
       <div className="flex-1 flex flex-col min-h-0">
-        {/* 上半部分：代码编辑器 - 55% 高度 */}
-        <div className="h-[55%] flex flex-col border-b border-[var(--color-border-light)] min-h-0" data-tour-id="learn-code-editor">
-          <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-default)]">
-            <span className="text-xs text-[var(--color-text-tertiary)]">代码</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleClearInput}
-                disabled={executing}
-                className={`btn btn-ghost text-xs ${executing ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                清空
-              </button>
-              {executing ? (
-                <button
-                  onClick={cancelExecution}
-                  className="btn text-xs bg-[var(--color-error)] text-[var(--color-error-on-accent)] hover:bg-[var(--color-error)]/80"
-                >
-                  停止
-                </button>
-              ) : (
-                <button
-                  onClick={runCode}
-                  disabled={!wsConnected || !codeText.trim()}
-                  data-tour-id="learn-code-run"
-                  className={`btn text-xs ${!wsConnected || !codeText.trim() ? 'opacity-50 cursor-not-allowed' : 'btn-primary'}`}
-                >
-                  运行
-                </button>
-              )}
+        {showDisconnectedState ? (
+          <div className="flex flex-1 flex-col items-center justify-center bg-[var(--color-bg-secondary)] p-6">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-bg-tertiary)]">
+              <svg className="h-6 w-6 text-[var(--color-text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
             </div>
+            <p className="mb-2 text-sm text-[var(--color-text-secondary)]">终端未连接</p>
+            <p className="text-xs text-[var(--color-text-tertiary)]">启动容器后即可使用 Code 终端</p>
           </div>
-          <div className="flex-1 overflow-auto">
-            <CodeEditor
-              ref={editorRef}
-              value={codeText}
-              onChange={setCodeText}
-              language={language}
-              isDark={isDark}
-            />
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="h-[55%] flex flex-col border-b border-[var(--color-border-light)] min-h-0" data-tour-id="learn-code-editor">
+              <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-default)]">
+                <span className="text-xs text-[var(--color-text-tertiary)]">代码</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleClearInput}
+                    disabled={executing}
+                    className={`btn btn-ghost text-xs ${executing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    清空
+                  </button>
+                  {executing ? (
+                    <button
+                      onClick={cancelExecution}
+                      className="btn text-xs bg-[var(--color-error)] text-[var(--color-error-on-accent)] hover:bg-[var(--color-error)]/80"
+                    >
+                      停止
+                    </button>
+                  ) : (
+                    <button
+                      onClick={runCode}
+                      disabled={!wsConnected || !codeText.trim()}
+                      data-tour-id="learn-code-run"
+                      className={`btn text-xs ${!wsConnected || !codeText.trim() ? 'opacity-50 cursor-not-allowed' : 'btn-primary'}`}
+                    >
+                      运行
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto">
+                <CodeEditor
+                  ref={editorRef}
+                  value={codeText}
+                  onChange={setCodeText}
+                  language={language}
+                  isDark={isDark}
+                />
+              </div>
+            </div>
 
-        {/* 下半部分：终端输出 - 45% 高度 */}
-        <div className="h-[45%] flex flex-col min-h-0" data-tour-id="learn-code-output">
-          <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-default)]">
-            <span className="text-xs text-[var(--color-text-tertiary)]">输出</span>
-            {executing && (
-              <span className="text-xs text-[var(--color-warning)]">运行中...</span>
-            )}
-          </div>
-          <div className="flex-1 overflow-auto bg-[var(--color-bg-primary)] p-3">
-            {/* 错误提示 */}
-            {error && (
-              <div className="mb-3 p-3 border border-[var(--color-error)] bg-[var(--color-error)]/10 rounded">
-                <div className="text-sm text-[var(--color-error)] font-mono">{error}</div>
+            <div className="h-[45%] flex flex-col min-h-0" data-tour-id="learn-code-output">
+              <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-default)]">
+                <span className="text-xs text-[var(--color-text-tertiary)]">输出</span>
+                {executing && (
+                  <span className="text-xs text-[var(--color-warning)]">运行中...</span>
+                )}
               </div>
-            )}
-            {/* 执行结果 */}
-            <CodeExecutionResult
-              stdout={result?.stdout || ''}
-              stderr={result?.stderr || ''}
-            />
-            {/* 状态信息 */}
-            {result && (
-              <div className="mt-3 px-3 py-2 text-xs text-[var(--color-text-tertiary)] flex items-center justify-between bg-[var(--color-bg-secondary)] rounded">
-                <span>退出码: {result.exitCode}</span>
-                <span>耗时: {result.duration}ms</span>
+              <div className="flex-1 overflow-auto bg-[var(--color-bg-primary)] p-3">
+                {error && (
+                  <div className="mb-3 rounded border border-[var(--color-error)] bg-[var(--color-error)]/10 p-3">
+                    <div className="font-mono text-sm text-[var(--color-error)]">{error}</div>
+                  </div>
+                )}
+                <CodeExecutionResult
+                  stdout={result?.stdout || ''}
+                  stderr={result?.stderr || ''}
+                />
+                {result && (
+                  <div className="mt-3 flex items-center justify-between rounded bg-[var(--color-bg-secondary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
+                    <span>退出码: {result.exitCode}</span>
+                    <span>耗时: {result.duration}ms</span>
+                  </div>
+                )}
+                {!result && !error && !executing && (
+                  <div className="flex h-full items-center justify-center text-sm text-[var(--color-text-tertiary)]">
+                    点击「运行」执行代码
+                  </div>
+                )}
               </div>
-            )}
-            {!result && !error && !executing && (
-              <div className="flex items-center justify-center h-full text-[var(--color-text-tertiary)] text-sm">
-                点击「运行」执行代码
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 镜像拉取进度覆盖层 */}

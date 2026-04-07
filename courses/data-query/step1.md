@@ -10,11 +10,11 @@
 
 ### 语法格式
 
-有关时序数据查询的语法格式，参见 [SQL 参考](../../sql-reference/dml/ts-db/ts-select.md#语法格式)。
+有关时序数据查询的语法格式，参见 [SQL 参考](https://www.kaiwudb.com/template_version/pc/doc/sql-reference/dml/ts-db/ts-select.html#%E8%AF%AD%E6%B3%95%E6%A0%BC%E5%BC%8F)。
 
 ### 参数说明
 
-有关时序数据查询的参数说明，参见 [SQL 参考](../../sql-reference/dml/ts-db/ts-select.md#参数说明)。
+有关时序数据查询的参数说明，参见 [SQL 参考](https://www.kaiwudb.com/template_version/pc/doc/sql-reference/dml/ts-db/ts-select.html#%E5%8F%82%E6%95%B0%E8%AF%B4%E6%98%8E)。
 
 ### 语法示例
 
@@ -94,22 +94,19 @@ KWDB 的插值函数支持与以下功能联合使用：
 - `JOIN`：包括 `JOIN`、`FULL JOIN`、`LEFT JOIN` 和 `RIGHT JOIN`，插值查询与 `JOIN` 联合使用时，会先执行 `JOIN` 操作，然后对结果进行插值处理。
 - `UNION`：包括 `UNION` 和 `UNION ALL`，插值查询与 UNION 联合使用时，每个子查询或数据集会先进行插值处理，然后再合并结果。
 
----
-**Warning 说明**
-
-`time_bucket_gapfill()` 函数必须与 `GROUP BY` 配合使用。如果需要同时查询其他列信息，且待查询的列不在 `GROUP BY` 指定的范围内，需要使用聚合函数来处理这些列。例如，系统不支持以下查询：
-
-```sql
-SELECT time_bucket_gapfill (time, 86400) AS a, c1 FROM t1 GROUP BY a;
-```
-
-但支持使用聚合函数的查询：
-
-```sql
-SELECT time_bucket_gapfill (time, 86400) AS a, max(c1) FROM t1 GROUP BY a;
-```
-
----
+> **说明**
+>
+> `time_bucket_gapfill()` 函数必须与 `GROUP BY` 配合使用。如果需要同时查询其他列信息，且待查询的列不在 `GROUP BY` 指定的范围内，需要使用聚合函数来处理这些列。例如，系统**不支持**以下查询：
+>
+> ```sql
+> SELECT time_bucket_gapfill (time, 86400) AS a, c1 FROM t1 GROUP BY a;
+> ```
+>
+> 但**支持**使用聚合函数的查询：
+>
+> ```sql
+> SELECT time_bucket_gapfill (time, 86400) AS a, max(c1) FROM t1 GROUP BY a;
+> ```
 
 ### 前提条件
 

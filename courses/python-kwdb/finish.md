@@ -15,9 +15,12 @@
 - 探索 KWDB 的其他高级特性
 - 学习使用 KWDB 的集群部署
 
-## 相关资源
+### 获取帮助与资源
 
-- [KWDB 官方文档](https://kwdb.io)
-- [psycopg2 文档](https://www.psycopg.org/docs/)
+- **官方文档**：[https://www.kaiwudb.com/docs](https://www.kaiwudb.com/docs)
+- **KWDB 社区**：[https://kwdb.tech](https://kwdb.tech/)
+- **KWDB 开发站**：[https://kwdb.atomgit.net/dev](https://kwdb.atomgit.net/dev/)
+- **Gitee 仓库**：[https://gitee.com/kwdb/kwdb](https://gitee.com/kwdb/kwdb)
+- **GitHub 仓库**：[https://github.com/kwdb/kwdb](https://github.com/kwdb/kwdb)
 
 感谢学习本课程！

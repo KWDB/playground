@@ -1,5 +1,10 @@
 import { test, expect } from './test-setup';
 
+type ContainerSummary = {
+  courseId?: string
+  state?: string
+}
+
 test.describe('代码终端', () => {
   test.beforeEach(async ({ request, page }) => {
     // 确保从干净状态开始
@@ -8,8 +13,8 @@ test.describe('代码终端', () => {
     await expect.poll(async () => {
       const res = await request.get('/api/containers');
       if (!res.ok()) return true;
-      const containers = await res.json();
-      return !containers.some((c: any) => c.courseId === 'python-kwdb');
+      const containers = await res.json() as ContainerSummary[];
+      return !containers.some((container) => container.courseId === 'python-kwdb');
     }, { timeout: 60000 }).toBe(true);
     await request.post('/api/progress/python-kwdb/reset');
     await page.addInitScript(() => {
@@ -33,13 +38,16 @@ test.describe('代码终端', () => {
     await page.locator('a[href="/learn/python-kwdb"]').click();
     console.log('✅ 进入 Python KWDB 课程');
 
-    // 2) 确认进入学习页，代码终端显示"未连接"
-    await expect(page.getByText('未连接')).toBeVisible({ timeout: 10000 });
+    const terminalPanel = page.locator('[data-tour-id="learn-terminal"]');
+    const codeOutputPanel = page.locator('[data-tour-id="learn-code-output"]');
+
+    // 2) 确认进入学习页，代码终端显示“终端未连接”
+    await expect(terminalPanel.getByText('终端未连接')).toBeVisible({ timeout: 10000 });
 
     // 3) 点击"启动容器"
     await page.getByRole('button', { name: '启动容器' }).click();
     // 等待容器运行中 + 代码终端连接成功
-    await expect(page.getByText('已连接')).toBeVisible({ timeout: 120000 });
+    await expect(terminalPanel.getByText('已连接', { exact: true })).toBeVisible({ timeout: 120000 });
     console.log('✅ 容器启动，代码终端已连接');
 
     // 4) 进入 Step1：连接数据库
@@ -50,12 +58,12 @@ test.describe('代码终端', () => {
     // 5) 执行 bash 代码块：安装依赖
     await page.locator('.markdown-code-block').filter({ hasText: 'pip install psycopg2-binary' }).locator('button.exec-btn').click();
     // 等待执行完成（退出码出现说明执行结束）
-    await expect(page.getByTestId('terminal').getByText('退出码:')).toBeVisible({ timeout: 30000 });
+    await expect(codeOutputPanel.getByText('退出码:')).toBeVisible({ timeout: 30000 });
     console.log('✅ 安装 psycopg2-binary');
 
     // 6) 执行 python 代码块：连接测试
     await page.locator('.markdown-code-block').filter({ hasText: 'import psycopg2' }).first().locator('button.exec-btn').click();
-    await expect(page.getByTestId('terminal').getByText('连接测试结果')).toBeVisible({ timeout: 30000 });
+    await expect(codeOutputPanel.getByText('连接测试结果')).toBeVisible({ timeout: 30000 });
     console.log('✅ 连接数据库成功');
 
     // 7) 进入 Step2：创建数据库和表
@@ -65,17 +73,17 @@ test.describe('代码终端', () => {
 
     // 8) 执行创建数据库
     await page.locator('.markdown-code-block').filter({ hasText: 'CREATE DATABASE shop' }).locator('button.exec-btn').click();
-    await expect(page.getByTestId('terminal').getByText('数据库创建成功')).toBeVisible({ timeout: 30000 });
+    await expect(codeOutputPanel.getByText('数据库创建成功')).toBeVisible({ timeout: 30000 });
     console.log('✅ 创建数据库');
 
     // 9) 执行创建表
     await page.locator('.markdown-code-block').filter({ hasText: 'CREATE TABLE products' }).locator('button.exec-btn').click();
-    await expect(page.getByTestId('terminal').getByText('表创建成功')).toBeVisible({ timeout: 30000 });
+    await expect(codeOutputPanel.getByText('表创建成功')).toBeVisible({ timeout: 30000 });
     console.log('✅ 创建商品表');
 
     // 10) 执行创建时序表
     await page.locator('.markdown-code-block').filter({ hasText: 'CREATE TABLE sensor_data' }).locator('button.exec-btn').click();
-    await expect(page.getByTestId('terminal').getByText('时序表创建成功')).toBeVisible({ timeout: 30000 });
+    await expect(codeOutputPanel.getByText('时序表创建成功')).toBeVisible({ timeout: 30000 });
     console.log('✅ 创建时序表');
 
     // 11) 进入 Step3：插入和查询数据
@@ -85,17 +93,17 @@ test.describe('代码终端', () => {
 
     // 12) 执行插入数据
     await page.locator('.markdown-code-block').filter({ hasText: 'INSERT INTO products' }).locator('button.exec-btn').click();
-    await expect(page.getByTestId('terminal').getByText('成功插入 4 条记录')).toBeVisible({ timeout: 30000 });
+    await expect(codeOutputPanel.getByText('成功插入 4 条记录')).toBeVisible({ timeout: 30000 });
     console.log('✅ 插入商品数据');
 
     // 13) 执行查询数据
     await page.locator('.markdown-code-block').filter({ hasText: 'SELECT id, name, price, stock FROM products' }).locator('button.exec-btn').click();
-    await expect(page.getByTestId('terminal').getByText('商品列表')).toBeVisible({ timeout: 30000 });
+    await expect(codeOutputPanel.getByText('商品列表')).toBeVisible({ timeout: 30000 });
     console.log('✅ 查询商品数据');
 
     // 14) 执行插入时序数据
     await page.locator('.markdown-code-block').filter({ hasText: 'INSERT INTO sensor_data' }).locator('button.exec-btn').click();
-    await expect(page.getByTestId('terminal').getByText('传感器数据插入成功')).toBeVisible({ timeout: 30000 });
+    await expect(codeOutputPanel.getByText('传感器数据插入成功')).toBeVisible({ timeout: 30000 });
     console.log('✅ 插入时序数据');
 
     // 15) 进入完成页 → 退出课程
@@ -145,10 +153,12 @@ test.describe('代码终端', () => {
     await page.locator('a[href="/learn/python-kwdb"]').click();
     console.log('✅ 进入 Python KWDB 课程');
 
+    const terminalPanel = page.locator('[data-tour-id="learn-terminal"]');
+
     // 2) 启动容器
-    await expect(page.getByText('未连接')).toBeVisible({ timeout: 10000 });
+    await expect(terminalPanel.getByText('终端未连接')).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: '启动容器' }).click();
-    await expect(page.getByText('已连接')).toBeVisible({ timeout: 120000 });
+    await expect(terminalPanel.getByText('已连接', { exact: true })).toBeVisible({ timeout: 120000 });
     console.log('✅ 容器启动成功');
 
     // 3) 进入第一步

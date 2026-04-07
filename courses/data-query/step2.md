@@ -1,6 +1,6 @@
 # 关系数据查询
 
-关系数据库支持使用 SQL 语句完成简单查询以及与其他结构组合形成的更复杂的选择查询。具体 SQL 语法格式，参见 [SQL 参考](../../sql-reference/overview.md)。
+关系数据库支持使用 SQL 语句完成简单查询以及与其他结构组合形成的更复杂的选择查询。具体 SQL 语法格式，参见 [SQL 参考](https://www.kaiwudb.com/template_version/pc/doc/sql-reference/overview.html)。
 
 ## 创建查询
 
@@ -21,15 +21,16 @@ KWDB 支持在查询中对列类型为时间戳、时间戳常量以及结果类
 
 天、周、月、年的取值范围受加减计算结果的限制。计算结果对应的毫秒数不得超过 INT64 范围。
 
-::: warning 说明
-时间加减表达式支持出现在以下位置：
-
-- `SELECT` 列表：例如 `SELECT ts+1h FROM table1;` 将返回表中时间戳列加上 1 小时后的结果。
-- `WHERE` 子句：例如 `SELECT * FROM table1 WHERE ts+1h > now();` 将返回表中时间戳列加上 1 小时后大于当前时间的数据。
-- `ORDER BY` 子句：例如 `SELECT * FROM table1 ORDER BY ts+1h;` 将按时间戳列加上 1 小时后的值进行排序。
-- `HAVING` 子句：例如 `SELECT MAX(ts) FROM table1 GROUP BY ts HAVING ts+1h > now();` 将筛选出满足条件的分组结果。
-- 参数类型为 timestamp 的函数调用：例如 `SELECT CAST(ts+1h AS timestamp) FROM table1;` 可以将时间戳列加上 1 小时后的结果转换为 timestamp 类型。
-- 使用比较运算符的表示连接条件：例如 `SELECT * FROM table1,table2 WHERE table1.ts+1h > table2.ts;` 表示在连接两个表时使用时间加减条件。
+> **说明**
+>
+> 时间加减表达式支持出现在以下位置：
+>
+> - `SELECT` 列表：例如 `SELECT ts+1h FROM table1;` 将返回表中时间戳列加上 1 小时后的结果。
+> - `WHERE` 子句：例如 `SELECT * FROM table1 WHERE ts+1h > now();` 将返回表中时间戳列加上 1 小时后大于当前时间的数据。
+> - `ORDER BY` 子句：例如 `SELECT * FROM table1 ORDER BY ts+1h;` 将按时间戳列加上 1 小时后的值进行排序。
+> - `HAVING` 子句：例如 `SELECT MAX(ts) FROM table1 GROUP BY ts HAVING ts+1h > now();` 将筛选出满足条件的分组结果。
+> - 参数类型为 `timestamp` 的函数调用：例如 `SELECT CAST(ts+1h AS timestamp) FROM table1;` 可以将时间戳列加上 1 小时后的结果转换为 `timestamp` 类型。
+> - 使用比较运算符的表示连接条件：例如 `SELECT * FROM table1,table2 WHERE table1.ts+1h > table2.ts;` 表示在连接两个表时使用时间加减条件。
 
 ### 前提条件
 
@@ -37,11 +38,11 @@ KWDB 支持在查询中对列类型为时间戳、时间戳常量以及结果类
 
 ### 语法格式
 
-有关关系数据查询的语法格式，参见 [SQL 参考](../../sql-reference/dml/relational-db/relational-select.md#语法格式)。
+有关关系数据查询的语法格式，参见 [SQL 参考](https://www.kaiwudb.com/template_version/pc/doc/sql-reference/dml/relational-db/relational-select.html#%E8%AF%AD%E6%B3%95%E6%A0%BC%E5%BC%8F)。
 
 ### 参数说明
 
-有关关系数据查询的参数说明，参见 [SQL 参考](../../sql-reference/dml/relational-db/relational-select.md#参数说明)。
+有关关系数据查询的参数说明，参见 [SQL 参考](https://www.kaiwudb.com/template_version/pc/doc/sql-reference/dml/relational-db/relational-select.html#%E5%8F%82%E6%95%B0%E8%AF%B4%E6%98%8E)。
 
 ### 语法示例
 
