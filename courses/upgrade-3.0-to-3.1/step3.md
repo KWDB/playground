@@ -6,12 +6,9 @@
 
    `cd ~`{{exec}}
 
-   `wget https://github.com/KWDB/KWDB/releases/download/V${NEW_KW_VERSION}/KWDB-${NEW_KW_VERSION}-ubuntu20.04-$(arch)-debs.tar.gz`{{exec}}
+   `wget https://kwdb.tech/download/KWDB-${NEW_KW_VERSION}-ubuntu20.04-$(arch)`{{exec}}
 
-   > 如果当前网络环境无法访问 GitHub，可以改用 Gitee 镜像：
-   > `wget https://gitee.com/kwdb/kwdb/releases/download/V${NEW_KW_VERSION}/KWDB-${NEW_KW_VERSION}-ubuntu20.04-$(arch)-debs.tar.gz`{{exec}}
-
-   `tar -xzvf KWDB-${NEW_KW_VERSION}-ubuntu20.04-$(arch)-debs.tar.gz`{{exec}}
+   `tar -xzvf KWDB-${NEW_KW_VERSION}-ubuntu20.04-$(arch)`{{exec}}
 
    `mv kwdb_install kwdb_install_${NEW_KW_VERSION}`{{exec}}
 
