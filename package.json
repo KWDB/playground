@@ -73,7 +73,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
     "jsdom": "^29.0.1",
-    "postcss": "^8.5.8",
+    "postcss": "^8.5.10",
     "tailwind-scrollbar": "^4.0.2",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
