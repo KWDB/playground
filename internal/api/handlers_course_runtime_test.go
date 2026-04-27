@@ -1,12 +1,19 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/gin-gonic/gin"
+
+	"kwdb-playground/internal/config"
+	"kwdb-playground/internal/course"
+	"kwdb-playground/internal/docker"
+	"kwdb-playground/internal/logger"
 )
 
 func TestCourseStartInProgressGuard(t *testing.T) {
@@ -165,5 +172,93 @@ func TestResolveStartHostPort(t *testing.T) {
 	invalid := 70000
 	if _, err := resolveStartHostPort(&invalid, 26257); err == nil {
 		t.Fatal("resolveStartHostPort invalid port should return error")
+	}
+}
+
+type mockDockerController struct {
+	docker.Controller
+	filesCopied map[string]map[string][]byte
+}
+
+func (m *mockDockerController) CreateContainerWithProgress(ctx context.Context, courseID string, config *docker.ContainerConfig, progressCallback docker.ImagePullProgressCallback) (*docker.ContainerInfo, error) {
+	return &docker.ContainerInfo{
+		ID:       "mock-container-id",
+		DockerID: "mock-docker-id",
+		State:    docker.StateCreating,
+	}, nil
+}
+
+func (m *mockDockerController) CopyFilesToContainer(ctx context.Context, containerID string, files map[string][]byte) error {
+	if m.filesCopied == nil {
+		m.filesCopied = make(map[string]map[string][]byte)
+	}
+	m.filesCopied[containerID] = files
+	return nil
+}
+
+func (m *mockDockerController) StartContainer(ctx context.Context, containerID string) error {
+	return nil
+}
+
+func (m *mockDockerController) ListContainers(ctx context.Context) ([]*docker.ContainerInfo, error) {
+	return nil, nil
+}
+
+func TestStartCourse_FileInjection(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockDocker := &mockDockerController{}
+
+	memFS := fstest.MapFS{
+		"courses/mock-course/index.yaml": {Data: []byte(`
+title: Mock Course
+backend:
+  imageid: kwdb/kwdb
+  volumes:
+    - ./rdb.tar.gz:/kaiwudb/bin/rdb.tar.gz
+`)},
+		"courses/mock-course/rdb.tar.gz": {Data: []byte("mock-rdb-data")},
+	}
+
+	courseSvc := course.NewServiceFromFS(memFS, "courses")
+	courseSvc.LoadCourses()
+
+	cfg := &config.Config{
+		Course: config.CourseConfig{
+			DockerDeploy: true,
+			UseEmbed:     true,
+		},
+	}
+
+	loggerInstance := logger.NewLogger(logger.ERROR)
+	handler := &Handler{
+		courseService:         courseSvc,
+		dockerController:      mockDocker,
+		logger:                loggerInstance,
+		cfg:                   cfg,
+		courseStartInProgress: make(map[string]bool),
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest("POST", "/api/courses/mock-course/start", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	c.Request = req
+	c.Params = gin.Params{{Key: "id", Value: "mock-course"}}
+
+	handler.startCourse(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	files, ok := mockDocker.filesCopied["mock-container-id"]
+	if !ok {
+		t.Fatal("Expected files to be copied to container, but none were")
+	}
+
+	content, ok := files["/kaiwudb/bin/rdb.tar.gz"]
+	if !ok || string(content) != "mock-rdb-data" {
+		t.Errorf("Expected rdb.tar.gz to be injected with content 'mock-rdb-data', got %q", string(content))
 	}
 }

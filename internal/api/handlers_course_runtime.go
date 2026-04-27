@@ -191,37 +191,9 @@ func (h *Handler) startCourse(c *gin.Context) {
 	volumes := make(map[string]string)
 	var filesToInject map[string][]byte
 
-	if len(course.Backend.Volumes) > 0 && h.cfg.Course.DockerDeploy {
+	if len(course.Backend.Volumes) > 0 {
 		filesToInject = make(map[string][]byte)
-		for _, bind := range course.Backend.Volumes {
-			b := strings.TrimSpace(bind)
-			if b == "" {
-				continue
-			}
-			parts := strings.SplitN(b, ":", 3)
-			if len(parts) < 2 {
-				h.logger.Warn("[startCourse] 无效的卷绑定: %s，期望格式 source:container[:opts]", b)
-				continue
-			}
-			sourcePath := strings.TrimSpace(parts[0])
-			containerPath := strings.TrimSpace(parts[1])
 
-			if strings.HasPrefix(sourcePath, "./") {
-				sourcePath = sourcePath[2:]
-			}
-
-			content, err := h.courseService.ReadCourseFile(course.ID, sourcePath)
-			if err != nil {
-				h.logger.Error("[startCourse] Docker模式读取课程文件失败: %s/%s: %v", course.ID, sourcePath, err)
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": fmt.Sprintf("读取课程文件失败: %s: %v", sourcePath, err),
-				})
-				return
-			}
-			filesToInject[containerPath] = content
-			h.logger.Debug("[startCourse] Docker模式准备注入文件: %s -> %s (%d bytes)", sourcePath, containerPath, len(content))
-		}
-	} else if len(course.Backend.Volumes) > 0 {
 		baseDir := h.cfg.Course.Dir
 		if !filepath.IsAbs(baseDir) {
 			if absBase, err := filepath.Abs(baseDir); err == nil {
@@ -239,41 +211,67 @@ func (h *Handler) startCourse(c *gin.Context) {
 			}
 			parts := strings.SplitN(b, ":", 3)
 			if len(parts) < 2 {
-				h.logger.Warn("[startCourse] 无效的卷绑定: %s，期望格式 host:container[:opts]", b)
+				h.logger.Warn("[startCourse] 无效的卷绑定: %s，期望格式 source:container[:opts]", b)
 				continue
 			}
 
-			hostPath := strings.TrimSpace(parts[0])
+			sourcePath := strings.TrimSpace(parts[0])
 			containerPath := strings.TrimSpace(parts[1])
 			if len(parts) == 3 && strings.TrimSpace(parts[2]) != "" {
 				containerPath = containerPath + ":" + strings.TrimSpace(parts[2])
 			}
 
-			if hostPath == "~" || strings.HasPrefix(hostPath, "~/") {
-				if home, herr := os.UserHomeDir(); herr == nil {
-					hostPath = filepath.Join(home, strings.TrimPrefix(hostPath, "~"))
-				} else {
-					h.logger.Warn("[startCourse] 无法解析用户主目录用于卷绑定: %v", herr)
+			isCourseFile := strings.HasPrefix(sourcePath, "./")
+
+			if isCourseFile && (h.cfg.Course.DockerDeploy || h.cfg.Course.UseEmbed) {
+				// 课程文件且在 DockerDeploy 或 UseEmbed 模式下，使用文件注入
+				cleanSourcePath := sourcePath[2:]
+				content, err := h.courseService.ReadCourseFile(course.ID, cleanSourcePath)
+				if err != nil {
+					h.logger.Error("[startCourse] 读取课程文件失败: %s/%s: %v", course.ID, cleanSourcePath, err)
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error": fmt.Sprintf("读取课程文件失败: %s: %v", cleanSourcePath, err),
+					})
+					return
 				}
-			}
+				// 注入文件不需要 opts，去除可能附带的 :ro 等后缀
+				cleanContainerPath := strings.TrimSpace(parts[1])
+				filesToInject[cleanContainerPath] = content
+				h.logger.Debug("[startCourse] 准备注入文件: %s -> %s (%d bytes)", cleanSourcePath, cleanContainerPath, len(content))
+			} else {
+				// 非课程文件，或者在纯本地模式下，使用 bind mount
+				if h.cfg.Course.DockerDeploy {
+					h.logger.Warn("[startCourse] DockerDeploy 模式下不支持主机绝对路径挂载: %s", sourcePath)
+					continue
+				}
 
-			if !filepath.IsAbs(hostPath) {
-				hostPath = filepath.Join(courseBase, hostPath)
-			}
-			hostPath = filepath.Clean(hostPath)
-			if absHost, err := filepath.Abs(hostPath); err == nil {
-				hostPath = absHost
-			}
+				hostPath := sourcePath
+				if hostPath == "~" || strings.HasPrefix(hostPath, "~/") {
+					if home, herr := os.UserHomeDir(); herr == nil {
+						hostPath = filepath.Join(home, strings.TrimPrefix(hostPath, "~"))
+					} else {
+						h.logger.Warn("[startCourse] 无法解析用户主目录用于卷绑定: %v", herr)
+					}
+				}
 
-			if _, err := os.Stat(hostPath); os.IsNotExist(err) {
-				h.logger.Warn("[startCourse] 主机路径不存在: %s (课程: %s)", hostPath, course.ID)
-			}
+				if !filepath.IsAbs(hostPath) {
+					hostPath = filepath.Join(courseBase, hostPath)
+				}
+				hostPath = filepath.Clean(hostPath)
+				if absHost, err := filepath.Abs(hostPath); err == nil {
+					hostPath = absHost
+				}
 
-			if !strings.HasPrefix(containerPath, "/") {
-				h.logger.Warn("[startCourse] 容器路径不是绝对路径: %s，建议以/开始", containerPath)
-			}
+				if _, err := os.Stat(hostPath); os.IsNotExist(err) {
+					h.logger.Warn("[startCourse] 主机路径不存在: %s (课程: %s)，Docker 可能会自动创建同名目录", hostPath, course.ID)
+				}
 
-			volumes[hostPath] = containerPath
+				if !strings.HasPrefix(containerPath, "/") {
+					h.logger.Warn("[startCourse] 容器路径不是绝对路径: %s，建议以/开始", containerPath)
+				}
+
+				volumes[hostPath] = containerPath
+			}
 		}
 		h.logger.Debug("[startCourse] 已解析卷绑定(绝对路径): %v", volumes)
 	}
