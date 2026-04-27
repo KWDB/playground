@@ -586,4 +586,3 @@ func (h *Handler) resumeCourse(c *gin.Context) {
 		"containerId": target.ID,
 	})
 }
-
