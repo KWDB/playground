@@ -193,7 +193,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 
 	if len(course.Backend.Volumes) > 0 {
 		filesToInject = make(map[string][]byte)
-		
+
 		baseDir := h.cfg.Course.Dir
 		if !filepath.IsAbs(baseDir) {
 			if absBase, err := filepath.Abs(baseDir); err == nil {
@@ -214,7 +214,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 				h.logger.Warn("[startCourse] 无效的卷绑定: %s，期望格式 source:container[:opts]", b)
 				continue
 			}
-			
+
 			sourcePath := strings.TrimSpace(parts[0])
 			containerPath := strings.TrimSpace(parts[1])
 			if len(parts) == 3 && strings.TrimSpace(parts[2]) != "" {
@@ -586,3 +586,4 @@ func (h *Handler) resumeCourse(c *gin.Context) {
 		"containerId": target.ID,
 	})
 }
+

@@ -9,6 +9,7 @@ import (
 	"testing/fstest"
 
 	"github.com/gin-gonic/gin"
+
 	"kwdb-playground/internal/config"
 	"kwdb-playground/internal/course"
 	"kwdb-playground/internal/docker"
@@ -36,10 +37,10 @@ func TestCourseStartInProgressGuard(t *testing.T) {
 
 func TestResolveStartCourseImage(t *testing.T) {
 	tests := []struct {
-		name         string
-		requestImage string
-		backendImage string
-		want         string
+		name		string
+		requestImage	string
+		backendImage	string
+		want		string
 	}{
 		{name: "prefer request image", requestImage: "a:b", backendImage: "x:y", want: "a:b"},
 		{name: "fallback backend image", requestImage: "", backendImage: "x:y", want: "x:y"},
@@ -58,9 +59,9 @@ func TestResolveStartCourseImage(t *testing.T) {
 
 func TestNormalizeCourseCmd(t *testing.T) {
 	tests := []struct {
-		name string
-		in   []string
-		want []string
+		name	string
+		in	[]string
+		want	[]string
 	}{
 		{name: "nil uses default", in: nil, want: []string{"/bin/bash", "-c", "while true; do sleep 3600; done"}},
 		{name: "single token unchanged", in: []string{"postgres"}, want: []string{"postgres"}},
@@ -181,9 +182,9 @@ type mockDockerController struct {
 
 func (m *mockDockerController) CreateContainerWithProgress(ctx context.Context, courseID string, config *docker.ContainerConfig, progressCallback docker.ImagePullProgressCallback) (*docker.ContainerInfo, error) {
 	return &docker.ContainerInfo{
-		ID:       "mock-container-id",
-		DockerID: "mock-docker-id",
-		State:    docker.StateCreating,
+		ID:		"mock-container-id",
+		DockerID:	"mock-docker-id",
+		State:		docker.StateCreating,
 	}, nil
 }
 
@@ -224,18 +225,18 @@ backend:
 
 	cfg := &config.Config{
 		Course: config.CourseConfig{
-			DockerDeploy: true,
-			UseEmbed:     true,
+			DockerDeploy:	true,
+			UseEmbed:	true,
 		},
 	}
 
 	loggerInstance := logger.NewLogger(logger.ERROR)
 	handler := &Handler{
-		courseService:         courseSvc,
-		dockerController:      mockDocker,
-		logger:                loggerInstance,
-		cfg:                   cfg,
-		courseStartInProgress: make(map[string]bool),
+		courseService:		courseSvc,
+		dockerController:	mockDocker,
+		logger:			loggerInstance,
+		cfg:			cfg,
+		courseStartInProgress:	make(map[string]bool),
 	}
 
 	w := httptest.NewRecorder()
@@ -261,3 +262,4 @@ backend:
 		t.Errorf("Expected rdb.tar.gz to be injected with content 'mock-rdb-data', got %q", string(content))
 	}
 }
+
