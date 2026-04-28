@@ -3,6 +3,7 @@
 ### 启动数据库
 
 启动 KWDB（非安全模式）：
+
 ```bash {{exec}}
 ./kwbase start-single-node --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store=./kwbase-data --background > kwbase.log 2>&1
 ```
@@ -43,6 +44,7 @@
 若想插入任意条数据可修改下面示例中的 `generate_series(1, 10000)` 中的数字，代表插入的条数。
 
 以下示例为 10000 条数据：
+
 ```sql {{exec}}
 INSERT INTO tsdb.meter_data(ts, voltage, current, power, energy, meter_id)
 SELECT 
@@ -114,16 +116,14 @@ CREATE TABLE rdb.alarm_rules(
 ### 实时用电数据表(时序表)
 
 ```sql
-CREATE TABLE tsdb.meter_data(
+CREATE TABLE tsdb.meter_data (
   ts TIMESTAMPTZ(3) NOT NULL,
   voltage FLOAT8 NULL,
   current FLOAT8 NULL,
   power FLOAT8 NULL,
-  energy FLOAT8 NULL,
-  -- meter_id VARCHAR(50)
-) TAGS(meter_id VARCHAR(50) NOT NULL)
-PRIMARY TAGS(meter_id)
-retentions 0s
-activetime 1d
-partition interval 10d;
+  energy FLOAT8 NULL
+) TAGS (
+  meter_id VARCHAR(50) NOT NULL ) PRIMARY TAGS(meter_id)
+  retentions 0s
+  activetime 1d
 ```
