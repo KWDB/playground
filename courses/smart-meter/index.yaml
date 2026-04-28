@@ -1,5 +1,5 @@
 title: 智能电表示例
-description: 本场景将带领开发者快速体验 KWDB 的智能电表场景。
+description: 本场景将带领开发者快速体验 KWDB 的智能电表场景(新增时间窗口函数示例)。
 details:
   intro:
     text: intro.md
@@ -8,6 +8,8 @@ details:
       text: step1.md
     - title: 场景查询
       text: step2.md
+    - title: 场景查询(时间窗口函数)
+      text: step3.md
   finish:
     text: finish.md
 backend:
