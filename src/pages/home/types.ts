@@ -5,3 +5,15 @@ export interface HomeFeatureItem {
   title: string;
   description: string;
 }
+
+export interface HomeStatItem {
+  label: string;
+  value: string;
+  description: string;
+}
+
+export interface HomeTestimonialItem {
+  quote: string;
+  author: string;
+  role: string;
+}

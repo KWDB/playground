@@ -150,8 +150,8 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
             'border border-dashed border-[var(--color-border-default)]',
             'bg-[var(--color-bg-secondary)]',
             'transition-all duration-200 ease-out',
-            'hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]',
-            'active:translate-y-0',
+            'hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-tertiary)] hover:shadow-[var(--shadow-sm)]',
+            'active:translate-y-[1px]',
             className
           )}
         >
@@ -184,8 +184,8 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
             'border border-dashed border-[var(--color-border-default)]',
             'bg-[var(--color-bg-secondary)]',
             'transition-all duration-200 ease-out',
-            'hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-primary)] hover:shadow-[var(--shadow-sm)]',
-            'active:translate-y-0',
+            'hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-bg-tertiary)] hover:shadow-[var(--shadow-sm)]',
+            'active:translate-y-[1px]',
             className
           )}
         >
@@ -217,7 +217,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
             aria-modal="true"
             aria-labelledby={titleId}
             aria-describedby={descriptionId}
-            className="relative z-10 w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl overflow-hidden animate-fade-in"
+            className="relative z-10 w-full max-w-sm bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)]">
               <div>
@@ -227,7 +227,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
               <button
                 onClick={closeModal}
                 aria-label="关闭提议新课程弹窗"
-                className="p-1 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+                className="p-1 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -250,7 +250,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                     className={cn(
                       'px-3 py-1.5 text-xs font-medium rounded-sm transition-colors duration-150',
                       issueTarget === 'atomgit'
-                        ? 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-sm'
+                        ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]'
                         : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                     )}
                     onClick={() => {
@@ -271,7 +271,7 @@ const ProposeCourseCard: React.FC<ProposeCourseCardProps> = ({ className, mode =
                     className={cn(
                       'px-3 py-1.5 text-xs font-medium rounded-sm transition-colors duration-150',
                       issueTarget === 'github'
-                        ? 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-sm'
+                        ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]'
                         : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                     )}
                     onClick={() => {

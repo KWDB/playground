@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Clock, AlertCircle, Trash2, CheckCircle, Terminal, Database, Code, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, Circle, ArrowRight, RotateCcw } from 'lucide-react';
+import { Clock, AlertCircle, Trash2, Terminal, Database, Code, LayoutGrid, List as ListIcon, Search, Filter, RefreshCw, ArrowRight, RotateCcw } from 'lucide-react';
 import { ContainerInfo } from '@/types';
 import { api } from '@/lib/api/client';
 import { UserProgress } from '@/lib/api/types';
@@ -8,6 +8,10 @@ import ProposeCourseCard from '../components/business/ProposeCourseCard';
 import { useDebounce } from '../hooks/useDebounce';
 import PinyinMatch from 'pinyin-match';
 import { AlertDialog, Button, Dialog, DialogContent, DialogTitle } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { Chip } from '@/components/ui/Chip';
+import { IconToggleGroup } from '@/components/ui/IconToggleGroup';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { useTourStore } from '@/store/tourStore';
 import { useUIPreferencesStore } from '@/store/uiPreferencesStore';
@@ -486,24 +490,15 @@ export function CourseList() {
           </div>
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-2">
-              <div 
-                className="flex items-center border border-[var(--color-border-default)] rounded-lg overflow-hidden"
-                data-tour-id="course-view-toggle"
-              >
-                <button
-                  onClick={() => handleViewModeChange('grid')}
-                  className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}`}
-                  aria-label="卡片模式"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleViewModeChange('list')}
-                  className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}`}
-                  aria-label="列表模式"
-                >
-                  <ListIcon className="w-4 h-4" />
-                </button>
+              <div data-tour-id="course-view-toggle">
+                <IconToggleGroup
+                  value={viewMode}
+                  onValueChange={(next) => handleViewModeChange(next as 'grid' | 'list')}
+                  options={[
+                    { value: 'grid', label: '卡片模式', icon: LayoutGrid },
+                    { value: 'list', label: '列表模式', icon: ListIcon },
+                  ]}
+                />
               </div>
               {hasAnyProgress && (
                 <Button
@@ -513,7 +508,7 @@ export function CourseList() {
                     setResetProgressError(null);
                     setShowResetProgressModal(true);
                   }}
-                  className="text-[var(--color-error)]"
+                  className="text-[var(--color-error)] border border-transparent hover:text-[var(--color-error)] hover:bg-[var(--color-error-subtle)] hover:border-[var(--color-error-border)]"
                   disabled={resettingProgress}
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -525,7 +520,7 @@ export function CourseList() {
                   variant="ghost" 
                   size="sm" 
                   onClick={() => setShowCleanupModal(true)} 
-                  className="text-[var(--color-error)]"
+                  className="text-[var(--color-error)] border border-transparent hover:text-[var(--color-error)] hover:bg-[var(--color-error-subtle)] hover:border-[var(--color-error-border)]"
                   data-tour-id="course-cleanup"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -539,7 +534,7 @@ export function CourseList() {
           </div>
         </header>
 
-        <div className="mb-6 p-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-bg-primary)]">
+        <div className="mb-6 p-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)]">
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -557,7 +552,7 @@ export function CourseList() {
                 </div>
               </div>
 
-              <div className="mt-3 h-2 w-full rounded-full bg-[var(--color-bg-secondary)] overflow-hidden">
+              <div className="mt-3 h-2 w-full rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden border border-[var(--color-border-light)]">
                 <div
                   className="h-full rounded-full bg-[var(--color-accent-primary)] transition-all duration-200 ease-out"
                   style={{ width: `${overallProgress.percent}%` }}
@@ -566,15 +561,15 @@ export function CourseList() {
 
               <div className="mt-3 flex items-center gap-2 flex-wrap text-xs">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
                   已完成 {overallProgress.completedCourses}
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-course-sql)]" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)]" />
                   进行中 {overallProgress.inProgressCourses}
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
-                  <Circle className="w-3.5 h-3.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-text-tertiary)]" />
                   待学习 {overallProgress.pendingCourses}
                 </span>
               </div>
@@ -626,7 +621,7 @@ export function CourseList() {
                     <button
                       type="button"
                       onClick={() => navigate(`/learn/${latestCompletedEntry.course.id}?entry=review`)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-primary)] text-xs text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors duration-200 shrink-0"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors duration-200 shrink-0"
                     >
                       复习最近课程
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -647,19 +642,19 @@ export function CourseList() {
           </div>
         </div>
 
-        <div className="mb-6 p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)]">
+        <div className="mb-6 p-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)]">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1" data-tour-id="course-search">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" aria-hidden="true" />
               <label htmlFor="course-list-search" className="sr-only">搜索课程</label>
-              <input
+              <Input
                 id="course-list-search"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索课程..."
                 maxLength={100}
-                className="input pl-9"
+                className="pl-9"
               />
             </div>
             <Button
@@ -672,7 +667,9 @@ export function CourseList() {
               <Filter className="w-4 h-4" />
               筛选
               {activeFilterCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-xs bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]">{activeFilterCount}</span>
+                <span className="px-1.5 py-0.5 rounded-full text-xs bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)] border border-[var(--color-accent-border)]">
+                  {activeFilterCount}
+                </span>
               )}
             </Button>
             {activeFilterCount > 0 && (
@@ -687,40 +684,32 @@ export function CourseList() {
             <div className="mt-4 pt-4 border-t border-[var(--color-border-light)] space-y-5">
               {/* 类型筛选 */}
               <div>
-                <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3 block">
+                <label className="text-xs font-semibold text-[var(--color-text-secondary)] mb-3 block">
                   课程类型
                 </label>
                 <div className="flex gap-2">
                   {([
                     { value: 'all', label: '全部', icon: null, color: '' },
-                    { value: 'sql', label: 'SQL', icon: Database, color: 'var(--color-course-sql)' },
-                    { value: 'code', label: 'Code', icon: Code, color: 'var(--color-course-code)' },
-                    { value: 'shell', label: 'Shell', icon: Terminal, color: 'var(--color-course-shell)' },
+                    { value: 'sql', label: 'SQL', icon: Database },
+                    { value: 'code', label: 'Code', icon: Code },
+                    { value: 'shell', label: 'Shell', icon: Terminal },
                   ] as const).map((type) => (
-                    <button
+                    <Chip
                       key={type.value}
+                      selected={filters.type === type.value}
+                      variant={type.value === 'all' ? 'accent' : 'neutral'}
                       onClick={() => setFilters({ ...filters, type: type.value as FilterState['type'] })}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 border ${
-                        filters.type === type.value
-                          ? type.value === 'sql'
-                            ? 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)] border-[var(--color-course-sql)] shadow-sm'
-                            : type.value === 'code'
-                            ? 'bg-[var(--color-course-code-bg)] text-[var(--color-course-code)] border-[var(--color-course-code)] shadow-sm'
-                            : type.value === 'shell'
-                            ? 'bg-[var(--color-course-shell-bg)] text-[var(--color-course-shell)] border-[var(--color-course-shell)] shadow-sm'
-                            : 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] border-[var(--color-accent-primary)] shadow-sm'
-                          : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)]'
-                      }`}
+                      className="gap-2"
                     >
                       {type.icon && <type.icon className="w-4 h-4" />}
                       {type.label}
-                    </button>
+                    </Chip>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3 block">
+                <label className="text-xs font-semibold text-[var(--color-text-secondary)] mb-3 block">
                   学习状态
                 </label>
                 <div className="flex gap-2 flex-wrap">
@@ -730,67 +719,57 @@ export function CourseList() {
                     { value: 'in-progress', label: '进行中' },
                     { value: 'completed', label: '已完成' },
                   ] as const).map((status) => (
-                    <button
+                    <Chip
                       key={status.value}
+                      selected={filters.learningStatus === status.value}
+                      variant={
+                        status.value === 'completed'
+                          ? 'success'
+                          : status.value === 'in-progress'
+                          ? 'accent'
+                          : status.value === 'pending'
+                          ? 'neutral'
+                          : 'accent'
+                      }
                       onClick={() => setFilters({ ...filters, learningStatus: status.value })}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 border ${
-                        filters.learningStatus === status.value
-                          ? status.value === 'completed'
-                            ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)] border-[var(--color-success)] shadow-sm'
-                            : status.value === 'in-progress'
-                            ? 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)] border-[var(--color-course-sql)] shadow-sm'
-                            : status.value === 'pending'
-                            ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] border-[var(--color-text-tertiary)] shadow-sm'
-                            : 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] border-[var(--color-accent-primary)] shadow-sm'
-                          : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)]'
-                      }`}
                     >
                       {status.label}
-                    </button>
+                    </Chip>
                   ))}
                 </div>
               </div>
 
               {/* 难度筛选 */}
               <div>
-                <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3 block">
+                <label className="text-xs font-semibold text-[var(--color-text-secondary)] mb-3 block">
                   难度等级
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {availableDifficulties.map((diff) => {
                     const isSelected = filters.difficulty.includes(diff);
-                    const getDifficultyColor = (d: string) => {
-                      switch (d) {
-                        case 'beginner': return { bg: 'var(--color-difficulty-beginner-bg)', text: 'var(--color-difficulty-beginner)', border: 'var(--color-difficulty-beginner)' };
-                        case 'intermediate': return { bg: 'var(--color-difficulty-intermediate-bg)', text: 'var(--color-difficulty-intermediate)', border: 'var(--color-difficulty-intermediate)' };
-                        case 'advanced': return { bg: 'var(--color-difficulty-advanced-bg)', text: 'var(--color-difficulty-advanced)', border: 'var(--color-difficulty-advanced)' };
-                        default: return { bg: 'var(--color-bg-secondary)', text: 'var(--color-text-secondary)', border: 'var(--color-border-default)' };
-                      }
-                    };
-                    const color = getDifficultyColor(diff);
                     return (
-                      <button
+                      <Chip
                         key={diff}
+                        selected={isSelected}
+                        variant={
+                          diff === 'beginner'
+                            ? 'success'
+                            : diff === 'intermediate'
+                            ? 'warning'
+                            : diff === 'advanced'
+                            ? 'error'
+                            : 'neutral'
+                        }
                         onClick={() => {
                           const next = filters.difficulty.includes(diff)
                             ? filters.difficulty.filter(d => d !== diff)
                             : [...filters.difficulty, diff];
                           setFilters({ ...filters, difficulty: next });
                         }}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 border shadow-sm ${
-                          isSelected
-                            ? 'border-transparent'
-                            : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-border-default)]'
-                        }`}
-                        style={isSelected ? {
-                          backgroundColor: color.bg,
-                          color: color.text,
-                          borderColor: color.border
-                        } : undefined}
+                        className="gap-1.5"
                       >
-                        {isSelected && <CheckCircle className="w-3.5 h-3.5" style={{ color: isSelected ? color.text : undefined }} />}
                         {getDifficultyLabel(diff)}
-                      </button>
+                      </Chip>
                     );
                   })}
                 </div>
@@ -799,30 +778,26 @@ export function CourseList() {
               {/* 标签筛选 */}
               {availableTags.length > 0 && (
                 <div>
-                  <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3 block">
+                  <label className="text-xs font-semibold text-[var(--color-text-secondary)] mb-3 block">
                     标签筛选
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {availableTags.map((tag) => {
                       const isSelected = filters.tags.includes(tag);
                       return (
-                        <button
+                        <Chip
                           key={tag}
+                          selected={isSelected}
+                          variant="accent"
                           onClick={() => {
                             const next = filters.tags.includes(tag)
                               ? filters.tags.filter(t => t !== tag)
                               : [...filters.tags, tag];
                             setFilters({ ...filters, tags: next });
                           }}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 border ${
-                            isSelected
-                              ? 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] border-[var(--color-accent-primary)] shadow-sm'
-                              : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-light)] hover:border-[var(--color-accent-primary)]/50 hover:text-[var(--color-accent-primary)]'
-                          }`}
                         >
-                          {isSelected && <CheckCircle className="w-3.5 h-3.5" />}
                           {tag}
-                        </button>
+                        </Chip>
                       );
                     })}
                   </div>
@@ -865,10 +840,10 @@ export function CourseList() {
                       data-tour-id={index === 0 ? 'course-card-first' : undefined}
                       className={`
                         group flex items-center gap-4 p-5 rounded-xl 
-                        border bg-[var(--color-bg-primary)]
+                        border bg-[var(--color-bg-secondary)]
                         transition-all duration-200 ease-out
-                        hover:shadow-[var(--shadow-md)]
-                        active:translate-y-0 active:shadow-[var(--shadow-sm)]
+                        hover:shadow-[var(--shadow-sm)]
+                        active:translate-y-[1px] active:shadow-[var(--shadow-xs)]
                         ${isRunning 
                           ? course.sqlTerminal 
                             ? 'border-l-[3px] border-l-[var(--color-accent-primary)] border-y-[var(--color-border-light)] border-r-[var(--color-border-light)] shadow-[var(--shadow-sm)]' 
@@ -906,70 +881,57 @@ export function CourseList() {
                           <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
                             {course.title}
                           </h3>
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            course.sqlTerminal 
-                              ? 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)] border border-[var(--color-course-sql)]/40' 
-                              : course.codeTerminal
-                              ? 'bg-[var(--color-course-code-bg)] text-[var(--color-course-code)] border border-[var(--color-course-code)]/40'
-                              : 'bg-[var(--color-course-shell-bg)] text-[var(--color-course-shell)] border border-[var(--color-course-shell)]/40'
-                          }`}>
-                            {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
-                          </span>
+                          <Badge size="xs" variant={course.sqlTerminal ? 'sql' : course.codeTerminal ? 'code' : 'shell'}>
+                            {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'Shell'}
+                          </Badge>
                         </div>
                         <p className="text-xs text-[var(--color-text-tertiary)] truncate leading-relaxed">
                           {course.description}
                         </p>
                         {course.tags && course.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {course.tags.slice(0, 3).map(tag => (
-                              <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                            {course.tags.slice(0, 2).map(tag => (
+                              <Badge
+                                key={tag}
+                                variant="neutral"
+                                size="xs"
+                                className="bg-transparent text-[var(--color-text-tertiary)] border-[var(--color-border-light)]"
+                              >
                                 {tag}
-                              </span>
+                              </Badge>
                             ))}
-                            {course.tags.length > 3 && (
-                              <span className="text-[10px] text-[var(--color-text-tertiary)]">+{course.tags.length - 3}</span>
+                            {course.tags.length > 2 && (
+                              <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">+{course.tags.length - 2}</span>
                             )}
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
-                          course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
-                          course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
-                          'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
-                        }`}>
+                      <div className="flex items-center gap-2.5 flex-shrink-0">
+                        <Badge variant="neutral" className="bg-[var(--color-bg-tertiary)]">
                           {getDifficultyLabel(course.difficulty)}
-                        </span>
+                        </Badge>
                         <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
                           <Clock className="w-3.5 h-3.5" />
                           {course.estimatedMinutes} 分钟
                         </span>
                         {progressMap[course.id]?.completed ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            已完成
-                          </span>
+                          <Badge variant="success">已完成</Badge>
                         ) : progressMap[course.id] ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)]">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-course-sql)]" />
-                            进行中 ({course.totalSteps ? Math.round((progressMap[course.id].stepIndex + 1) / course.totalSteps * 100) : 0}%)
-                          </span>
+                          <Badge variant="accent">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)]" />
+                            进行中 {course.totalSteps ? Math.round((progressMap[course.id].stepIndex + 1) / course.totalSteps * 100) : 0}%
+                          </Badge>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
-                            <Circle className="w-3.5 h-3.5" />
-                            待学习
-                          </span>
+                          <Badge variant="neutral">待学习</Badge>
                         )}
-                        {isRunning && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
-                            运行中
-                          </span>
-                        )}
-                        {isPaused && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-                            已暂停
+                        {(isRunning || isPaused) && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isPaused ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-success)]'
+                              }`}
+                            />
+                            {isPaused ? '已暂停' : '运行中'}
                           </span>
                         )}
                       </div>
@@ -988,14 +950,15 @@ export function CourseList() {
                     className={`
                       group h-full p-5 rounded-xl flex flex-col
                       border transition-all duration-200 ease-out
-                      hover:shadow-md hover:-translate-y-0.5
-                      active:translate-y-0 active:shadow-sm
+                      bg-[var(--color-bg-secondary)]
+                      hover:shadow-[var(--shadow-sm)]
+                      active:translate-y-[1px] active:shadow-[var(--shadow-xs)]
                       ${
                         courseStatus === 'completed'
-                          ? 'bg-[var(--color-success-subtle)] border-[var(--color-success)] hover:border-[var(--color-success)]'
+                          ? 'border-[var(--color-border-light)] border-l-[3px] border-l-[var(--color-success)] hover:border-[var(--color-border-default)]'
                           : courseStatus === 'in-progress'
-                          ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent-primary)] hover:border-[var(--color-accent-primary)]'
-                          : 'bg-[var(--color-bg-primary)] border-[var(--color-border-default)] hover:border-[var(--color-border-dark)]'
+                          ? 'border-[var(--color-border-light)] border-l-[3px] border-l-[var(--color-accent-primary)] hover:border-[var(--color-border-default)]'
+                          : 'border-[var(--color-border-light)] hover:border-[var(--color-border-default)]'
                       }
                     `}
                   >
@@ -1023,15 +986,9 @@ export function CourseList() {
                           <h3 className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors duration-200">
                             {course.title}
                           </h3>
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            course.sqlTerminal 
-                              ? 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)] border border-[var(--color-course-sql)]/40' 
-                              : course.codeTerminal
-                              ? 'bg-[var(--color-course-code-bg)] text-[var(--color-course-code)] border border-[var(--color-course-code)]/40'
-                              : 'bg-[var(--color-course-shell-bg)] text-[var(--color-course-shell)] border border-[var(--color-course-shell)]/40'
-                          }`}>
-                            {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'SHELL'}
-                          </span>
+                          <Badge size="xs" variant={course.sqlTerminal ? 'sql' : course.codeTerminal ? 'code' : 'shell'}>
+                            {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'Shell'}
+                          </Badge>
                         </div>
                         <p className="text-xs text-[var(--color-text-tertiary)] line-clamp-2 leading-relaxed">
                           {course.description}
@@ -1039,19 +996,24 @@ export function CourseList() {
                         
                         {course.tags && course.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {course.tags.slice(0, 3).map(tag => (
-                              <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                            {course.tags.slice(0, 2).map(tag => (
+                              <Badge
+                                key={tag}
+                                variant="neutral"
+                                size="xs"
+                                className="bg-transparent text-[var(--color-text-tertiary)] border-[var(--color-border-light)]"
+                              >
                                 {tag}
-                              </span>
+                              </Badge>
                             ))}
-                            {course.tags.length > 3 && (
-                              <span className="text-[10px] text-[var(--color-text-tertiary)]">+{course.tags.length - 3}</span>
+                            {course.tags.length > 2 && (
+                              <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">+{course.tags.length - 2}</span>
                             )}
                           </div>
                         )}
                           
                         {courseStatus === 'in-progress' && (
-                          <div className="mt-2 h-1.5 w-full bg-[var(--color-accent-subtle)] rounded-full overflow-hidden">
+                          <div className="mt-2 h-1 w-full bg-[var(--color-bg-tertiary)] rounded-full overflow-hidden border border-[var(--color-border-light)]">
                             <div 
                               className="h-full bg-[var(--color-accent-primary)] rounded-full transition-all duration-300 ease-out"
                               style={{ width: `${progressPercent}%` }}
@@ -1062,13 +1024,9 @@ export function CourseList() {
                     </div>
                     <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-light)]">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
-                          course.difficulty === 'beginner' ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' :
-                          course.difficulty === 'intermediate' ? 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' :
-                          'bg-[var(--color-error-subtle)] text-[var(--color-error)]'
-                        }`}>
+                        <Badge variant="neutral" className="bg-[var(--color-bg-tertiary)]">
                           {getDifficultyLabel(course.difficulty)}
-                        </span>
+                        </Badge>
                         <span className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
                           <Clock className="w-3.5 h-3.5" />
                           {course.estimatedMinutes} 分钟
@@ -1076,32 +1034,23 @@ export function CourseList() {
                       </div>
                       <div className="flex items-center gap-2">
                         {courseStatus === 'completed' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            已完成
-                          </span>
+                          <Badge variant="success">已完成</Badge>
                         ) : courseStatus === 'in-progress' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)] animate-pulse" />
+                          <Badge variant="accent">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)]" />
                             进行中 {progressPercent}%
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
-                            <Circle className="w-3.5 h-3.5" />
-                            待学习
-                          </span>
+                          <Badge variant="neutral">待学习</Badge>
                         )}
-                        
-                        {isRunning && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-success-subtle)] text-[var(--color-success)]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
-                            运行中
-                          </span>
-                        )}
-                        {isPaused && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--color-warning-subtle)] text-[var(--color-warning)]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-                            已暂停
+                        {(isRunning || isPaused) && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isPaused ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-success)]'
+                              }`}
+                            />
+                            {isPaused ? '已暂停' : '运行中'}
                           </span>
                         )}
                       </div>
@@ -1124,7 +1073,7 @@ export function CourseList() {
 
       {showCleanupModal && (
         <Dialog open={showCleanupModal} onOpenChange={setShowCleanupModal}>
-          <DialogContent className="w-[92vw] max-w-2xl p-0 overflow-hidden bg-[var(--color-bg-primary)]">
+          <DialogContent className="w-[92vw] max-w-2xl p-0 overflow-hidden bg-[var(--color-bg-secondary)]">
             <div className="px-6 py-5 border-b border-[var(--color-border-light)]">
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0 size-10 rounded-full bg-[var(--color-error-subtle)] flex items-center justify-center">
@@ -1206,15 +1155,13 @@ export function CourseList() {
                           >
                             {course?.title || container.name || '未命名容器'}
                           </span>
-                          <span className={`px-2 py-0.5 rounded-md text-xs font-semibold shrink-0 mt-0.5 ${
-                            isSql 
-                              ? 'bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)]' 
-                              : isCode
-                              ? 'bg-[var(--color-course-code-bg)] text-[var(--color-course-code)]'
-                              : 'bg-[var(--color-course-sql-bg)] text-[var(--color-course-sql)]'
-                          }`}>
+                          <Badge
+                            size="xs"
+                            variant={isSql ? 'sql' : isCode ? 'code' : 'shell'}
+                            className="mt-0.5"
+                          >
                             {isSql ? 'SQL' : isCode ? 'Code' : 'Shell'}
-                          </span>
+                          </Badge>
                         </div>
                         <div className="flex items-center gap-3 mt-1.5 text-xs text-[var(--color-text-secondary)]">
                           <span className="flex items-center gap-1.5 shrink-0">
@@ -1254,7 +1201,7 @@ export function CourseList() {
               )}
             </div>
 
-            <div className="px-6 py-4 flex items-center justify-between bg-[var(--color-bg-primary)] border-t border-[var(--color-border-light)]">
+            <div className="px-6 py-4 flex items-center justify-between bg-[var(--color-bg-secondary)] border-t border-[var(--color-border-light)]">
               <div className="text-sm text-[var(--color-text-secondary)]">
                 {selectedCourses.size > 0 ? (
                   <span className="text-[var(--color-error)] font-medium tabular-nums">

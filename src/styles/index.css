@@ -4,44 +4,53 @@
 @layer base {
   :root {
     /* Linear Design System - Light Theme */
-    --color-bg-primary: #ffffff;
-    --color-bg-secondary: #f7f7f5;
-    --color-bg-tertiary: #f0f0ed;
+    --color-bg-primary: #f8f9fa;
+    --color-bg-secondary: #ffffff;
+    --color-bg-tertiary: #f1f5f9;
 
-    --color-text-primary: #1a1a1a;
-    --color-text-secondary: #6b6b6b;
-    --color-text-tertiary: #a3a3a3;
-    --color-text-disabled: #bfbfbd;
+    --color-text-primary: #11181c;
+    --color-text-secondary: #334155;
+    --color-text-tertiary: #64748b;
+    --color-text-disabled: #94a3b8;
 
-    --color-border-light: #e8e8e6;
-    --color-border-default: #d4d4d4;
-    --color-border-dark: #a3a3a3;
+    --color-border-light: #e2e8f0;
+    --color-border-default: #cbd5e1;
+    --color-border-dark: #94a3b8;
 
-    --color-accent-primary: #5e6ad2;
-    --color-accent-hover: #4f5bd1;
-    --color-accent-active: #4048aa;
-    --color-accent-subtle: rgba(94, 106, 210, 0.1);
+    --color-accent-primary: #1b59b8;
+    --color-accent-hover: #134cb6;
+    --color-accent-active: #0c41b5;
+    --color-accent-subtle: #eaf2ff;
     --color-on-accent: #ffffff;
 
-    --color-success: #0a9f53;
-    --color-success-subtle: rgba(10, 159, 83, 0.1);
-    --color-warning: #d97706;
-    --color-warning-subtle: rgba(217, 119, 6, 0.1);
-    --color-error: #dc2626;
-    --color-error-hover: #b91c1c;
-    --color-error-subtle: rgba(220, 38, 38, 0.1);
+    --color-success: #24b47e;
+    --color-success-subtle: #ddf7ec;
+    --color-warning: #e5a73b;
+    --color-warning-subtle: #fffbeb;
+    --color-error: #e5484d;
+    --color-error-hover: #c93b40;
+    --color-error-subtle: #fef2f2;
 
-    --color-success-on-accent: #ffffff;
-    --color-warning-on-accent: #ffffff;
+    --color-success-on-accent: #0b1315;
+    --color-warning-on-accent: #0b1315;
     --color-error-on-accent: #ffffff;
 
+    --color-accent-border: color-mix(in srgb, var(--color-accent-primary) 38%, transparent);
+    --color-success-border: color-mix(in srgb, var(--color-success) 38%, transparent);
+    --color-warning-border: color-mix(in srgb, var(--color-warning) 38%, transparent);
+    --color-error-border: color-mix(in srgb, var(--color-error) 38%, transparent);
+
     /* Course type colors */
-    --color-course-sql: #7c3aed;
-    --color-course-sql-bg: rgba(124, 58, 237, 0.1);
-    --color-course-code: #d946ef;
-    --color-course-code-bg: rgba(217, 70, 239, 0.1);
-    --color-course-shell: #16a34a;
-    --color-course-shell-bg: rgba(22, 163, 74, 0.1);
+    --color-course-sql: #0c41b5;
+    --color-course-sql-bg: color-mix(in srgb, var(--color-course-sql) 14%, transparent);
+    --color-course-code: #4b86f2;
+    --color-course-code-bg: color-mix(in srgb, var(--color-course-code) 14%, transparent);
+    --color-course-shell: #002db2;
+    --color-course-shell-bg: color-mix(in srgb, var(--color-course-shell) 14%, transparent);
+
+    --color-course-sql-border: color-mix(in srgb, var(--color-course-sql) 38%, transparent);
+    --color-course-code-border: color-mix(in srgb, var(--color-course-code) 38%, transparent);
+    --color-course-shell-border: color-mix(in srgb, var(--color-course-shell) 38%, transparent);
 
     /* Difficulty colors */
     --color-difficulty-beginner: #16a34a;
@@ -62,14 +71,14 @@
     --radius-lg: 8px;
     --radius-xl: 12px;
 
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    --shadow-xs: 0 1px 0 rgba(15, 23, 42, 0.04), 0 4px 10px rgba(15, 23, 42, 0.06);
+    --shadow-sm: 0 1px 0 rgba(15, 23, 42, 0.04), 0 8px 20px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 1px 0 rgba(15, 23, 42, 0.05), 0 16px 40px rgba(15, 23, 42, 0.10);
+    --shadow-lg: 0 1px 0 rgba(15, 23, 42, 0.06), 0 28px 70px rgba(15, 23, 42, 0.18);
+    --shadow-xl: 0 1px 0 rgba(15, 23, 42, 0.06), 0 28px 70px rgba(15, 23, 42, 0.18);
 
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-    --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", Monaco, Consolas, monospace;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    --font-mono: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     font-family: var(--font-sans);
     line-height: 1.5;
@@ -83,44 +92,53 @@
 
   .dark {
     /* Linear Design System - Dark Theme */
-    --color-bg-primary: #0d0d0d;
-    --color-bg-secondary: #141414;
-    --color-bg-tertiary: #1a1a1a;
+    --color-bg-primary: #0b1315;
+    --color-bg-secondary: #11181c;
+    --color-bg-tertiary: #162127;
 
-    --color-text-primary: #ededed;
-    --color-text-secondary: #8a8a8a;
-    --color-text-tertiary: #555555;
-    --color-text-disabled: #4d4d4d;
+    --color-text-primary: #f8f9fa;
+    --color-text-secondary: #c7d1d8;
+    --color-text-tertiary: #8a9aa6;
+    --color-text-disabled: #61707c;
 
-    --color-border-light: #262626;
-    --color-border-default: #333333;
-    --color-border-dark: #4d4d4d;
+    --color-border-light: #22323a;
+    --color-border-default: #2b3f49;
+    --color-border-dark: #2b3f49;
 
-    --color-accent-primary: #8b8beb;
-    --color-accent-hover: #7a7ae0;
-    --color-accent-active: #6a6ad5;
-    --color-accent-subtle: rgba(139, 139, 235, 0.12);
-    --color-on-accent: #1a1a1a;
+    --color-accent-primary: #1b59b8;
+    --color-accent-hover: #134cb6;
+    --color-accent-active: #0c41b5;
+    --color-accent-subtle: #061a3e;
+    --color-on-accent: #ffffff;
 
-    --color-success: #3cc76a;
-    --color-success-subtle: rgba(60, 199, 106, 0.12);
-    --color-warning: #f59e0b;
-    --color-warning-subtle: rgba(245, 158, 11, 0.12);
-    --color-error: #ef4444;
-    --color-error-hover: #f87171;
-    --color-error-subtle: rgba(239, 68, 68, 0.12);
+    --color-success: #24b47e;
+    --color-success-subtle: #0b2a1d;
+    --color-warning: #e5a73b;
+    --color-warning-subtle: #2a200b;
+    --color-error: #e5484d;
+    --color-error-hover: #ff6b70;
+    --color-error-subtle: #2a0d10;
 
-    --color-success-on-accent: #1a1a1a;
-    --color-warning-on-accent: #1a1a1a;
-    --color-error-on-accent: #1a1a1a;
+    --color-success-on-accent: #0b1315;
+    --color-warning-on-accent: #0b1315;
+    --color-error-on-accent: #ffffff;
+
+    --color-accent-border: color-mix(in srgb, var(--color-accent-primary) 42%, transparent);
+    --color-success-border: color-mix(in srgb, var(--color-success) 42%, transparent);
+    --color-warning-border: color-mix(in srgb, var(--color-warning) 42%, transparent);
+    --color-error-border: color-mix(in srgb, var(--color-error) 42%, transparent);
 
     /* Course type colors - Dark */
-    --color-course-sql: #a78bfa;
-    --color-course-sql-bg: rgba(167, 139, 250, 0.15);
-    --color-course-code: #f0abfc;
-    --color-course-code-bg: rgba(240, 171, 252, 0.15);
-    --color-course-shell: #4ade80;
-    --color-course-shell-bg: rgba(74, 222, 128, 0.15);
+    --color-course-sql: #86b1ff;
+    --color-course-sql-bg: color-mix(in srgb, var(--color-course-sql) 16%, transparent);
+    --color-course-code: #4b86f2;
+    --color-course-code-bg: color-mix(in srgb, var(--color-course-code) 16%, transparent);
+    --color-course-shell: #b8d2ff;
+    --color-course-shell-bg: color-mix(in srgb, var(--color-course-shell) 16%, transparent);
+
+    --color-course-sql-border: color-mix(in srgb, var(--color-course-sql) 42%, transparent);
+    --color-course-code-border: color-mix(in srgb, var(--color-course-code) 42%, transparent);
+    --color-course-shell-border: color-mix(in srgb, var(--color-course-shell) 42%, transparent);
 
     /* Difficulty colors - Dark */
     --color-difficulty-beginner: #4ade80;
@@ -136,11 +154,11 @@
     --color-syntax-number: #fbbf24;
     --color-syntax-operator: #f87171;
 
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.25);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+    --shadow-xs: 0 0 0 rgba(0, 0, 0, 0);
+    --shadow-sm: 0 0 0 rgba(0, 0, 0, 0);
+    --shadow-md: 0 0 0 rgba(0, 0, 0, 0);
+    --shadow-lg: 0 0 0 rgba(0, 0, 0, 0);
+    --shadow-xl: 0 0 0 rgba(0, 0, 0, 0);
   }
 
   html,
@@ -164,10 +182,11 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 6px 12px;
+    height: 36px;
+    padding: 0 14px;
     font-size: 13px;
-    font-weight: 500;
-    line-height: 1.4;
+    font-weight: 600;
+    line-height: 1;
     border-radius: var(--radius-md);
     border: 1px solid transparent;
     cursor: pointer;
@@ -177,12 +196,12 @@
   }
 
   .btn:focus-visible {
-    box-shadow: 0 0 0 2px var(--color-bg-primary), 0 0 0 4px var(--color-accent-primary);
+    box-shadow: 0 0 0 2px var(--color-accent-subtle), 0 0 0 4px var(--color-accent-primary);
   }
 
   .btn-primary {
     background-color: var(--color-accent-primary);
-    color: #ffffff;
+    color: var(--color-on-accent);
   }
 
   .btn-primary:hover {
@@ -191,7 +210,7 @@
 
   .btn-primary:active {
     background-color: var(--color-accent-active);
-    transform: scale(0.98);
+    transform: translateY(1px);
   }
 
   .btn-secondary {
@@ -201,8 +220,7 @@
   }
 
   .btn-secondary:hover {
-    background-color: var(--color-bg-tertiary);
-    border-color: var(--color-border-dark);
+    border-color: var(--color-accent-primary);
   }
 
   .btn-ghost {
@@ -211,7 +229,7 @@
   }
 
   .btn-ghost:hover {
-    background-color: var(--color-bg-secondary);
+    background-color: var(--color-bg-tertiary);
     color: var(--color-text-primary);
   }
 
@@ -221,7 +239,7 @@
   }
 
   .btn-danger:hover {
-    background-color: #b91c1c;
+    background-color: var(--color-error-hover);
   }
 
   .scroll-reveal {
@@ -240,11 +258,11 @@
   /* Linear Input Styles */
   .input {
     width: 100%;
-    padding: 8px 10px;
+    padding: 8px 12px;
     font-size: 13px;
     line-height: 1.4;
     color: var(--color-text-primary);
-    background-color: var(--color-bg-primary);
+    background-color: var(--color-bg-secondary);
     border: 1px solid var(--color-border-default);
     border-radius: var(--radius-md);
     outline: none;
@@ -261,12 +279,12 @@
 
   .input:focus {
     border-color: var(--color-accent-primary);
-    box-shadow: 0 0 0 1px var(--color-accent-primary);
+    box-shadow: 0 0 0 2px var(--color-accent-subtle);
   }
 
   /* Linear Card Styles */
   .card {
-    background-color: var(--color-bg-primary);
+    background-color: var(--color-bg-secondary);
     border: 1px solid var(--color-border-light);
     border-radius: var(--radius-lg);
     overflow: hidden;

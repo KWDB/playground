@@ -1,11 +1,6 @@
 import React, { createContext, useContext } from 'react';
 import { createPortal } from 'react-dom';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '@/lib/utils';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -18,15 +13,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, children, disabled, type = 'button', ...props }, ref) => {
     const variants = {
       primary: 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] active:bg-[var(--color-accent-active)]',
-      secondary: 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-dark)]',
-      ghost: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]',
+      secondary: 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] hover:border-[var(--color-accent-primary)]',
+      ghost: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)]',
       danger: 'bg-[var(--color-error)] text-[var(--color-on-accent)] hover:bg-[var(--color-error-hover)]',
     };
 
     const sizes = {
-      sm: 'px-3 py-1.5 text-xs',
-      md: 'px-4 py-2 text-sm',
-      lg: 'px-5 py-2.5 text-base',
+      sm: 'h-8 px-3 text-xs',
+      md: 'h-9 px-3.5 text-[13px]',
+      lg: 'h-10 px-4 text-sm',
     };
 
     return (
@@ -34,10 +29,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         type={type}
         className={cn(
-          'inline-flex items-center justify-center gap-2 font-medium rounded-md outline-none transform-gpu',
+          'inline-flex items-center justify-center gap-2 font-semibold rounded-md outline-none transform-gpu',
           'transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out',
-          'active:scale-[0.98] disabled:active:scale-100',
-          'focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)]',
+          'active:translate-y-[1px] disabled:active:translate-y-0',
+          'focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--color-accent-subtle),0_0_0_4px_var(--color-accent-primary)]',
           variants[variant],
           sizes[size],
           (disabled || loading) && 'opacity-50 cursor-not-allowed',
@@ -98,7 +93,7 @@ export const DialogContent: React.FC<{ children: React.ReactNode; className?: st
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50 animate-fade-in" onClick={() => context.onOpenChange(false)} />
       <div className={cn(
-        'relative w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl p-5 animate-scale-in',
+        'relative w-full max-w-sm bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] p-5 animate-scale-in',
         className
       )}>
         {children}
@@ -123,7 +118,12 @@ export const DialogClose: React.FC<{ children?: React.ReactNode; onClick?: () =>
     <button
       type="button"
       onClick={() => { context.onOpenChange(false); onClick?.(); }}
-      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+      className={cn(
+        'inline-flex items-center justify-center h-9 px-3.5 text-[13px] font-semibold rounded-md outline-none transform-gpu',
+        'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]',
+        'transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out',
+        'focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--color-accent-subtle),0_0_0_4px_var(--color-accent-primary)]'
+      )}
     >
       {children || 'Close'}
     </button>
@@ -158,18 +158,12 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
         {description && <DialogDescription>{description}</DialogDescription>}
         <div className="mt-5 flex justify-end gap-2">
           <DialogClose>{cancelText}</DialogClose>
-          <button
-            type="button"
+          <Button
+            variant={variant === 'danger' ? 'danger' : 'primary'}
             onClick={() => { onConfirm?.(); onOpenChange(false); }}
-            className={cn(
-              'inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors',
-              variant === 'danger'
-                ? 'bg-[var(--color-error)] text-[var(--color-on-accent)] hover:bg-[var(--color-error-hover)]'
-                : 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]'
-            )}
           >
             {confirmText}
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
