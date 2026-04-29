@@ -6,9 +6,12 @@
     <link rel="icon" href="/assets/logo.svg" type="image/svg+xml" sizes="any" />
     <link rel="alternate icon" href="/favicon.ico" sizes="any" />
     <!-- Safari Pinned Tab（使用 SVG，需指定颜色） -->
-    <link rel="mask-icon" href="/assets/logo.svg" color="#5e6ad2" />
+    <link rel="mask-icon" href="/assets/logo.svg" color="#1b59b8" />
     <!-- 主题色（影响移动端地址栏颜色） -->
-    <meta name="theme-color" content="#0ea5e9" />
+    <meta name="theme-color" content="#f8f9fa" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500;600&display=swap" rel="stylesheet" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="KWDB Playground是一个本地离线交互式数据库学习平台，提供Shell和SQL双终端环境，支持容器化课程实践。" />
     <meta name="keywords" content="KWDB,数据库,学习平台,SQL,Shell,容器化,交互式教学" />
@@ -29,6 +32,8 @@
           root.classList.remove('light', 'dark');
           root.classList.add(theme);
           root.style.colorScheme = theme;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', theme === 'dark' ? '#0B1315' : '#F8F9FA');
         } catch (e) {}
       })();
     </script>

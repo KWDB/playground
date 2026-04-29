@@ -1,10 +1,5 @@
 import React, { useState, createContext, useContext } from 'react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '@/lib/utils';
 
 interface DropdownContextType {
   open: boolean;
@@ -51,7 +46,7 @@ export const DropdownContent: React.FC<{ children: React.ReactNode; className?: 
     <>
       <div className="fixed inset-0 z-40" onClick={() => context.onOpenChange(false)} />
       <div className={cn(
-        'absolute z-50 mt-1 min-w-[160px] bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-lg p-1',
+        'absolute z-50 mt-1 min-w-[160px] bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border-default)] shadow-[var(--shadow-md)] p-1',
         align === 'left' ? 'left-0' : 'right-0',
         'animate-fade-in',
         className
@@ -84,7 +79,7 @@ export const DropdownItem: React.FC<DropdownItemProps> = ({
       className={cn(
         'w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer text-left transition-colors',
         'outline-none',
-        'hover:bg-[var(--color-bg-secondary)]',
+        'hover:bg-[var(--color-bg-tertiary)]',
         variant === 'danger' && 'hover:bg-[var(--color-error-subtle)] text-[var(--color-error)]',
         disabled && 'opacity-50 cursor-not-allowed',
         className

@@ -1,15 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { cn } from '@/lib/utils';
 
 interface ScrollRevealProps {
   children: React.ReactNode;
   className?: string;
   delay?: number;
-}
-
-function cn(...inputs: (string | undefined | null | false)[]) {
-  return twMerge(clsx(inputs));
 }
 
 export const ScrollReveal: React.FC<ScrollRevealProps> = ({ children, className, delay = 0 }) => {

@@ -92,7 +92,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={messageId}
-        className="relative z-10 w-full max-w-sm bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl overflow-hidden"
+        className="relative z-10 w-full max-w-sm bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] overflow-hidden"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)]">
           <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </div>
           <button
             onClick={onCancel}
-            className="p-1 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+            className="p-1 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
             aria-label="关闭确认弹窗"
           >
             <X className="w-4 h-4" aria-hidden="true" />

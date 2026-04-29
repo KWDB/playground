@@ -5,6 +5,7 @@ import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { getStepsForPage, getTotalSteps } from '@/config/tourSteps';
 import { HomeFeatureSection } from './home/HomeFeatureSection';
 import { HomeHeroSection } from './home/HomeHeroSection';
+import { HomeShowcaseSection } from './home/HomeShowcaseSection';
 import { homeFeatureItems } from './home/homeContent';
 import { homeStyles } from './home/homeStyles';
 
@@ -43,6 +44,9 @@ export function Home() {
         </ScrollReveal>
         <ScrollReveal delay={120}>
           <HomeFeatureSection features={homeFeatureItems} />
+        </ScrollReveal>
+        <ScrollReveal delay={160}>
+          <HomeShowcaseSection />
         </ScrollReveal>
       </div>
 

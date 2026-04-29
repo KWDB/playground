@@ -1,12 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Filter, RefreshCw as RotateCcw, Check } from 'lucide-react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { Button } from '@/components/ui/Button';
-
-function cn(...inputs: (string | undefined | null | false)[]) {
-  return twMerge(clsx(inputs));
-}
+import { Input } from '@/components/ui/Input';
+import { cn } from '@/lib/utils';
 
 export interface FilterState {
   type: 'all' | 'sql' | 'shell';
@@ -101,14 +97,14 @@ export function CourseFilter({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
           <label htmlFor="course-filter-search" className="sr-only">搜索课程</label>
-          <input
+          <Input
             id="course-filter-search"
             type="text"
             value={searchQuery}
             onChange={handleSearchChange}
             placeholder="搜索课程..."
             maxLength={100}
-            className="input pl-9"
+            className="pl-9"
           />
         </div>
         <div className="flex gap-2">
@@ -121,7 +117,7 @@ export function CourseFilter({
             <Filter className="w-4 h-4" />
             筛选
             {filterCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-xs bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]">{filterCount}</span>
+              <span className="px-1.5 py-0.5 rounded-full text-xs bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)] border border-[var(--color-accent-primary)]">{filterCount}</span>
             )}
           </Button>
           {filterCount > 0 && (
@@ -147,10 +143,10 @@ export function CourseFilter({
                   key={type.value}
                   onClick={() => handleFilterChange('type', type.value)}
                   className={cn(
-                    'px-3 py-1.5 rounded-md text-sm transition-colors',
+                    'px-3 py-1.5 rounded-md text-sm transition-colors border',
                     filters.type === type.value
-                      ? 'bg-[var(--color-accent-primary)] text-[var(--color-on-accent)]'
-                      : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
+                      ? 'bg-[var(--color-accent-subtle)] text-[var(--color-accent-primary)] border-[var(--color-accent-primary)]'
+                      : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-default)] hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-dark)]'
                   )}
                 >
                   {type.label}

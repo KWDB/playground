@@ -1,11 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '@/lib/utils';
 
 export interface TourStep {
   targetId: string;
@@ -178,7 +173,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
       <div
         ref={tooltipRef}
         className={cn(
-          "w-80 bg-[var(--color-bg-primary)] rounded-lg border border-[var(--color-border-default)] shadow-xl p-4 animate-scale-in",
+          "w-80 bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] p-4 animate-scale-in",
           "flex flex-col gap-3"
         )}
         style={getTooltipStyle()}
@@ -220,7 +215,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
             )}
             <button
               onClick={currentStep === totalSteps - 1 ? onSkip : onNext}
-              className="px-3 py-1.5 text-xs font-medium text-[var(--color-on-accent)] bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-hover)] rounded transition-colors"
+              className="px-3 py-1.5 text-xs font-semibold text-[var(--color-on-accent)] bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-hover)] rounded-md transition-colors"
               data-testid={currentStep === totalSteps - 1 ? 'tour-finish-btn' : 'tour-next-btn'}
             >
               {currentStep === totalSteps - 1 ? 'Finish' : 'Next'}
