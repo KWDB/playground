@@ -51,6 +51,30 @@ version_gte() {
     [ "$(printf '%s\n%s\n' "$right" "$left" | sort -V | tail -n 1)" = "$left" ]
 }
 
+build_download_url() {
+    local source="$1"
+    local version="$2"
+
+    if [ "$source" = "atomgit" ]; then
+        echo "https://atomgit.com/${REPO}/releases/download/${version}/${BINARY_NAME}"
+    else
+        echo "https://github.com/${REPO}/releases/download/${version}/${BINARY_NAME}"
+    fi
+}
+
+download_url_exists() {
+    local url="$1"
+    curl -fsI -L "$url" >/dev/null 2>&1
+}
+
+fetch_latest_atomgit_tag() {
+    if ! command -v git >/dev/null 2>&1; then
+        return 2
+    fi
+
+    git ls-remote --tags --refs --sort='-v:refname' "https://atomgit.com/${ATOMGIT_REPO}.git" | head -n 1 | awk -F/ '{print $NF}'
+}
+
 print_usage() {
     echo "Usage: bash install.sh [--version <version>] [--source <auto|github|atomgit>]"
     echo "       bash install.sh <version>"
@@ -159,31 +183,53 @@ esac
 
 BINARY_NAME="kwdb-playground-${OS_NAME}-${ARCH}${EXT}"
 REPO="KWDB/playground"
-
-echo -e "Detected platform: ${GREEN}${OS_NAME}-${ARCH}${NC}"
-
-# Fetch latest version - try GitHub first, then AtomGit
-echo -e "Resolving release version..."
-
 ATOMGIT_REPO="KWDB/playground"
 GITHUB_REPO="KWDB/playground"
 
+echo -e "Detected platform: ${GREEN}${OS_NAME}-${ARCH}${NC}"
+
+# Resolve target version - try GitHub first, then AtomGit
+echo -e "Resolving release version..."
+
 SOURCE="github"
-LATEST_RELEASE=""
+TARGET_RELEASE=""
 if [ -n "$REQUESTED_VERSION" ]; then
-    LATEST_RELEASE="$REQUESTED_VERSION"
+    GITHUB_DOWNLOAD_URL="$(build_download_url "github" "$REQUESTED_VERSION")"
+    ATOMGIT_DOWNLOAD_URL="$(build_download_url "atomgit" "$REQUESTED_VERSION")"
+
     if [ "$SOURCE_PREFERENCE" = "atomgit" ]; then
-        SOURCE="atomgit"
+        if download_url_exists "$ATOMGIT_DOWNLOAD_URL"; then
+            SOURCE="atomgit"
+        else
+            echo -e "${RED}Specified version ${REQUESTED_VERSION} does not exist on AtomGit, or no binary is available for ${OS_NAME}-${ARCH}.${NC}"
+            exit 1
+        fi
     elif [ "$SOURCE_PREFERENCE" = "github" ]; then
-        SOURCE="github"
-    fi
-    echo -e "Using specified release: ${GREEN}${LATEST_RELEASE}${NC}"
-else
-    if [ "$SOURCE_PREFERENCE" != "atomgit" ]; then
-        LATEST_RELEASE=$(curl -s "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+        if download_url_exists "$GITHUB_DOWNLOAD_URL"; then
+            SOURCE="github"
+        else
+            echo -e "${RED}Specified version ${REQUESTED_VERSION} does not exist on GitHub Releases, or no binary is available for ${OS_NAME}-${ARCH}.${NC}"
+            exit 1
+        fi
+    else
+        if download_url_exists "$GITHUB_DOWNLOAD_URL"; then
+            SOURCE="github"
+        elif download_url_exists "$ATOMGIT_DOWNLOAD_URL"; then
+            SOURCE="atomgit"
+        else
+            echo -e "${RED}Specified version ${REQUESTED_VERSION} was not found on GitHub Releases or AtomGit, or no binary is available for ${OS_NAME}-${ARCH}.${NC}"
+            exit 1
+        fi
     fi
 
-    if [ -z "$LATEST_RELEASE" ]; then
+    TARGET_RELEASE="$REQUESTED_VERSION"
+    echo -e "Using specified release: ${GREEN}${TARGET_RELEASE}${NC} (from ${SOURCE})"
+else
+    if [ "$SOURCE_PREFERENCE" != "atomgit" ]; then
+        TARGET_RELEASE=$(curl -s "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+    fi
+
+    if [ -z "$TARGET_RELEASE" ]; then
         if [ "$SOURCE_PREFERENCE" = "github" ]; then
             echo -e "${RED}Failed to fetch the latest release version from GitHub.${NC}"
             exit 1
@@ -196,25 +242,20 @@ else
         fi
         if command -v git >/dev/null 2>&1; then
             echo -e "${YELLOW}Attempting to fetch latest tag via git ls-remote...${NC}"
-            LATEST_RELEASE=$(git ls-remote --tags --refs --sort='-v:refname' "https://atomgit.com/${ATOMGIT_REPO}.git" | head -n 1 | awk -F/ '{print $NF}')
+            TARGET_RELEASE="$(fetch_latest_atomgit_tag)"
         fi
 
-        if [ -z "$LATEST_RELEASE" ]; then
-            echo -e "${RED}Failed to fetch the latest release version from AtomGit. Please check your internet connection and try again.${NC}"
+        if [ -z "$TARGET_RELEASE" ]; then
+            echo -e "${RED}Failed to fetch the latest release version from AtomGit. Please install git or specify --version explicitly.${NC}"
             exit 1
         fi
         SOURCE="atomgit"
     fi
+    echo -e "Latest release: ${GREEN}${TARGET_RELEASE}${NC} (from ${SOURCE})"
 fi
-
-echo -e "Latest release: ${GREEN}${LATEST_RELEASE}${NC} (from ${SOURCE})"
 
 # Set download URL based on source
-if [ "$SOURCE" = "atomgit" ]; then
-    DOWNLOAD_URL="https://atomgit.com/${REPO}/releases/download/${LATEST_RELEASE}/${BINARY_NAME}"
-else
-    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${LATEST_RELEASE}/${BINARY_NAME}"
-fi
+DOWNLOAD_URL="$(build_download_url "$SOURCE" "$TARGET_RELEASE")"
 
 TMP_DIR=$(mktemp -d)
 TMP_FILE="${TMP_DIR}/kwdb-playground${EXT}"
@@ -223,7 +264,7 @@ echo -e "Downloading ${DOWNLOAD_URL}..."
 if ! curl -# -f -L -o "$TMP_FILE" "$DOWNLOAD_URL"; then
     if [ "$SOURCE" = "github" ] && [ "$SOURCE_PREFERENCE" != "github" ]; then
         echo -e "${YELLOW}GitHub download failed, trying AtomGit...${NC}"
-        DOWNLOAD_URL="https://atomgit.com/${REPO}/releases/download/${LATEST_RELEASE}/${BINARY_NAME}"
+        DOWNLOAD_URL="$(build_download_url "atomgit" "$TARGET_RELEASE")"
         if ! curl -# -f -L -o "$TMP_FILE" "$DOWNLOAD_URL"; then
             echo -e "${RED}Failed to download the binary from both GitHub and AtomGit. Please check if the release exists for your platform.${NC}"
             rm -rf "$TMP_DIR"
