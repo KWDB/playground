@@ -33,8 +33,8 @@ importers:
         specifier: ^6.12.3
         version: 6.12.3
       '@codemirror/lint':
-        specifier: ^6.9.5
-        version: 6.9.5
+        specifier: ^6.9.6
+        version: 6.9.6
       '@codemirror/state':
         specifier: ^6.6.0
         version: 6.6.0
@@ -358,14 +358,17 @@ packages:
   '@codemirror/language@6.12.3':
     resolution: {integrity: sha512-QwCZW6Tt1siP37Jet9Tb02Zs81TQt6qQrZR2H+eGMcFsL1zMrk2/b9CLC7/9ieP1fjIUMgviLWMmgiHoJrj+ZA==}
 
-  '@codemirror/lint@6.9.5':
-    resolution: {integrity: sha512-GElsbU9G7QT9xXhpUg1zWGmftA/7jamh+7+ydKRuT0ORpWS3wOSP0yT1FOlIZa7mIJjpVPipErsyvVqB9cfTFA==}
+  '@codemirror/lint@6.9.6':
+    resolution: {integrity: sha512-6Kp7r6XfCi/D/5sdXieMfg9pJU1bUEx96WITuLU6ESaKizCz0QHFMjY/TaFSbigDdEAIgi93itLBIUETP4oK+A==}
 
   '@codemirror/state@6.6.0':
     resolution: {integrity: sha512-4nbvra5R5EtiCzr9BTHiTLc+MLXK2QGiAVYMyi8PkQd3SR+6ixar/Q/01Fa21TBIDOZXgeWV4WppsQolSreAPQ==}
 
   '@codemirror/view@6.41.0':
     resolution: {integrity: sha512-6H/qadXsVuDY219Yljhohglve8xf4B8xJkVOEWfA5uiYKiTFppjqsvsfR5iPA0RbvRBoOyTZpbLIxe9+0UR8xA==}
+
+  '@codemirror/view@6.42.1':
+    resolution: {integrity: sha512-ToN3oFc0nsxNUYVF5P0ztLgbC4UPPjPtA9aKYhkOKQaZASpOUo6ISXyQLP66ctVwlDc+j6Jv0uK5IFALkiXztg==}
 
   '@csstools/color-helpers@6.0.2':
     resolution: {integrity: sha512-LMGQLS9EuADloEFkcTBR3BwV/CGHV7zyDxVRtVDTwdI2Ca4it0CCVTT9wCkxSgokjE5Ho41hEPgb8OEUwoXr6Q==}
@@ -1333,6 +1336,7 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    deprecated: Potential CWE-502 - Update to 1.3.1 or higher
 
   '@vitejs/plugin-react@5.2.0':
     resolution: {integrity: sha512-YmKkfhOAi3wsB1PhJq5Scj3GXMn3WvtQ/JC0xoopuHoXSdmtdStOpFrYaT1kie2YgFBcIe64ROzMYRjCrYOdYw==}
@@ -3113,10 +3117,10 @@ snapshots:
       '@lezer/lr': 1.4.2
       style-mod: 4.1.3
 
-  '@codemirror/lint@6.9.5':
+  '@codemirror/lint@6.9.6':
     dependencies:
       '@codemirror/state': 6.6.0
-      '@codemirror/view': 6.41.0
+      '@codemirror/view': 6.42.1
       crelt: 1.0.6
 
   '@codemirror/state@6.6.0':
@@ -3124,6 +3128,13 @@ snapshots:
       '@marijn/find-cluster-break': 1.0.2
 
   '@codemirror/view@6.41.0':
+    dependencies:
+      '@codemirror/state': 6.6.0
+      crelt: 1.0.6
+      style-mod: 4.1.3
+      w3c-keyname: 2.2.8
+
+  '@codemirror/view@6.42.1':
     dependencies:
       '@codemirror/state': 6.6.0
       crelt: 1.0.6
