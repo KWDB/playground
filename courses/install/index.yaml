@@ -1,25 +1,25 @@
-title: 单节点部署
-description: 在 ubuntu 20.04 中使用官方脚本一键部署单节点 KWDB。
+title: 单节点部署&卸载
+description: 在 ubuntu 24.04 中使用官方脚本一键部署和卸载单节点 KWDB。
 details:
   intro:
     text: intro.md
   steps:
     - title: 下载安装包
       text: step1.md
-    - title: 修改配置文件
+    - title: 命令行模式部署
       text: step2.md
-    - title: 安装
+    - title: 连接&探索 KWDB
       text: step3.md
-    - title: 启动数据库
+    - title: 卸载 KWDB
       text: step4.md
   finish:
     text: finish.md
 backend:
-  imageid: kwdb/ubuntu:20.04
+  imageid: kwdb/ubuntu:24.04
   cmd: ["/sbin/init"]
   privileged: true
   env:
-    - "KW_VERSION=3.1.0"
+    - "KW_VERSION=3.2.0"
 estimatedMinutes: 10
 difficulty: intermediate
 tags:

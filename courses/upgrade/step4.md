@@ -1,20 +1,18 @@
-## 步骤 4：启动并验证 3.1.0
+## 步骤 4：验证 3.2.0
 
-升级完成后，需要重新启动 KaiwuDB，并确认版本、服务状态和业务数据都正常。
+升级完成后，输入 `y` 重新启动 KWDB，并确认版本、服务状态和业务数据都正常。
 
-1. **启动数据库服务**
-
-   `systemctl start kaiwudb`{{exec}}
+1. **确认服务状态**
 
    `systemctl status kaiwudb`{{exec}}
+
+   `kw-status`{{exec}}
 
 2. **验证版本与数据**
 
    进入 SQL 模式：
 
-   ```bash {{exec}}
-    cd /bin && sudo -u kaiwudb ./kwbase sql --certs-dir=/etc/kaiwudb/certs --host=127.0.0.1:26257
-   ```
+   `kw-sql`{{exec}}
 
    验证版本与数据：
 
@@ -24,7 +22,7 @@
    SELECT * FROM device_metric ORDER BY ts DESC;
    ```
 
-   如果结果中可以看到 `3.1.0` 版本信息，并且仍能查询出第 2 步插入的两条数据，说明本次升级成功完成。
+   如果结果中可以看到 `3.2.0` 版本信息，并且仍能查询出第 2 步插入的两条数据，说明本次升级成功完成。
 
    退出 SQL 客户端： `\q`{{exec}}
 

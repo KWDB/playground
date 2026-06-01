@@ -9,7 +9,7 @@
 - 🔍 **远端镜像检查**：利用 `manifest inspect` 检查镜像是否已存在于远端仓库。
 - 🏗️ **分离构建与推送**：支持 `--build-only`（仅本地构建加载）和 `--push-only`（仅推送本地已构建镜像）。
 - 🐳 **智能多架构**：使用 Docker Buildx 自动进行多架构（`linux/amd64`, `linux/arm64`）交叉编译。
-- 🏷️ **特殊标签处理**：智能识别 `kwdb-ubuntu` 镜像，并强制锁定 `20.04` 标签，避免因全局 `--tag` 导致的错误。
+- 🏷️ **特殊标签处理**：智能识别 Ubuntu 系列镜像，并强制锁定对应 Ubuntu 版本标签，避免因全局 `--tag` 导致的错误。
 
 ---
 
@@ -29,12 +29,13 @@ chmod +x docker/build_all.sh
 
 | 镜像名称 | 对应 Dockerfile 所在目录 | 默认标签 (Tag) | 说明 |
 | :--- | :--- | :--- | :--- |
-| `kwdb-monitor` | `docker/db-monitor` | `3.1.0` | 包含 Prometheus 和 Grafana 及相关大屏面板配置 |
-| `kwdb-java` | `docker/java-kwdb` | `3.1.0` | 基于 KWDB 并预装 Java 环境与 JDBC 驱动 |
-| `kwdb-python` | `docker/python-kwdb` | `3.1.0` | 基于 KWDB 并预装 Python 3 与 psycopg2 驱动 |
-| `kwdb-ubuntu` | `docker/ubuntu-20.04` | `20.04` (固定) | 用于 Systemd 环境测试的底层镜像，使用阿里云国内源 |
+| `kwdb-monitor` | `docker/db-monitor` | `3.2.0` | 包含 Prometheus 和 Grafana 及相关大屏面板配置 |
+| `kwdb-java` | `docker/java-kwdb` | `3.2.0` | 基于 KWDB 并预装 Java 环境与 JDBC 驱动 |
+| `kwdb-python` | `docker/python-kwdb` | `3.2.0` | 基于 KWDB 并预装 Python 3 与 psycopg2 驱动 |
+| `ubuntu` / `ubuntu-24.04` | `docker/ubuntu-24.04` | `24.04` (固定) | 用于 Systemd 环境测试的底层镜像，使用阿里云国内源 |
+| `ubuntu-22.04` | `docker/ubuntu-22.04` | `22.04` (固定) | 与 24.04 镜像功能一致的 Ubuntu 22.04 底层镜像，使用阿里云国内源 |
 
-> **提示**：除了 `kwdb-ubuntu` 标签为强制固定的 `20.04`，其余镜像的默认标签受 `-t` 参数控制。
+> **提示**：Ubuntu 系列镜像标签强制固定为对应 Ubuntu 版本，其余镜像的默认标签受 `-t` 参数控制。
 
 ---
 
@@ -53,7 +54,7 @@ chmod +x docker/build_all.sh
 ```
 
 ### 3. 指定标签 (Tag) 进行构建
-为新版本打 Tag 发布时使用（注意：`kwdb-ubuntu` 仍会保持 `20.04`）：
+为新版本打 Tag 发布时使用（注意：Ubuntu 系列镜像仍会保持对应 Ubuntu 版本标签）：
 ```bash
 ./docker/build_all.sh -t 3.2.0 --all
 ```
@@ -61,7 +62,7 @@ chmod +x docker/build_all.sh
 ### 4. 检查远端镜像是否已存在
 当你需要确认某些架构或版本的镜像是否已经发布成功时：
 ```bash
-# 检查所有镜像 (版本 3.1.0)
+# 检查所有镜像 (默认版本)
 ./docker/build_all.sh -c --all
 
 # 检查特定版本的 Python 镜像
@@ -91,7 +92,7 @@ chmod +x docker/build_all.sh
 ```bash
 # 全局配置
 NAMESPACE="kwdb"                                      # 默认命名空间
-IMAGE_TAG="3.1.0"                                     # 默认镜像标签
+IMAGE_TAG="3.2.0"                                     # 默认镜像标签
 ARCHITECTURES=("amd64" "arm64")                       # 默认多架构目标
 REGISTRIES=("docker.io" "ghcr.io" "registry.cn-hangzhou.aliyuncs.com") # 默认 Registry
 BUILDER_NAME="multiarch-builder"                      # Buildx 实例名

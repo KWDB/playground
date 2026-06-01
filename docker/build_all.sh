@@ -5,7 +5,7 @@ set -e
 
 # 全局配置
 NAMESPACE="kwdb"
-IMAGE_TAG="3.1.0"
+IMAGE_TAG="3.2.0"
 ARCHITECTURES=("amd64" "arm64")
 REGISTRIES=("docker.io" "ghcr.io" "registry.cn-hangzhou.aliyuncs.com")
 BUILDER_NAME="multiarch-builder"
@@ -13,7 +13,7 @@ BUILDER_NAME="multiarch-builder"
 # 支持构建的镜像列表及其对应的目录
 # 由于 macOS 自带的 Bash 版本较低 (3.2)，不支持关联数组 (declare -A)，
 # 故改用平铺数组配合获取目录的辅助函数
-IMAGES_KEYS=("kwdb-monitor" "kwdb-java" "kwdb-python" "ubuntu")
+IMAGES_KEYS=("kwdb-monitor" "kwdb-java" "kwdb-python" "ubuntu-24.04" "ubuntu-22.04")
 
 get_image_dir() {
     local repo=$1
@@ -21,8 +21,26 @@ get_image_dir() {
         "kwdb-monitor") echo "db-monitor" ;;
         "kwdb-java") echo "java-kwdb" ;;
         "kwdb-python") echo "python-kwdb" ;;
-        "ubuntu") echo "ubuntu-20.04" ;;
+        "ubuntu"|"ubuntu-24.04") echo "ubuntu-24.04" ;;
+        "ubuntu-22.04") echo "ubuntu-22.04" ;;
         *) echo "" ;;
+    esac
+}
+
+get_image_repo() {
+    local repo=$1
+    case "$repo" in
+        "ubuntu"|"ubuntu-24.04"|"ubuntu-22.04") echo "ubuntu" ;;
+        *) echo "$repo" ;;
+    esac
+}
+
+get_image_tag() {
+    local repo=$1
+    case "$repo" in
+        "ubuntu"|"ubuntu-24.04") echo "24.04" ;;
+        "ubuntu-22.04") echo "22.04" ;;
+        *) echo "$IMAGE_TAG" ;;
     esac
 }
 
@@ -44,17 +62,27 @@ build_all.sh - KWDB Playground Docker 镜像全量构建与管理工具
   -c, --check              仅检查目标镜像在远端仓库中是否存在，不执行任何构建或推送
       --build-only         仅执行构建，并尝试将产物加载到本地 Docker daemon，不推送到远端
       --push-only          仅推送本地已存在的镜像到远端仓库，跳过构建过程
-  -t, --tag <string>       指定构建/推送时使用的镜像标签 (默认: 3.1.0)
+  -t, --tag <string>       指定构建/推送时使用的镜像标签 (默认: 3.2.0)
   -n, --namespace <string> 指定 Docker 命名空间 (默认: kwdb)
 
 支持的镜像 (SUPPORTED IMAGES):
   - kwdb-monitor    (对应目录: docker/db-monitor)
   - kwdb-java       (对应目录: docker/java-kwdb)
   - kwdb-python     (对应目录: docker/python-kwdb)
-  - kwdb-ubuntu     (对应目录: docker/ubuntu-20.04)
+  - ubuntu          (对应目录: docker/ubuntu-24.04，镜像: kwdb/ubuntu:24.04)
+  - ubuntu-24.04    (对应目录: docker/ubuntu-24.04，镜像: kwdb/ubuntu:24.04)
+  - ubuntu-22.04    (对应目录: docker/ubuntu-22.04，镜像: kwdb/ubuntu:22.04)
 
 注意 (NOTE):
-  kwdb-ubuntu 镜像的标签强制固定为 20.04，不受 -t/--tag 参数的影响。
+  ubuntu 系列镜像的标签强制固定为对应 Ubuntu 版本，不受 -t/--tag 参数的影响。
+  推送相关操作会优先使用本地环境变量进行登录认证：
+    - DOCKERHUB_TOKEN       用于 docker.io
+    - GHCR_TOKEN            用于 ghcr.io
+    - ALIYUN_ACR_PASSWORD   用于 registry.cn-hangzhou.aliyuncs.com
+  登录用户名：
+    - Docker Hub 默认使用 -n/--namespace，也可设置 DOCKERHUB_USERNAME
+    - GHCR 默认使用 GHCR_USERNAME、GITHUB_ACTOR 或 -n/--namespace
+    - 阿里云 ACR 需设置 ALIYUN_ACR_USERNAME 或 ACR_USERNAME
 
 示例 (EXAMPLES):
   # 基础用法：构建并推送特定镜像
@@ -66,7 +94,7 @@ build_all.sh - KWDB Playground Docker 镜像全量构建与管理工具
   # 高阶用法：指定自定义标签并仅在本地构建所有镜像
   $ ./build_all.sh --build-only --all -t 3.2.0
 
-  # 检查远端：检查版本为 3.1.0 的所有镜像是否已发布
+  # 检查远端：检查默认版本的所有镜像是否已发布
   $ ./build_all.sh -c --all
 EOF
 }
@@ -97,6 +125,68 @@ setup_builder() {
 }
 
 # 登录检查
+first_non_empty_env() {
+    local ENV_NAME
+    local ENV_VALUE
+
+    for ENV_NAME in "$@"; do
+        ENV_VALUE="${!ENV_NAME}"
+        if [ -n "$ENV_VALUE" ]; then
+            echo "$ENV_VALUE"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+resolve_login_username() {
+    local REGISTRY=$1
+
+    case "$REGISTRY" in
+        "docker.io")
+            first_non_empty_env "DOCKERHUB_USERNAME" || echo "$NAMESPACE"
+            ;;
+        "ghcr.io")
+            first_non_empty_env "GHCR_USERNAME" "GITHUB_ACTOR" || echo "$NAMESPACE"
+            ;;
+        "registry.cn-hangzhou.aliyuncs.com")
+            if ! first_non_empty_env "ALIYUN_ACR_USERNAME" "ACR_USERNAME"; then
+                echo "错误：登录 ${REGISTRY} 需要设置 ALIYUN_ACR_USERNAME 或 ACR_USERNAME。" >&2
+                return 1
+            fi
+            ;;
+        *)
+            echo "$NAMESPACE"
+            ;;
+    esac
+}
+
+login_registry_with_env() {
+    local REGISTRY=$1
+    local TOKEN_ENV=$2
+    local USERNAME=$3
+    local TOKEN_VALUE="${!TOKEN_ENV}"
+
+    if [ -z "$TOKEN_VALUE" ]; then
+        echo "错误：未设置 ${TOKEN_ENV}，无法登录 ${REGISTRY}。" >&2
+        return 1
+    fi
+
+    echo "正在使用 ${TOKEN_ENV} 登录 ${REGISTRY}（用户: ${USERNAME}）..."
+    if [ "$REGISTRY" == "docker.io" ]; then
+        if ! printf '%s\n' "$TOKEN_VALUE" | docker login -u "$USERNAME" --password-stdin; then
+            echo "错误：登录 ${REGISTRY} 失败，请检查 ${TOKEN_ENV}。" >&2
+            return 1
+        fi
+    else
+        if ! printf '%s\n' "$TOKEN_VALUE" | docker login "$REGISTRY" -u "$USERNAME" --password-stdin; then
+            echo "错误：登录 ${REGISTRY} 失败，请检查 ${TOKEN_ENV}。" >&2
+            return 1
+        fi
+    fi
+}
+
 check_login() {
     # 如果仅检查镜像，且不推送到私有仓库，则不强制要求登录，但可能因为速率限制受影响
     if [ "$CHECK_ONLY" = true ] || [ "$BUILD_ONLY" = true ]; then
@@ -104,17 +194,24 @@ check_login() {
         return
     fi
 
-    if [[ " ${REGISTRIES[*]} " =~ " docker.io " ]]; then
-        if ! docker info | grep -q "Username: ${NAMESPACE}"; then
-            echo "提示：您似乎尚未登录到 Docker Hub 的 '${NAMESPACE}' 账户。"
-            echo "请输入您的凭据以继续："
-            docker login -u "$NAMESPACE" || echo "警告: 登录 Docker Hub 失败，可能会导致推送失败"
-        fi
-    fi
-
-    echo "请确保您已登录到以下所有目标仓库（如需要）："
     for REGISTRY in "${REGISTRIES[@]}"; do
-        echo " - $REGISTRY"
+        case "$REGISTRY" in
+            "docker.io")
+                USERNAME=$(resolve_login_username "$REGISTRY") || exit 1
+                login_registry_with_env "$REGISTRY" "DOCKERHUB_TOKEN" "$USERNAME"
+                ;;
+            "ghcr.io")
+                USERNAME=$(resolve_login_username "$REGISTRY") || exit 1
+                login_registry_with_env "$REGISTRY" "GHCR_TOKEN" "$USERNAME"
+                ;;
+            "registry.cn-hangzhou.aliyuncs.com")
+                USERNAME=$(resolve_login_username "$REGISTRY") || exit 1
+                login_registry_with_env "$REGISTRY" "ALIYUN_ACR_PASSWORD" "$USERNAME"
+                ;;
+            *)
+                echo "警告：未配置 ${REGISTRY} 对应的登录环境变量，跳过登录。"
+                ;;
+        esac
     done
     echo ""
 }
@@ -139,7 +236,8 @@ CHECK_ONLY=false
 BUILD_ONLY=false
 PUSH_ONLY=false
 TARGET_IMAGES=()
-IMAGE_TAG="3.1.0"
+CHECK_TOTAL=0
+CHECK_MISSING=0
 NAMESPACE="kwdb"
 
 while [[ $# -gt 0 ]]; do
@@ -219,13 +317,11 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
         continue
     fi
 
-    # --- 特殊处理 kwdb-ubuntu 标签逻辑 ---
-    CURRENT_TAG=$IMAGE_TAG
-    if [ "$REPO_NAME" == "ubuntu" ]; then
-        CURRENT_TAG="20.04"
+    IMAGE_REPO=$(get_image_repo "$REPO_NAME")
+    CURRENT_TAG=$(get_image_tag "$REPO_NAME")
+    if [ "$IMAGE_REPO" == "ubuntu" ]; then
         echo "🔔 检测到 ubuntu 镜像，强制使用特定标签: $CURRENT_TAG"
     fi
-    # ----------------------------------------
 
     if [ "$CHECK_ONLY" = true ]; then
         echo ""
@@ -233,11 +329,14 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
         echo "🔍 检查镜像: ${REPO_NAME}"
         for REGISTRY in "${REGISTRIES[@]}"; do
             if [ "$REGISTRY" == "docker.io" ]; then
-                FULL_IMAGE_NAME="${NAMESPACE}/${REPO_NAME}:${CURRENT_TAG}"
+                FULL_IMAGE_NAME="${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
             else
-                FULL_IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${REPO_NAME}:${CURRENT_TAG}"
+                FULL_IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
             fi
-            check_remote_image "$FULL_IMAGE_NAME"
+            CHECK_TOTAL=$((CHECK_TOTAL + 1))
+            if ! check_remote_image "$FULL_IMAGE_NAME"; then
+                CHECK_MISSING=$((CHECK_MISSING + 1))
+            fi
         done
         echo "=================================================="
         continue
@@ -266,9 +365,9 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
 
     for REGISTRY in "${REGISTRIES[@]}"; do
         if [ "$REGISTRY" == "docker.io" ]; then
-            FULL_IMAGE_NAME="${NAMESPACE}/${REPO_NAME}:${CURRENT_TAG}"
+            FULL_IMAGE_NAME="${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
         else
-            FULL_IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${REPO_NAME}:${CURRENT_TAG}"
+            FULL_IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
         fi
         TAG_ARGS+=("-t" "${FULL_IMAGE_NAME}")
         echo " - ${FULL_IMAGE_NAME}"
@@ -277,7 +376,7 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
 
     if [ "$PUSH_ONLY" = true ]; then
         # 仅推送模式：假设本地已有镜像 NAMESPACE/REPO_NAME:CURRENT_TAG
-        LOCAL_IMAGE="${NAMESPACE}/${REPO_NAME}:${CURRENT_TAG}"
+        LOCAL_IMAGE="${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
         if ! docker image inspect "$LOCAL_IMAGE" > /dev/null 2>&1; then
             echo "错误: 本地未找到镜像 $LOCAL_IMAGE，请先执行构建。"
             continue
@@ -285,9 +384,9 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
 
         for REGISTRY in "${REGISTRIES[@]}"; do
             if [ "$REGISTRY" == "docker.io" ]; then
-                FULL_IMAGE_NAME="${NAMESPACE}/${REPO_NAME}:${CURRENT_TAG}"
+                FULL_IMAGE_NAME="${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
             else
-                FULL_IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${REPO_NAME}:${CURRENT_TAG}"
+                FULL_IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
                 echo "正在打标签: $FULL_IMAGE_NAME"
                 docker tag "$LOCAL_IMAGE" "$FULL_IMAGE_NAME"
             fi
@@ -320,4 +419,12 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
 done
 
 echo ""
-echo "🎉 所有指定的镜像已处理完毕！"
+if [ "$CHECK_ONLY" = true ]; then
+    if [ "$CHECK_MISSING" -gt 0 ]; then
+        echo "⚠️ 检查完成：${CHECK_MISSING}/${CHECK_TOTAL} 个远端镜像不存在。"
+        exit 1
+    fi
+    echo "✅ 检查完成：所有 ${CHECK_TOTAL} 个远端镜像均存在。"
+else
+    echo "🎉 所有指定的镜像已处理完毕！"
+fi

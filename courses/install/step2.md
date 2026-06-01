@@ -1,77 +1,75 @@
-## 步骤 2：修改配置文件
+## 步骤 2：命令行模式部署
 
-在这一步中，我们将修改 KWDB 的部署配置文件，为单节点安装做好准备。同时，我们还会为您详细解读配置文件中的重要参数，并提供一些常见问题的解决方案。
+命令行模式通过文本菜单逐步引导完成安装，支持数字输入进行选择操作，无需额外依赖，适用于无图形化环境。
 
-1.  **切换到安装目录**
+安装过程中内置参数实时校验，配置有误时自动提示重新输入，支持安全模式与非安全模式，部署完成后可选择立即启动数据库。
 
-    首先，请切换到我们上一步解压出来的 `kwdb_install` 目录。
+1.  **赋予执行权限**
 
-    `cd kwdb_install`{{exec}}
+    为了能够顺利执行部署脚本，我们需要为 `KWDB-*.run` 文件添加可执行权限。
 
-2.  **修改 `deploy.cfg` 文件**
+    `chmod +x KWDB-*`{{exec}}
 
-    使用 `vim` 编辑器打开 `deploy.cfg` 配置文件。在这个文件中，我们需要注释掉集群相关的配置。
+2.  **启动向导程序**
 
-    `vim deploy.cfg`{{exec}}
+    执行以下命令，以命令行模式启动向导程序：
 
-    在 `vim` 编辑器中，请将 `[cluster]` 部分的配置注释掉，然后输入 `:wq` 保存并退出。
+    `./KWDB-*.run -c`{{exec}}
 
-    ```ini
-    [global]
-    # Whether to turn on secure mode
-    secure_mode=tls
-    # Management KaiwuDB user
-    management_user=kaiwudb
-    # KaiwuDB cluster http port
-    rest_port=8080
-    # KaiwuDB service port
-    kaiwudb_port=26257
-    # KaiwuDB brpc port
-    brpc_port=27257
-    # KaiwuDB data directory
-    data_root=/var/lib/kaiwudb
-    # CPU usage[0-1]
-    # cpu=1
+3.  **进入安装向导**
 
-    [local]
-    # local node configuration
-    node_addr=127.0.0.1
+    安装程序启动后，进入主功能菜单，输入 `1` 选择安装 KWDB:
 
-    # [cluster]
-    # remote node addr,split by ','
-    # node_addr=127.0.0.2
-    # ssh info
-    # ssh_port=22
-    # ssh_user=admin
+    ```text
+    1. 安装 KWDB
+    2. 卸载 KWDB
+    3. 安装 KWDB 并加入集群
+    4. 升级节点
+    5. 退出
 
-    # [additional]
-    # IPs=127.0.0.3,127.0.0.4
+    请输入操作 [1-5]:
+    ```
+4.  **选择安装 KWDB**
+
+    输入 `1` 选择单机模式：
+
+    ```text
+    1. 单机安装
+    2. 单副本集群
+    3. 三副本集群
+    4. 返回主菜单
+
+    请选择 [1-4]:
+    ```
+5.  **修改配置**
+
+    安装程序自动生成配置文件模板并打开编辑器。根据实际环境修改各参数，保存并退出后，安装程序将自动开始安装。
+
+    在 `vim` 编辑器中，请将 `user` 设置为 `root`{{copy}}，`passwd` 设置为 `root`{{copy}}，然后输入 `:wq` 保存并退出。
+
+    >⚠️注意：这里为了测试方便，我们将系统用户名设置的比较简单，在生产环境中，请使用符合安全规范的用户名和密码。
+
+6. **选择是否为所有用户安装 KWDB**：
+
+    输入 `y` 为所有用户安装 KWDB，输入 `N` 仅为当前用户安装 KWDB。
+
+    ```text
+    是否为所有用户安装：(y/N)
+    ```
+7. **安装 KWDB**
+
+    安装过程中终端会实时显示安装进度。出现错误时，可以通过查看安装目录 `log` 目录下的日志文件获取详细信息。
+
+8. **启动数据库**
+
+    完成安装后，根据提示选择是否立即启动数据库：
+
+    ```text
+    是否立即启动数据库：(y/N)
     ```
 
-3.  **为部署脚本添加可执行权限**
+9. 退出流程
 
-    为了能够顺利执行部署脚本，我们需要为 `deploy.sh` 文件添加可执行权限。
+    成功后会返回主功能菜单，输入 `5` 退出部署流程。
 
-    `chmod +x deploy.sh`{{exec}}
-
-
-## 附录：详细说明
-
-### 配置文件 (`deploy.cfg`) 解析
-
-`deploy.cfg` 文件是 KaiwuDB 部署的核心，它定义了数据库的各项关键参数。
-
-- `global`：全局配置
-    - `secure_mode`：是否开启安全模式，支持以下两种取值：
-    - `insecure`：使用非安全模式。
-    - `tls`：（默认选项）开启 TLS 安全模式。开启安全模式后，KWDB 生成 TLS 证书，作为客户端或应用程序连接数据库的凭证。生成的客户端相关证书存放在 `/etc/kaiwudb/certs` 目录。
-    - `management_user`：KWDB 的管理用户，默认为 `kaiwudb`。安装部署后，KWDB 创建相应的管理用户以及和管理用户同名的用户组。
-    - `rest_port`：KWDB Web 服务端口，默认为 `8080`。
-    - `kaiwudb_port`：KWDB 服务端口，默认为 `26257`。
-    - `brpc_port`：KWDB 时序引擎间的 brpc 通信端口，用于节点间通信。单节点部署时系统会自动忽略该设置。
-    - `data_root`：数据目录，默认为 `/var/lib/kaiwudb`。
-    - `cpu`：可选参数，用于指定 KWDB 服务占用当前节点服务器 CPU 资源的比例，默认无限制。取值范围为 `[0,1]`，最大精度为小数点后两位。**注意**：如果部署环境为 Ubuntu 18.04 版本，部署集群后，需要将 `kaiwudb.service` 文件中的 `CPUQuota` 修改为整型值，例如，将 `180.0%` 修改为 `180%`，以确保设置生效。具体操作步骤，参见[配置 CPU 资源占用率](https://www.kaiwudb.com/template_version/pc/doc/oss_dev/deployment/cluster-config/cluster-config-bare-metal.html#%E9%85%8D%E7%BD%AE-cpu-%E8%B5%84%E6%BA%90%E5%8D%A0%E7%94%A8%E7%8E%87)。
-- `local`：本地节点配置
-    - `node_addr`：本地节点对外提供服务的 IP 地址，监听地址为 `0.0.0.0`，端口为 KWDB 服务端口。
-
-完成以上配置后，我们就可以在下一步中正式开始安装 KWDB 了。
+完成以上配置后，我们就可以在下一步中开始使用 KWDB 了。

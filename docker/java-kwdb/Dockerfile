@@ -1,4 +1,4 @@
-FROM kwdb/kwdb:3.1.0
+FROM kwdb/kwdb:3.2.0
 
 RUN apt-get -o Acquire::Retries=5 update && apt-get install -y --no-install-recommends \
     openjdk-17-jdk-headless \
