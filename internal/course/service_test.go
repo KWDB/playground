@@ -123,7 +123,7 @@ details:
   finish:
     text: finish.md
 backend:
-  imageid: kwdb/ubuntu:20.04
+  imageid: kwdb/ubuntu:24.04
   memory: "4Gi"
   cpuLimit: "1.5"
 `)},
@@ -142,7 +142,7 @@ details:
   finish:
     text: finish.md
 backend:
-  imageid: kwdb/ubuntu:20.04
+  imageid: kwdb/ubuntu:24.04
   memoryLimit: 4 * 1024 * 1024 * 1024
   cpu: "2"
 `)},

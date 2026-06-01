@@ -1,47 +1,49 @@
-## 步骤 4：启动 KWDB 节点
+## 步骤 4：卸载 KWDB
 
-在这一步中，我们将启动 KWDB 节点并连接到数据库。
+除了流畅的安装体验外，KWDB 还提供了方便卸载和清理选项，方便您在测试完成后清理环境。
 
-1.  **启动 KWDB 节点**
+1. **停止 KWDB 服务**
 
-    `./deploy.sh start`{{exec}} 
+    如果要卸载 KWDB，则需要先停止 KWDB 服务，执行以下命令：
 
-    启动成功后，您会看到以下确认信息：
+    `systemctl stop kaiwudb`{{exec}}
 
-    ```log
-    [START COMPLETED]:KaiwuDB start successfully.
-    ```
+1.  **启动向导程序**
 
-2.  **确认节点状态**
+    执行以下命令，以命令行模式启动向导程序：
 
-    - 在当前目录使用部署脚本检查节点状态： `./deploy.sh status`{{exec}}
-    - 在任一目录下使用 `systemctl` 命令: `systemctl status kaiwudb`{{exec}}
-    - 在任一目录下使用便捷脚本（推荐）: `kw-status`{{exec}}
+    `./KWDB-*.run -c`{{exec}}
 
-3.  **（可选）配置 KWDB 开机自启动。**
+2.  **进入安装向导**
 
-    配置 KWDB 开机自启动后，如果系统重启，则自动启动 KWDB。
-
-     `systemctl enable kaiwudb`{{exec}}
-
-4.  **（可选）创建数据库用户**
-
-    执行 `add_user.sh`{{exec}} 脚本创建数据库用户。如果跳过该步骤，系统将默认使用部署数据库时使用的用户，且无需密码访问数据库。
+    安装程序启动后，进入主功能菜单，输入 `2` 选择卸载 KWDB:
 
     ```text
-    ./add_user.sh
-    Please enter the username: 
-    Please enter the password: 
+    1. 安装 KWDB
+    2. 卸载 KWDB
+    3. 安装 KWDB 并加入集群
+    4. 升级节点
+    5. 退出
+
+    请输入操作 [1-5]:
     ```
 
-    执行成功后，控制台输出以下信息：
+3. **输入节点数量**
+
+    输入节点数量，本示例我们安装的是单节点，输入 `1` 即可：
 
     ```text
-    [ADD USER COMPLETED]:User creation completed.
+    请输入节点数量：(1-10)
     ```
 
-5.  **连接到数据库**
+4. **修改配置**
 
-    使用内置脚本：执行 `kw-sql`{{exec}} 使用 root 用户登录数据库
+    之后会自动打开 `vim` 编辑器中，请将 `user` 设置为 `root`{{copy}}，`passwd` 设置为 `root`{{copy}}，然后输入 `:wq` 保存并退出。
 
-完成这些步骤后，您的 KWDB 单节点实例就已经成功安装并运行了。在最后一个步骤中，我们将连接到数据库并进行简单的交互。
+5. **选择是否删除数据及配置文件**
+
+    输入 `y` 删除数据及配置文件，输入 `N` 不保留数据及配置文件。
+
+    ```text
+    是否删除数据及配置文件(y/N): 
+    ```

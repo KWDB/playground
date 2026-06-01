@@ -18,7 +18,7 @@
 
 ```dockerfile
 # 使用一个稳定的 Ubuntu 版本作为基础镜像
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # 设置环境变量，避免 apt-get 在构建过程中进行交互式提问
 ENV DEBIAN_FRONTEND=noninteractive
@@ -43,7 +43,7 @@ CMD ["/sbin/init"]
 ```
 
 **Dockerfile 关键点解释:**
-- `FROM ubuntu:22.04`: 我们选择一个长期支持（LTS）版本的 Ubuntu。
+- `FROM ubuntu:24.04`: 我们选择一个长期支持（LTS）版本的 Ubuntu。
 - `ENV DEBIAN_FRONTEND=noninteractive`: 这是在 Docker 构建中运行 `apt-get` 的最佳实践，可以防止构建过程因等待用户输入而挂起。
 - `RUN apt-get install -y systemd systemd-sysv ssh`: `systemd-sysv` 包确保 `systemd` 被正确设置为 init 系统。我们还安装了 `ssh` 服务作为一个例子，来演示如何用 `systemctl` 管理它。
 - `STOPSIGNAL SIGRTMIN+3`: 当你执行 `docker stop` 时，Docker 会发送这个信号给容器的 PID 1 进程。将其设置为 `systemd` 期望的信号可以确保容器能够优雅地关闭，而不是被强制杀死。

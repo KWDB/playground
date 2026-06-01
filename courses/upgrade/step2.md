@@ -6,9 +6,7 @@
 
     进入 SQL 模式：
 
-    ```bash {{exec}}
-    cd /bin && sudo -u kaiwudb ./kwbase sql --certs-dir=/etc/kaiwudb/certs --host=127.0.0.1:26257
-    ```
+    `kw-sql`{{exec}}
 
     写入验证数据：
 
@@ -43,6 +41,10 @@
 
    `systemctl stop kaiwudb`{{exec}}
 
+    停止后查看服务状态：
+
    `systemctl status kaiwudb`{{exec}}
+
+   `kw-status`{{exec}}
 
 升级前请确认服务已经停止。如果此时仍显示运行中，请先排查占用情况，再继续执行升级命令。
