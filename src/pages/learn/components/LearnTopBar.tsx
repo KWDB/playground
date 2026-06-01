@@ -1,4 +1,4 @@
-import { ArrowLeft, HelpCircle, ImageIcon, Server } from 'lucide-react'
+import { ArrowLeft, HelpCircle, ImageIcon, Lightbulb, Server } from 'lucide-react'
 import StatusIndicator, { StatusType } from '../../../components/ui/StatusIndicator'
 import ThemeToggle from '../../../components/layout/ThemeToggle'
 import { useTheme } from '../../../hooks/useTheme'
@@ -7,6 +7,7 @@ type Props = {
   title: string
   containerStatus: string
   isStartingContainer: boolean
+  startTip?: string | null
   imageSourceLabel: string
   effectiveImage: string
   canPickImage: boolean
@@ -28,6 +29,7 @@ export const LearnTopBar = ({
   title,
   containerStatus,
   isStartingContainer,
+  startTip,
   imageSourceLabel,
   effectiveImage,
   canPickImage,
@@ -49,7 +51,7 @@ export const LearnTopBar = ({
 
   return (
     <header className="bg-[var(--color-bg-primary)] border-b border-[var(--color-border-light)] px-4 py-3 flex-shrink-0">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center space-x-2">
           <button onClick={onBack} className="btn btn-ghost text-sm" title="返回课程列表">
             <ArrowLeft className="h-4 w-4 mr-1.5" />
@@ -125,6 +127,20 @@ export const LearnTopBar = ({
           </div>
         </div>
       </div>
+      {startTip && (
+        <div
+          className="mt-2 flex items-start gap-2 rounded-md border border-[var(--color-accent-border)] bg-[var(--color-accent-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)]"
+          role="status"
+          aria-live="polite"
+          data-testid="learn-start-tip"
+        >
+          <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-accent-primary)]" />
+          <div className="min-w-0 leading-5">
+            <span className="font-medium text-[var(--color-text-primary)]">小提示：</span>
+            <span>{startTip}</span>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

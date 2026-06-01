@@ -20,6 +20,7 @@ import {
   useLearnContainer,
   useLearnCourse,
   useLearnMarkdown,
+  pickRandomLearnStartTip,
 } from './learn/index'
 import { getCourseNotFoundError, getErrorInfo } from './learn/index'
 import { api } from '../lib/api/client'
@@ -48,6 +49,7 @@ export function Learn() {
   const [hostPortValue, setHostPortValue] = useState('')
   const [hostPortConflictMessage, setHostPortConflictMessage] = useState<string | null>(null)
   const [isHostPortChecking, setIsHostPortChecking] = useState(false)
+  const [startTip, setStartTip] = useState<string | null>(null)
 
   const sqlTerminalRef = useRef<SqlTerminalRef>(null)
   const terminalRef = useRef<TerminalRef>(null)
@@ -67,6 +69,7 @@ export function Learn() {
 
   useEffect(() => {
     const defaultPort = course?.backend?.port
+    setStartTip(null)
     if (typeof defaultPort === 'number' && defaultPort > 0) {
       setHostPortValue(String(defaultPort))
       setHostPortConflictMessage(null)
@@ -179,6 +182,7 @@ export function Learn() {
   const handleStartWithPort = useCallback(async () => {
     if (!course?.id) return
     if (!showHostPortSelector) {
+      setStartTip(pickRandomLearnStartTip())
       await startCourseContainer(course.id)
       return
     }
@@ -195,6 +199,7 @@ export function Learn() {
         return
       }
 
+      setStartTip(pickRandomLearnStartTip())
       await startCourseContainer(course.id, selectedPort)
     } catch (err) {
       setHostPortConflictMessage(err instanceof Error ? err.message : '端口检测失败，请稍后重试')
@@ -218,6 +223,7 @@ export function Learn() {
         title={course.title}
         containerStatus={containerStatus}
         isStartingContainer={isStartingContainer}
+        startTip={startTip}
         imageSourceLabel={imageSourceLabel}
         effectiveImage={effectiveImage}
         canPickImage={canPickImage}
