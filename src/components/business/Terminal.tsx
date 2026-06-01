@@ -24,11 +24,52 @@ interface TerminalProps {
   containerStatus?: ContainerStatus;
 }
 
+interface ClickStart {
+  x: number;
+  y: number;
+  timeStamp: number;
+}
+
+interface TerminalCell {
+  x: number;
+  y: number;
+}
+
+interface XTermRenderDimensions {
+  actualCellWidth?: number;
+  actualCellHeight?: number;
+  css?: {
+    cell?: {
+      width?: number;
+      height?: number;
+    };
+  };
+}
+
+interface XTermWithPrivateCore extends XTerm {
+  _core?: {
+    _renderService?: {
+      dimensions?: XTermRenderDimensions;
+    };
+  };
+}
+
 // 终端引用接口
 export interface TerminalRef {
   sendCommand: (command: string) => void;
   focus: () => void;
 }
+
+const CLICK_MOVE_MAX_DURATION = 250;
+const CLICK_MOVE_MAX_DISTANCE = 6;
+
+const createCursorMoveSequence = (steps: number, applicationCursorKeys: boolean) => {
+  if (steps === 0) return '';
+
+  const direction = steps > 0 ? 'C' : 'D';
+  const prefix = applicationCursorKeys ? '\x1bO' : '\x1b[';
+  return (prefix + direction).repeat(Math.abs(steps));
+};
 
 const createTerminalTheme = () => {
   const styles = window.getComputedStyle(document.documentElement);
@@ -73,6 +114,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
   const lastStatusRef = useRef<string>('');
   const wsContainerIdRef = useRef<string | null>(null);
   const debounceTimeoutRef = useRef<number | null>(null);
+  const clickStartRef = useRef<ClickStart | null>(null);
   
   const [isConnected, setIsConnected] = useState(false);
   const [imagePullProgress, setImagePullProgress] = useState<ImagePullProgressMessage | null>(null);
@@ -112,6 +154,54 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
     ctx.font = font;
     const width = ctx.measureText('W').width;
     return width > 0 ? width : null;
+  }, []);
+
+  const measureCellHeight = useCallback(() => {
+    if (!terminalRef.current || !xtermRef.current) return null;
+    const row = terminalRef.current.querySelector('.xterm-rows > div') as HTMLElement | null;
+    const rowHeight = row?.getBoundingClientRect().height;
+    if (rowHeight && rowHeight > 0) return rowHeight;
+    const screen = terminalRef.current.querySelector('.xterm-screen') as HTMLElement | null;
+    const screenHeight = screen?.getBoundingClientRect().height;
+    return screenHeight && screenHeight > 0 ? screenHeight / xtermRef.current.rows : null;
+  }, []);
+
+  const getCellFromMouseEvent = useCallback((event: MouseEvent): TerminalCell | null => {
+    const terminal = xtermRef.current;
+    const terminalElement = terminal?.element ?? terminalRef.current;
+    if (!terminal || !terminalElement) return null;
+
+    const screen = terminalElement.querySelector('.xterm-screen') as HTMLElement | null;
+    const rect = (screen ?? terminalElement).getBoundingClientRect();
+    if (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    ) {
+      return null;
+    }
+
+    const dimensions = (terminal as XTermWithPrivateCore)._core?._renderService?.dimensions;
+    const cellWidth = dimensions?.css?.cell?.width ?? dimensions?.actualCellWidth ?? measureCellWidth();
+    const cellHeight = dimensions?.css?.cell?.height ?? dimensions?.actualCellHeight ?? measureCellHeight();
+    if (!cellWidth || !cellHeight) return null;
+
+    return {
+      x: Math.max(0, Math.min(terminal.cols - 1, Math.floor((event.clientX - rect.left) / cellWidth))),
+      y: Math.max(0, Math.min(terminal.rows - 1, Math.floor((event.clientY - rect.top) / cellHeight)))
+    };
+  }, [measureCellHeight, measureCellWidth]);
+
+  const getLogicalLineStart = useCallback((absoluteRow: number) => {
+    const buffer = xtermRef.current?.buffer.active;
+    if (!buffer) return absoluteRow;
+
+    let row = absoluteRow;
+    while (row > 0 && buffer.getLine(row)?.isWrapped) {
+      row--;
+    }
+    return row;
   }, []);
 
   const resizeTerminal = useCallback(() => {
@@ -181,6 +271,32 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
       });
     });
   }, [resizeTerminal]);
+
+  const moveCursorToCell = useCallback((cell: TerminalCell) => {
+    const terminal = xtermRef.current;
+    if (!terminal || terminal.modes.mouseTrackingMode !== 'none') return;
+
+    const buffer = terminal.buffer.active;
+    if (buffer.type !== 'normal' || buffer.baseY !== buffer.viewportY) return;
+
+    const cursorAbsoluteY = buffer.baseY + buffer.cursorY;
+    const targetAbsoluteY = buffer.viewportY + cell.y;
+    const logicalLineStart = getLogicalLineStart(cursorAbsoluteY);
+    if (getLogicalLineStart(targetAbsoluteY) !== logicalLineStart) return;
+
+    const targetLine = buffer.getLine(targetAbsoluteY);
+    const targetLineLength = targetLine
+      ? Math.min(terminal.cols, targetLine.translateToString(true).length)
+      : terminal.cols;
+    const targetX = targetLineLength > 0 ? Math.min(cell.x, targetLineLength) : cell.x;
+    const cursorOffset = (cursorAbsoluteY - logicalLineStart) * terminal.cols + buffer.cursorX;
+    const targetOffset = (targetAbsoluteY - logicalLineStart) * terminal.cols + targetX;
+    const sequence = createCursorMoveSequence(targetOffset - cursorOffset, terminal.modes.applicationCursorKeysMode);
+
+    if (sequence) {
+      sendInput(sequence, false);
+    }
+  }, [getLogicalLineStart, sendInput]);
 
   const sendCommand = useCallback((command: string) => {
     const normalized = command.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -478,6 +594,39 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
       sendInput(normalized, needSync);
     });
 
+    const terminalElement = terminal.element;
+    const handleMouseDown = (event: MouseEvent) => {
+      if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.detail !== 1) {
+        clickStartRef.current = null;
+        return;
+      }
+
+      clickStartRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        timeStamp: event.timeStamp
+      };
+    };
+
+    const handleMouseUp = (event: MouseEvent) => {
+      const start = clickStartRef.current;
+      clickStartRef.current = null;
+      if (!start || event.button !== 0 || event.detail !== 1 || terminal.hasSelection()) return;
+
+      const duration = event.timeStamp - start.timeStamp;
+      const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      if (duration > CLICK_MOVE_MAX_DURATION || distance > CLICK_MOVE_MAX_DISTANCE) return;
+
+      const cell = getCellFromMouseEvent(event);
+      if (cell) {
+        terminal.focus();
+        moveCursorToCell(cell);
+      }
+    };
+
+    terminalElement?.addEventListener('mousedown', handleMouseDown);
+    terminalElement?.addEventListener('mouseup', handleMouseUp);
+
     scheduleResize();
 
     if (terminalRef.current) {
@@ -518,6 +667,8 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
     }
 
     return () => {
+      terminalElement?.removeEventListener('mousedown', handleMouseDown);
+      terminalElement?.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('resize', handleResize);
       if (window.visualViewport) {
         window.visualViewport.removeEventListener('resize', handleResize);
@@ -537,7 +688,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
         terminal.dispose();
       }
     };
-  }, [debouncedResize, resizeTerminal, scheduleResize, sendInput]);
+  }, [debouncedResize, getCellFromMouseEvent, moveCursorToCell, resizeTerminal, scheduleResize, sendInput]);
 
   useEffect(() => {
     applyTerminalTheme();
@@ -670,7 +821,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
       {/* 终端容器 */}
       <div 
         ref={terminalRef} 
-        className="flex-1 w-full h-full overflow-hidden p-2 bg-[var(--color-bg-secondary)]"
+        className="flex-1 w-full h-full overflow-hidden p-2 bg-[var(--color-bg-secondary)] cursor-text"
         style={{
           minHeight: '200px',
           fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
