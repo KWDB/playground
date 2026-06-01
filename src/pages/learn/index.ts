@@ -1,5 +1,6 @@
 export * from './constants'
 export * from './types'
+export * from './tips'
 export * from './components'
 export * from './hooks'
 export * from './markdown'
