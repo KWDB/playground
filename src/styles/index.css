@@ -462,6 +462,67 @@
   to { opacity: 0; }
 }
 
+@keyframes image-pull-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes image-pull-halo {
+  0% {
+    opacity: 0.72;
+    transform: scale(0.92);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+@keyframes image-pull-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes image-pull-progress-sheen {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(110%);
+  }
+}
+
+@keyframes image-pull-progress-indeterminate {
+  0% {
+    transform: translateX(-120%) scaleX(0.35);
+  }
+  50% {
+    transform: translateX(12%) scaleX(0.7);
+  }
+  100% {
+    transform: translateX(120%) scaleX(0.35);
+  }
+}
+
+@keyframes image-pull-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .animate-fade-in {
   animation: fade-in 0.15s ease-out;
 }
@@ -472,6 +533,49 @@
 
 .animate-fade-out {
   animation: fade-out 0.1s ease-in;
+}
+
+.image-pull-overlay {
+  animation: fade-in 180ms ease-out;
+}
+
+.image-pull-card {
+  animation: image-pull-card-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.image-pull-activity {
+  transform: translateZ(0);
+}
+
+.image-pull-activity-halo {
+  animation: image-pull-halo 1.8s ease-out infinite;
+}
+
+.image-pull-spinner {
+  animation: image-pull-spin 1s linear infinite;
+}
+
+.image-pull-progress-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-bg-secondary) 55%, transparent), transparent);
+  animation: image-pull-progress-sheen 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.image-pull-progress-fill {
+  transform: translateZ(0);
+}
+
+.image-pull-progress-indeterminate {
+  width: 58%;
+  transform-origin: left center;
+  animation: image-pull-progress-indeterminate 1.45s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.image-pull-tip {
+  animation: image-pull-tip-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .route-transition {

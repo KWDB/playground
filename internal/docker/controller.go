@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -2171,6 +2172,10 @@ func (d *dockerController) Close() error {
 
 // classifyPullError 分类拉取错误并提供详细的错误信息和建议
 func (d *dockerController) classifyPullError(err error, imageName string) string {
+	if errors.Is(err, context.Canceled) {
+		return "镜像拉取已取消"
+	}
+
 	errorStr := err.Error()
 
 	// 网络连接错误
@@ -2302,6 +2307,10 @@ func (d *dockerController) ensureImageExistsWithProgress(ctx context.Context, im
 	})
 
 	if err := d.pullImageWithProgress(ctx, imageName, webSocketCallback); err != nil {
+		if errors.Is(err, context.Canceled) {
+			d.logger.Info("镜像 %s 拉取已取消", imageName)
+			return err
+		}
 		// 使用详细的错误分类
 		errorMsg := d.classifyPullError(err, imageName)
 		// 发送拉取失败的进度信息
@@ -2461,6 +2470,10 @@ func (d *dockerController) pullImageWithProgress(ctx context.Context, imageName 
 	// 开始拉取镜像
 	resp, err := d.client.ImagePull(ctx, imageName, options)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+			d.logger.Info("[镜像拉取] 镜像拉取已取消: %s", imageName)
+			return context.Canceled
+		}
 		// 详细日志：Docker API拉取失败
 		d.logger.Error("[镜像拉取] Docker API拉取失败 - 镜像: %s, 原始错误: %v", imageName, err)
 		// 详细的错误分类和处理
@@ -2491,6 +2504,10 @@ func (d *dockerController) pullImageWithProgress(ctx context.Context, imageName 
 			if err == io.EOF {
 				d.logger.Info("[镜像拉取] 拉取进度流结束: %s, 总进度事件数: %d", imageName, progressCount)
 				break
+			}
+			if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+				d.logger.Info("[镜像拉取] 镜像拉取已取消: %s", imageName)
+				return context.Canceled
 			}
 			d.logger.Warn("[镜像拉取] 解析拉取进度JSON失败 - 镜像: %s, 错误: %v", imageName, err)
 			continue

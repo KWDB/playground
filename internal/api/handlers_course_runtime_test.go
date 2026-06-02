@@ -177,10 +177,17 @@ func TestResolveStartHostPort(t *testing.T) {
 
 type mockDockerController struct {
 	docker.Controller
-	filesCopied map[string]map[string][]byte
+	filesCopied           map[string]map[string][]byte
+	createContextCanceled bool
+	createErr             error
+	startCalled           bool
 }
 
 func (m *mockDockerController) CreateContainerWithProgress(ctx context.Context, courseID string, config *docker.ContainerConfig, progressCallback docker.ImagePullProgressCallback) (*docker.ContainerInfo, error) {
+	m.createContextCanceled = ctx.Err() == context.Canceled
+	if m.createErr != nil {
+		return nil, m.createErr
+	}
 	return &docker.ContainerInfo{
 		ID:       "mock-container-id",
 		DockerID: "mock-docker-id",
@@ -197,6 +204,7 @@ func (m *mockDockerController) CopyFilesToContainer(ctx context.Context, contain
 }
 
 func (m *mockDockerController) StartContainer(ctx context.Context, containerID string) error {
+	m.startCalled = true
 	return nil
 }
 
@@ -260,5 +268,46 @@ backend:
 	content, ok := files["/kaiwudb/bin/rdb.tar.gz"]
 	if !ok || string(content) != "mock-rdb-data" {
 		t.Errorf("Expected rdb.tar.gz to be injected with content 'mock-rdb-data', got %q", string(content))
+	}
+}
+
+func TestStartCourse_UsesRequestContextForCreate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockDocker := &mockDockerController{createErr: context.Canceled}
+	memFS := fstest.MapFS{
+		"courses/mock-course/index.yaml": {Data: []byte(`
+title: Mock Course
+backend:
+  imageid: kwdb/kwdb
+`)},
+	}
+	courseSvc := course.NewServiceFromFS(memFS, "courses")
+	courseSvc.LoadCourses()
+
+	handler := &Handler{
+		courseService:         courseSvc,
+		dockerController:      mockDocker,
+		logger:                logger.NewLogger(logger.ERROR),
+		cfg:                   &config.Config{},
+		courseStartInProgress: make(map[string]bool),
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest("POST", "/api/courses/mock-course/start", strings.NewReader(`{}`)).WithContext(ctx)
+	req.Header.Set("Content-Type", "application/json")
+	c.Request = req
+	c.Params = gin.Params{{Key: "id", Value: "mock-course"}}
+
+	handler.startCourse(c)
+
+	if !mockDocker.createContextCanceled {
+		t.Fatal("expected startCourse to pass the request context into CreateContainerWithProgress")
+	}
+	if mockDocker.startCalled {
+		t.Fatal("StartContainer should not be called after request cancellation")
 	}
 }

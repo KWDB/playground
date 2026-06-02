@@ -51,6 +51,33 @@ describe('learn container utils', () => {
     expect(setContainerStatus).toHaveBeenCalledWith('completed')
   })
 
+  it('returns false without connecting when start is canceled while waiting', async () => {
+    const controller = new AbortController()
+    const check = vi.fn().mockResolvedValue({ status: 'running' })
+    const setContainerStatus = vi.fn()
+    const startStatusMonitoring = vi.fn()
+    const connectToTerminal = vi.fn()
+    const resultPromise = waitForContainerReady({
+      containerId: 'c-1',
+      checkContainerStatus: check,
+      setContainerStatus,
+      startStatusMonitoring,
+      connectToTerminal,
+      lastActionRef: { current: 'start' },
+      isStoppingRef: { current: false },
+      signal: controller.signal,
+      maxRetries: 1,
+      retryInterval: 1,
+    })
+
+    controller.abort()
+
+    await expect(resultPromise).resolves.toBe(false)
+    expect(setContainerStatus).not.toHaveBeenCalledWith('running')
+    expect(startStatusMonitoring).not.toHaveBeenCalled()
+    expect(connectToTerminal).not.toHaveBeenCalled()
+  })
+
   it('throws timeout when never ready', async () => {
     const check = vi.fn().mockResolvedValue({ status: 'starting' })
     await expect(waitForContainerReady({

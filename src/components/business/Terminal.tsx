@@ -22,6 +22,8 @@ export type ContainerStatus = 'running' | 'starting' | 'stopping' | 'paused' | '
 interface TerminalProps {
   containerId?: string;
   containerStatus?: ContainerStatus;
+  tips?: readonly string[];
+  onCancelImagePull?: () => void;
 }
 
 interface ClickStart {
@@ -101,7 +103,7 @@ const createTerminalTheme = () => {
 };
 
 /** XTerm 终端组件：管理容器命令 WebSocket 与镜像进度 WebSocket */
-const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containerStatus }, ref) => {
+const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containerStatus, tips, onCancelImagePull }, ref) => {
   const xtermRef = useRef<XTerm | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -752,6 +754,10 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
           wsProgressRef.current.close();
           wsProgressRef.current = null;
         }
+        setShowProgress(false);
+        setImagePullProgress(null);
+        lastProgressRef.current = null;
+        lastStatusRef.current = '';
       } else if (isStarting) {
         connectProgressOnly();
         
@@ -805,10 +811,6 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
     };
   }, []);
 
-  const ImagePullProgress = () => (
-    <ImagePullProgressOverlay show={showProgress} imagePullProgress={imagePullProgress} />
-  );
-
   return (
     // Linear 风格终端容器
     <div 
@@ -830,7 +832,7 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({ containerId, containe
       />
 
       {/* 镜像拉取进度覆盖层 */}
-      <ImagePullProgress />
+      <ImagePullProgressOverlay show={showProgress} imagePullProgress={imagePullProgress} tips={tips} onCancel={onCancelImagePull} />
       
       {/* 连接状态指示器 */}
       <ConnectionIndicator connected={isConnected} />

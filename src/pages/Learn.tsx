@@ -69,7 +69,7 @@ export function Learn() {
 
   useEffect(() => {
     const defaultPort = course?.backend?.port
-    setStartTip(null)
+    setStartTip(course?.id ? pickRandomLearnStartTip() : null)
     if (typeof defaultPort === 'number' && defaultPort > 0) {
       setHostPortValue(String(defaultPort))
       setHostPortConflictMessage(null)
@@ -90,6 +90,7 @@ export function Learn() {
     stopContainer,
     pauseContainer,
     resumeContainer,
+    cancelStartContainer,
     checkExistingContainer,
     handleImagePullComplete,
   } = useLearnContainer(courseId)
@@ -182,7 +183,6 @@ export function Learn() {
   const handleStartWithPort = useCallback(async () => {
     if (!course?.id) return
     if (!showHostPortSelector) {
-      setStartTip(pickRandomLearnStartTip())
       await startCourseContainer(course.id)
       return
     }
@@ -199,7 +199,6 @@ export function Learn() {
         return
       }
 
-      setStartTip(pickRandomLearnStartTip())
       await startCourseContainer(course.id, selectedPort)
     } catch (err) {
       setHostPortConflictMessage(err instanceof Error ? err.message : '端口检测失败，请稍后重试')
@@ -223,7 +222,6 @@ export function Learn() {
         title={course.title}
         containerStatus={containerStatus}
         isStartingContainer={isStartingContainer}
-        startTip={startTip}
         imageSourceLabel={imageSourceLabel}
         effectiveImage={effectiveImage}
         canPickImage={canPickImage}
@@ -270,10 +268,12 @@ export function Learn() {
               containerId={containerId}
               containerStatus={containerStatus}
               isStartingContainer={isStartingContainer}
+              startTip={startTip}
               terminalRef={terminalRef}
               sqlTerminalRef={sqlTerminalRef}
               codeTerminalRef={codeTerminalRef}
               onImagePullComplete={handleImagePullComplete}
+              onCancelImagePull={() => course?.id && void cancelStartContainer(course.id)}
             />
           </Panel>
         </Group>
