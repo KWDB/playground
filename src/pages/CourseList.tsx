@@ -67,8 +67,6 @@ export function CourseList() {
     timeRange: [0, 1000],
   });
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const [gridCardHeight, setGridCardHeight] = useState<number | null>(null);
-
   const { 
     seenPages, 
     startTour, 
@@ -144,55 +142,6 @@ export function CourseList() {
       return true;
     });
   }, [courses, debouncedSearchQuery, filters, progressMap]);
-
-  useEffect(() => {
-    if (viewMode !== 'grid') {
-      setGridCardHeight(null);
-      return;
-    }
-
-    if (typeof window === 'undefined') return;
-
-    let rafId: number;
-    let resizeRafId: number;
-
-    const measure = () => {
-      rafId = window.requestAnimationFrame(() => {
-        const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-course-grid-card="true"]'));
-        if (cards.length === 0) {
-          setGridCardHeight(null);
-          return;
-        }
-
-        cards.forEach((card) => {
-          card.style.height = 'auto';
-        });
-
-        const maxHeight = cards.reduce((max, card) => Math.max(max, card.getBoundingClientRect().height), 0);
-        if (maxHeight > 0) {
-          setGridCardHeight(Math.ceil(maxHeight));
-        }
-      });
-    };
-
-    rafId = window.requestAnimationFrame(() => {
-      resizeRafId = window.requestAnimationFrame(measure);
-    });
-
-    const handleResize = () => {
-      if (resizeRafId) window.cancelAnimationFrame(resizeRafId);
-      resizeRafId = window.requestAnimationFrame(measure);
-    };
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      if (rafId) window.cancelAnimationFrame(rafId);
-      if (resizeRafId) window.cancelAnimationFrame(resizeRafId);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [viewMode, filteredCourses.length]);
-
-  const gridCardStyle = viewMode === 'grid' && gridCardHeight ? { height: `${gridCardHeight}px` } : undefined;
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -945,10 +894,8 @@ export function CourseList() {
                   <Link
                     to={`/learn/${course.id}`}
                     data-tour-id={index === 0 ? 'course-card-first' : undefined}
-                    data-course-grid-card="true"
-                    style={gridCardStyle}
                     className={`
-                      group h-full p-5 rounded-xl flex flex-col
+                      group h-44 p-4 rounded-xl flex flex-col
                       border transition-all duration-200 ease-out
                       bg-[var(--color-bg-secondary)]
                       hover:shadow-[var(--shadow-sm)]
@@ -962,9 +909,9 @@ export function CourseList() {
                       }
                     `}
                   >
-                    <div className="flex items-start gap-3 mb-4 flex-1 min-h-0">
+                    <div className="flex items-start gap-2.5 mb-3 flex-1 min-h-0 overflow-hidden">
                       <div className={`
-                        flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
+                        flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
                         transition-colors duration-200 border-2
                         ${course.sqlTerminal 
                           ? 'bg-[var(--color-accent-subtle)] border-[var(--color-border-default)] group-hover:border-[var(--color-accent-primary)]' 
@@ -974,11 +921,11 @@ export function CourseList() {
                         }
                       `}>
                         {course.sqlTerminal ? (
-                          <Database className="w-5 h-5 text-[var(--color-accent-primary)]" />
+                          <Database className="w-4 h-4 text-[var(--color-accent-primary)]" />
                         ) : course.codeTerminal ? (
-                          <Code className="w-5 h-5 text-[var(--color-course-code)]" />
+                          <Code className="w-4 h-4 text-[var(--color-course-code)]" />
                         ) : (
-                          <Terminal className="w-5 h-5 text-[var(--color-course-sql)]" />
+                          <Terminal className="w-4 h-4 text-[var(--color-course-sql)]" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -990,12 +937,12 @@ export function CourseList() {
                             {course.sqlTerminal ? 'SQL' : course.codeTerminal ? 'Code' : 'Shell'}
                           </Badge>
                         </div>
-                        <p className="text-xs text-[var(--color-text-tertiary)] line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-[var(--color-text-tertiary)] truncate-2 leading-5 min-h-10 break-words">
                           {course.description}
                         </p>
                         
                         {course.tags && course.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
+                          <div className="flex flex-wrap gap-1 mt-1.5">
                             {course.tags.slice(0, 2).map(tag => (
                               <Badge
                                 key={tag}
@@ -1013,7 +960,7 @@ export function CourseList() {
                         )}
                           
                         {courseStatus === 'in-progress' && (
-                          <div className="mt-2 h-1 w-full bg-[var(--color-bg-tertiary)] rounded-full overflow-hidden border border-[var(--color-border-light)]">
+                          <div className="mt-1.5 h-1 w-full bg-[var(--color-bg-tertiary)] rounded-full overflow-hidden border border-[var(--color-border-light)]">
                             <div 
                               className="h-full bg-[var(--color-accent-primary)] rounded-full transition-all duration-300 ease-out"
                               style={{ width: `${progressPercent}%` }}
@@ -1022,7 +969,7 @@ export function CourseList() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-light)]">
+                    <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-[var(--color-border-light)]">
                       <div className="flex items-center gap-2">
                         <Badge variant="neutral" className="bg-[var(--color-bg-tertiary)]">
                           {getDifficultyLabel(course.difficulty)}
@@ -1032,7 +979,7 @@ export function CourseList() {
                           {course.estimatedMinutes} 分钟
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         {courseStatus === 'completed' ? (
                           <Badge variant="success">已完成</Badge>
                         ) : courseStatus === 'in-progress' ? (
@@ -1060,7 +1007,7 @@ export function CourseList() {
               );
             })}
             <ScrollReveal delay={120} className="w-full h-full">
-              <div data-course-grid-card="true" style={gridCardStyle} className="h-full">
+              <div className={viewMode === 'grid' ? 'h-44' : 'h-full'}>
                 <ProposeCourseCard
                   mode={viewMode}
                   className={viewMode === 'grid' ? 'h-full flex flex-col justify-between' : undefined}
