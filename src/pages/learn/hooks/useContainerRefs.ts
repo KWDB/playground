@@ -11,6 +11,7 @@ export const useContainerRefs = (
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const statusAbortControllerRef = useRef<AbortController | null>(null)
   const startAbortControllerRef = useRef<AbortController | null>(null)
+  const startOperationSeqRef = useRef(0)
   const lastActionRef = useRef<'idle' | 'start' | 'stop'>('idle')
   const isStoppingRef = useRef(false)
 
@@ -33,6 +34,7 @@ export const useContainerRefs = (
     statusCheckIntervalRef,
     statusAbortControllerRef,
     startAbortControllerRef,
+    startOperationSeqRef,
     lastActionRef,
     isStoppingRef,
   }

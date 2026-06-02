@@ -21,10 +21,16 @@ const isStartInProgressError = (error: unknown) => {
   return message.includes('课程容器正在启动中')
 }
 
+const isRequestCanceledError = (error: unknown) => {
+  const maybeError = error as { name?: string; message?: string }
+  return maybeError?.name === 'AbortError' || maybeError?.message === '请求已取消'
+}
+
 type Params = {
   selectedImage: string
   containerId: string | null
   containerStatus: string
+  containerStatusRef: React.MutableRefObject<string>
   setContainerId: (id: string | null) => void
   setContainerStatus: (status: string) => void
   setIsStartingContainer: (isStarting: boolean) => void
@@ -33,6 +39,7 @@ type Params = {
   setIsConnected: (connected: boolean) => void
   setConnectionError: (error: string | null) => void
   startAbortControllerRef: React.MutableRefObject<AbortController | null>
+  startOperationSeqRef: React.MutableRefObject<number>
   lastActionRef: React.MutableRefObject<'idle' | 'start' | 'stop'>
   isStoppingRef: React.MutableRefObject<boolean>
   checkContainerStatus: (id: string, shouldUpdateState?: boolean, signal?: AbortSignal) => Promise<ContainerStatusResponse | null>
@@ -44,6 +51,7 @@ export const useContainerActions = ({
   selectedImage,
   containerId,
   containerStatus,
+  containerStatusRef,
   setContainerId,
   setContainerStatus,
   setIsStartingContainer,
@@ -52,6 +60,7 @@ export const useContainerActions = ({
   setIsConnected,
   setConnectionError,
   startAbortControllerRef,
+  startOperationSeqRef,
   lastActionRef,
   isStoppingRef,
   checkContainerStatus,
@@ -63,18 +72,28 @@ export const useContainerActions = ({
       setConnectionError('容器ID为空')
       return
     }
-    if (containerStatus !== 'running') {
+    if (containerStatusRef.current !== 'running') {
       setConnectionError('容器未运行')
       return
     }
     setIsConnected(true)
     setConnectionError(null)
-  }, [containerStatus, setConnectionError, setIsConnected])
+  }, [containerStatusRef, setConnectionError, setIsConnected])
+
+  const isStartCancelRequested = useCallback(() => {
+    return lastActionRef.current === 'stop' || isStoppingRef.current
+  }, [isStoppingRef, lastActionRef])
+
+  const isCurrentStartOperation = useCallback((operationSeq: number, controller: AbortController) => {
+    return startOperationSeqRef.current === operationSeq && startAbortControllerRef.current === controller
+  }, [startAbortControllerRef, startOperationSeqRef])
 
   const startCourseContainer = useCallback(async (id: string, hostPort?: number) => {
     if (containerStatus === 'running' || containerStatus === 'starting') {
       return
     }
+    const operationSeq = startOperationSeqRef.current + 1
+    startOperationSeqRef.current = operationSeq
     lastActionRef.current = 'start'
     isStoppingRef.current = false
 
@@ -82,10 +101,11 @@ export const useContainerActions = ({
     setContainerStatus('starting')
     setError(null)
     setConnectionError(null)
+    let controller: AbortController | null = null
 
     try {
       startAbortControllerRef.current?.abort()
-      const controller = new AbortController()
+      controller = new AbortController()
       startAbortControllerRef.current = controller
       const requestBody: { image?: string; hostPort?: number } = {}
       if (selectedImage) {
@@ -100,8 +120,21 @@ export const useContainerActions = ({
         controller.signal
       )
 
+      if (!isCurrentStartOperation(operationSeq, controller)) {
+        await api.containers.remove(data.containerId).catch(() => undefined)
+        return
+      }
+
+      if (controller.signal.aborted || isStartCancelRequested()) {
+        await api.containers.remove(data.containerId).catch(() => undefined)
+        setContainerId(null)
+        setContainerStatus('stopped')
+        setConnectionError(null)
+        return
+      }
+
       setContainerId(data.containerId)
-      await waitForContainerReady({
+      const isReady = await waitForContainerReady({
         containerId: data.containerId,
         checkContainerStatus,
         setContainerStatus,
@@ -111,9 +144,19 @@ export const useContainerActions = ({
         isStoppingRef,
         signal: startAbortControllerRef.current?.signal,
       })
+      if (!isReady && isStartCancelRequested()) {
+        await api.containers.cleanup(id).catch(() => undefined)
+        setContainerId(null)
+        setContainerStatus('stopped')
+        setConnectionError(null)
+      }
     } catch (error) {
-      const maybeAbort = error as { name?: string }
-      if (maybeAbort?.name === 'AbortError') {
+      if (!controller || !isCurrentStartOperation(operationSeq, controller)) {
+        return
+      }
+      if (isRequestCanceledError(error) || isStartCancelRequested()) {
+        setContainerStatus('stopped')
+        setConnectionError(null)
         return
       }
       if (isStartInProgressError(error)) {
@@ -132,9 +175,11 @@ export const useContainerActions = ({
         setConnectionError('容器启动失败，无法建立连接')
       }
     } finally {
-      setIsStartingContainer(false)
+      if (controller && isCurrentStartOperation(operationSeq, controller)) {
+        setIsStartingContainer(false)
+      }
     }
-  }, [checkContainerStatus, connectToTerminal, containerStatus, isStoppingRef, lastActionRef, selectedImage, setConnectionError, setContainerId, setContainerStatus, setError, setIsStartingContainer, setShowPortConflictHandler, startAbortControllerRef, startStatusMonitoring])
+  }, [checkContainerStatus, connectToTerminal, containerStatus, isCurrentStartOperation, isStartCancelRequested, isStoppingRef, lastActionRef, selectedImage, setConnectionError, setContainerId, setContainerStatus, setError, setIsStartingContainer, setShowPortConflictHandler, startAbortControllerRef, startOperationSeqRef, startStatusMonitoring])
 
   const stopContainer = useCallback(async (id: string) => {
     try {
@@ -205,6 +250,44 @@ export const useContainerActions = ({
     }
   }, [containerId, setContainerStatus, setError, stopStatusMonitoring])
 
+  const cancelStartContainer = useCallback(async (id: string) => {
+    startOperationSeqRef.current += 1
+    lastActionRef.current = 'stop'
+    isStoppingRef.current = true
+    setIsStartingContainer(false)
+    setContainerStatus('stopped')
+    setIsConnected(false)
+    setConnectionError(null)
+    stopStatusMonitoring()
+
+    if (startAbortControllerRef.current) {
+      startAbortControllerRef.current.abort()
+      startAbortControllerRef.current = null
+    }
+
+    try {
+      if (containerId) {
+        try {
+          await api.containers.stop(containerId)
+        } catch (err) {
+          if (!isNotFoundError(err)) {
+            throw err
+          }
+        }
+      }
+      await api.containers.cleanup(id)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '取消拉取镜像失败')
+    } finally {
+      setContainerId(null)
+      setContainerStatus('stopped')
+      setIsConnected(false)
+      setIsStartingContainer(false)
+      setConnectionError(null)
+      isStoppingRef.current = false
+    }
+  }, [containerId, isStoppingRef, lastActionRef, setConnectionError, setContainerId, setContainerStatus, setError, setIsConnected, setIsStartingContainer, startAbortControllerRef, startOperationSeqRef, stopStatusMonitoring])
+
   const resumeContainer = useCallback(async (id: string) => {
     try {
       if (containerId) {
@@ -229,6 +312,7 @@ export const useContainerActions = ({
     startCourseContainer,
     stopContainer,
     pauseContainer,
+    cancelStartContainer,
     resumeContainer,
     connectToTerminal,
   }

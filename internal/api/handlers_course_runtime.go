@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -120,7 +121,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 	defer h.finishCourseStart(id)
 
 	requestBody := parseStartCourseRequest(c)
-	ctx := context.Background()
+	ctx := c.Request.Context()
 
 	course, exists := h.courseService.GetCourse(id)
 	if !exists {
@@ -316,6 +317,10 @@ func (h *Handler) startCourse(c *gin.Context) {
 
 	containerInfo, err := h.dockerController.CreateContainerWithProgress(ctx, id, config, progressCallback)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			h.logger.Info("[startCourse] 启动课程已取消，课程ID: %s", id)
+			return
+		}
 		h.logger.Error("[startCourse] 容器创建失败: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": fmt.Sprintf("容器创建失败: %v", err),

@@ -11,6 +11,8 @@ type Props = {
   imagePullProgress?: ImagePullProgressMessageOverlay | null
   showImagePullProgress?: boolean
   onImagePullComplete?: () => void
+  onCancelImagePull?: () => void
+  tips?: readonly string[]
 }
 
 type ExecutionResult = {
@@ -44,7 +46,7 @@ export interface CodeTerminalRef {
   setCode: (code: string) => void
 }
 
-const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus, onImagePullComplete }, ref) => {
+const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId, containerStatus, onImagePullComplete, onCancelImagePull, tips }, ref) => {
   const { isDark } = useTheme()
   const [error, setError] = useState<string | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
@@ -448,6 +450,8 @@ const CodeTerminal = forwardRef<CodeTerminalRef, Props>(({ courseId, containerId
           <ImagePullProgressOverlay
             show={showProgress}
             imagePullProgress={localImagePullProgress}
+            tips={tips}
+            onCancel={onCancelImagePull}
           />
         </div>
       )}

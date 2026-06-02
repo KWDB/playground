@@ -30,7 +30,7 @@ const defaultProps = {
   onStop: vi.fn(),
 }
 
-const renderTopBar = (props?: Partial<typeof defaultProps & { startTip?: string | null }>) => {
+const renderTopBar = (props?: Partial<typeof defaultProps>) => {
   return render(<LearnTopBar {...defaultProps} {...props} />)
 }
 
@@ -39,12 +39,5 @@ describe('LearnTopBar', () => {
     renderTopBar()
 
     expect(screen.queryByTestId('learn-start-tip')).not.toBeInTheDocument()
-  })
-
-  it('renders start tip when provided', () => {
-    renderTopBar({ startTip: '启动前可以切换镜像源。' })
-
-    expect(screen.getByTestId('learn-start-tip')).toHaveTextContent('小提示')
-    expect(screen.getByTestId('learn-start-tip')).toHaveTextContent('启动前可以切换镜像源。')
   })
 })

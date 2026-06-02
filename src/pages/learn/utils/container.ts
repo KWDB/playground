@@ -36,25 +36,42 @@ export const waitForContainerReady = async ({
   maxRetries = WAIT_RETRY_MAX,
   retryInterval = WAIT_RETRY_INTERVAL_MS,
 }: WaitForContainerReadyParams) => {
+  const isStartCanceled = () => {
+    return signal?.aborted || lastActionRef.current === 'stop' || isStoppingRef.current
+  }
+
   for (let i = 0; i < maxRetries; i++) {
+    if (isStartCanceled()) {
+      return false
+    }
+
     if (i > 0) {
       await new Promise(resolve => setTimeout(resolve, retryInterval))
+    }
+
+    if (isStartCanceled()) {
+      return false
     }
 
     const statusData = await checkContainerStatus(containerId, true, signal)
 
     if (statusData && statusData.status === 'running') {
       await new Promise(resolve => setTimeout(resolve, 1000))
+
+      if (isStartCanceled()) {
+        return false
+      }
+
       const finalCheck = await checkContainerStatus(containerId, false, signal)
 
       if (finalCheck && finalCheck.status === 'running') {
-        if (lastActionRef.current === 'stop' || isStoppingRef.current) {
+        if (isStartCanceled()) {
           return false
         }
         setContainerStatus('running')
         startStatusMonitoring(containerId)
         setTimeout(() => {
-          if (lastActionRef.current !== 'stop' && !isStoppingRef.current) {
+          if (!isStartCanceled()) {
             connectToTerminal(containerId)
           }
         }, 500)
