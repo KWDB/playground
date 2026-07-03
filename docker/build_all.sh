@@ -5,7 +5,7 @@ set -e
 
 # 全局配置
 NAMESPACE="kwdb"
-IMAGE_TAG="3.2.0"
+IMAGE_TAG="3.2.1"
 ARCHITECTURES=("amd64" "arm64")
 REGISTRIES=("docker.io" "ghcr.io" "registry.cn-hangzhou.aliyuncs.com")
 BUILDER_NAME="multiarch-builder"
