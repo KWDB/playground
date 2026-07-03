@@ -1,4 +1,4 @@
-FROM kwdb/kwdb:3.2.0
+FROM kwdb/kwdb:3.2.1
 
 # 安装 Python 和 PostgreSQL 驱动，并清理缓存
 RUN apt-get update && apt-get install -y --no-install-recommends \
