@@ -26,7 +26,8 @@ type Handler struct {
 	// courseService 课程服务实例，用于处理课程相关操作
 	courseService *course.Service
 	// dockerController Docker控制器实例，用于容器管理
-	dockerController docker.Controller
+	dockerController   docker.Controller
+	dockerControllerMu sync.Mutex
 	// terminalManager WebSocket终端管理器实例，用于终端会话管理
 	terminalManager *ws.TerminalManager
 	codeManager     *ws.CodeManager

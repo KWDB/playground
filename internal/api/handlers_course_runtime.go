@@ -134,6 +134,15 @@ func (h *Handler) startCourse(c *gin.Context) {
 
 	h.logger.Debug("[startCourse] 找到课程: %s，标题: %s", id, course.Title)
 
+	dockerController, err := h.ensureDockerController()
+	if err != nil {
+		h.logger.Error("[startCourse] Docker控制器不可用: %v", err)
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Docker服务暂不可用",
+		})
+		return
+	}
+
 	existingContainer, err := h.findCourseContainerByState(ctx, id, docker.StateRunning, docker.StateStarting)
 	if err == nil && existingContainer != nil {
 		h.logger.Info("[startCourse] 课程 %s 已存在可复用容器: %s (%s)", id, existingContainer.ID, existingContainer.State)
@@ -164,14 +173,6 @@ func (h *Handler) startCourse(c *gin.Context) {
 	}
 	if requestBody.HostPort != nil {
 		h.logger.Debug("[startCourse] 使用请求中指定的主机端口: %d", hostPort)
-	}
-
-	if h.dockerController == nil {
-		h.logger.Error("[startCourse] 错误: Docker控制器未初始化")
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"error": "Docker服务暂不可用",
-		})
-		return
 	}
 
 	workingDir := "/root"
@@ -315,7 +316,7 @@ func (h *Handler) startCourse(c *gin.Context) {
 
 	h.logger.Debug("[startCourse] 开始创建容器...")
 
-	containerInfo, err := h.dockerController.CreateContainerWithProgress(ctx, id, config, progressCallback)
+	containerInfo, err := dockerController.CreateContainerWithProgress(ctx, id, config, progressCallback)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			h.logger.Info("[startCourse] 启动课程已取消，课程ID: %s", id)
@@ -332,9 +333,9 @@ func (h *Handler) startCourse(c *gin.Context) {
 
 	if len(filesToInject) > 0 {
 		h.logger.Debug("[startCourse] Docker模式注入 %d 个文件到容器 %s", len(filesToInject), containerInfo.ID)
-		if err := h.dockerController.CopyFilesToContainer(ctx, containerInfo.ID, filesToInject); err != nil {
+		if err := dockerController.CopyFilesToContainer(ctx, containerInfo.ID, filesToInject); err != nil {
 			h.logger.Error("[startCourse] 文件注入失败: %v，开始清理容器", err)
-			if cleanupErr := h.dockerController.RemoveContainer(ctx, containerInfo.ID); cleanupErr != nil {
+			if cleanupErr := dockerController.RemoveContainer(ctx, containerInfo.ID); cleanupErr != nil {
 				h.logger.Warn("[startCourse] 清理容器失败: %v", cleanupErr)
 			}
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -346,10 +347,10 @@ func (h *Handler) startCourse(c *gin.Context) {
 	}
 
 	h.logger.Debug("[startCourse] 开始启动容器: %s", containerInfo.ID)
-	err = h.dockerController.StartContainer(ctx, containerInfo.ID)
+	err = dockerController.StartContainer(ctx, containerInfo.ID)
 	if err != nil {
 		h.logger.Error("[startCourse] 容器启动失败: %v，开始清理容器", err)
-		if cleanupErr := h.dockerController.RemoveContainer(ctx, containerInfo.ID); cleanupErr != nil {
+		if cleanupErr := dockerController.RemoveContainer(ctx, containerInfo.ID); cleanupErr != nil {
 			h.logger.Warn("[startCourse] 清理容器失败: %v", cleanupErr)
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{

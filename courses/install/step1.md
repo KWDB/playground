@@ -18,12 +18,6 @@
 
     现在，我们官网下载最新的 KWDB 安装包。
 
-    `wget https://kwdb.tech/download/KWDB-${KW_VERSION}-$(arch)`{{exec}}
+    `wget -O KWDB-${KW_VERSION}.run https://kwdb.tech/download/KWDB-${KW_VERSION}-$(arch)`{{exec}}
 
-4.  **解压安装包**
-
-    下载完成后，解压刚刚下载的文件。
-
-    `unzip KWDB-${KW_VERSION}-$(arch)`{{exec}}
-
-至此，准备工作已完成。在下一步中，我们将开始修改配置文件，为正式安装做准备。
+至此，准备工作已完成。在下一步中，我们将开始正式安装。
