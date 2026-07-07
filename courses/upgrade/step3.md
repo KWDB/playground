@@ -1,26 +1,24 @@
-## 步骤 3：执行 3.2.0 本地升级
+## 步骤 3：执行 3.2.1 本地升级
 
 完成停机与备份后，就可以使用新版本安装包执行本地升级。
 
-1. **下载并解压 3.2.0 安装包**
+1. **下载并解压 3.2.1 安装包**
 
    `cd ~`{{exec}}
 
-   `wget https://kwdb.tech/download/KWDB-${NEW_KW_VERSION}-$(arch)`{{exec}}
-
-   `unzip KWDB-${NEW_KW_VERSION}-$(arch)`{{exec}}
+   `wget -O KWDB-${NEW_KW_VERSION}.run https://kwdb.tech/download/KWDB-${NEW_KW_VERSION}-$(arch)`{{exec}}
 
 2.  **赋予执行权限**
 
-    为了能够顺利执行部署脚本，我们需要为 `KWDB-*.run` 文件添加可执行权限。
+    为了能够顺利执行部署脚本，我们需要为 `KWDB-${NEW_KW_VERSION}.run` 文件添加可执行权限。
 
-    `chmod +x KWDB-*`{{exec}}
+    `chmod +x KWDB-${NEW_KW_VERSION}.run`{{exec}}
 
 3.  **启动向导程序**
 
     执行以下命令，以命令行模式启动向导程序：
 
-    `./KWDB-*.run -c`{{exec}}
+    `./KWDB-${NEW_KW_VERSION}.run -c`{{exec}}
 
 4.  **进入安装向导**
 

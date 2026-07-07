@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -268,6 +269,102 @@ backend:
 	content, ok := files["/kaiwudb/bin/rdb.tar.gz"]
 	if !ok || string(content) != "mock-rdb-data" {
 		t.Errorf("Expected rdb.tar.gz to be injected with content 'mock-rdb-data', got %q", string(content))
+	}
+}
+
+func TestStartCourse_LazilyInitializesDockerController(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockDocker := &mockDockerController{}
+	calls := 0
+	oldFactory := newDockerControllerWithTerminalManager
+	newDockerControllerWithTerminalManager = func(terminalManager docker.TerminalManagerInterface) (docker.Controller, error) {
+		calls++
+		return mockDocker, nil
+	}
+	defer func() {
+		newDockerControllerWithTerminalManager = oldFactory
+	}()
+
+	memFS := fstest.MapFS{
+		"courses/mock-course/index.yaml": {Data: []byte(`
+title: Mock Course
+backend:
+  imageid: kwdb/kwdb
+`)},
+	}
+	courseSvc := course.NewServiceFromFS(memFS, "courses")
+	courseSvc.LoadCourses()
+
+	handler := &Handler{
+		courseService:         courseSvc,
+		logger:                logger.NewLogger(logger.ERROR),
+		cfg:                   &config.Config{},
+		courseStartInProgress: make(map[string]bool),
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest("POST", "/api/courses/mock-course/start", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	c.Request = req
+	c.Params = gin.Params{{Key: "id", Value: "mock-course"}}
+
+	handler.startCourse(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+	if calls != 1 {
+		t.Fatalf("expected Docker controller factory to be called once, got %d", calls)
+	}
+	if handler.dockerController != mockDocker {
+		t.Fatal("expected lazily initialized Docker controller to be cached on handler")
+	}
+	if !mockDocker.startCalled {
+		t.Fatal("expected course start to continue after lazy Docker initialization")
+	}
+}
+
+func TestStartCourse_LazyDockerInitFailure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	oldFactory := newDockerControllerWithTerminalManager
+	newDockerControllerWithTerminalManager = func(terminalManager docker.TerminalManagerInterface) (docker.Controller, error) {
+		return nil, errors.New("docker unavailable")
+	}
+	defer func() {
+		newDockerControllerWithTerminalManager = oldFactory
+	}()
+
+	memFS := fstest.MapFS{
+		"courses/mock-course/index.yaml": {Data: []byte(`
+title: Mock Course
+backend:
+  imageid: kwdb/kwdb
+`)},
+	}
+	courseSvc := course.NewServiceFromFS(memFS, "courses")
+	courseSvc.LoadCourses()
+
+	handler := &Handler{
+		courseService:         courseSvc,
+		logger:                logger.NewLogger(logger.ERROR),
+		cfg:                   &config.Config{},
+		courseStartInProgress: make(map[string]bool),
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest("POST", "/api/courses/mock-course/start", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	c.Request = req
+	c.Params = gin.Params{{Key: "id", Value: "mock-course"}}
+
+	handler.startCourse(c)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("Expected status 503, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
 
