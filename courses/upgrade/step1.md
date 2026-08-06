@@ -10,7 +10,17 @@
 
 2. **下载并解压 3.2.0 安装包**
 
-   `wget -O KWDB-${OLD_KW_VERSION}.run https://kwdb.tech/download/KWDB-${OLD_KW_VERSION}-$(arch)`{{exec}}
+   获取系统架构（`x86_64`、`aarch64` 均为官网支持的架构名）：
+
+   `ARCH=$(uname -m)`{{exec}}
+
+   拼接下载链接：
+
+   `DOWNLOAD_URL="https://www.kaiwudb.com/api/download/direct-download/KWDB/v${OLD_KW_VERSION}/Linux/${ARCH}"`{{exec}}
+
+   下载安装包：
+
+   `wget -O KWDB-${OLD_KW_VERSION}.run "${DOWNLOAD_URL}"`{{exec}}
 
 3.  **赋予执行权限**
 
