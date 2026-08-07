@@ -10,7 +10,7 @@
 
 2. **下载并解压 3.2.0 安装包**
 
-   `wget -O KWDB-${OLD_KW_VERSION}.run https://kwdb.tech/download/KWDB-${OLD_KW_VERSION}-$(arch)`{{exec}}
+   `wget -O KWDB-${OLD_KW_VERSION}.run https://www.kaiwudb.com/api/download/direct-download/KWDB/v${OLD_KW_VERSION}/Linux/$(arch)`{{exec}}
 
 3.  **赋予执行权限**
 

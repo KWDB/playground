@@ -6,7 +6,7 @@
 
    `cd ~`{{exec}}
 
-   `wget -O KWDB-${NEW_KW_VERSION}.run https://kwdb.tech/download/KWDB-${NEW_KW_VERSION}-$(arch)`{{exec}}
+   `wget -O KWDB-${NEW_KW_VERSION}.run https://www.kaiwudb.com/api/download/direct-download/KWDB/v${NEW_KW_VERSION}/Linux/$(arch)`{{exec}}
 
 2.  **赋予执行权限**
 

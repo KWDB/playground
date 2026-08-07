@@ -18,6 +18,6 @@
 
     现在，我们官网下载最新的 KWDB 安装包。
 
-    `wget -O KWDB-${KW_VERSION}.run https://kwdb.tech/download/KWDB-${KW_VERSION}-$(arch)`{{exec}}
+     `wget -O KWDB-${KW_VERSION}.run https://www.kaiwudb.com/api/download/direct-download/KWDB/v${KW_VERSION}/Linux/$(arch)`{{exec}}
 
 至此，准备工作已完成。在下一步中，我们将开始正式安装。

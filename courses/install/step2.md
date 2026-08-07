@@ -6,15 +6,15 @@
 
 1.  **赋予执行权限**
 
-    为了能够顺利执行部署脚本，我们需要为 `KWDB-${OLD_KW_VERSION}.run` 文件添加可执行权限。
+    为了能够顺利执行部署脚本，我们需要为 `KWDB-${KW_VERSION}.run` 文件添加可执行权限。
 
-    `chmod +x KWDB-${OLD_KW_VERSION}.run`{{exec}}
+    `chmod +x KWDB-${KW_VERSION}.run`{{exec}}
 
 2.  **启动向导程序**
 
     执行以下命令，以命令行模式启动向导程序：
 
-    `./KWDB-${OLD_KW_VERSION}.run -c`{{exec}}
+    `./KWDB-${KW_VERSION}.run -c`{{exec}}
 
 3.  **进入安装向导**
 
