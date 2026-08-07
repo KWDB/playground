@@ -18,16 +18,6 @@
 
     现在，我们官网下载最新的 KWDB 安装包。
 
-    首先，获取系统架构（`x86_64`、`aarch64` 均为官网支持的架构名）：
-
-    `ARCH=$(uname -m)`{{exec}}
-
-    然后，拼接下载链接：
-
-    `DOWNLOAD_URL="https://www.kaiwudb.com/api/download/direct-download/KWDB/v${KW_VERSION}/Linux/${ARCH}"`{{exec}}
-
-    最后，下载安装包：
-
-    `wget -O KWDB-${KW_VERSION}.run "${DOWNLOAD_URL}"`{{exec}}
+     `wget -O KWDB-${KW_VERSION}.run https://www.kaiwudb.com/api/download/direct-download/KWDB/v${KW_VERSION}/Linux/$(arch)`{{exec}}
 
 至此，准备工作已完成。在下一步中，我们将开始正式安装。

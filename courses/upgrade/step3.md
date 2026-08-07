@@ -6,17 +6,7 @@
 
    `cd ~`{{exec}}
 
-   获取系统架构（`x86_64`、`aarch64` 均为官网支持的架构名）：
-
-   `ARCH=$(uname -m)`{{exec}}
-
-   拼接下载链接：
-
-   `DOWNLOAD_URL="https://www.kaiwudb.com/api/download/direct-download/KWDB/v${NEW_KW_VERSION}/Linux/${ARCH}"`{{exec}}
-
-   下载安装包：
-
-   `wget -O KWDB-${NEW_KW_VERSION}.run "${DOWNLOAD_URL}"`{{exec}}
+   `wget -O KWDB-${NEW_KW_VERSION}.run https://www.kaiwudb.com/api/download/direct-download/KWDB/v${NEW_KW_VERSION}/Linux/$(arch)`{{exec}}
 
 2.  **赋予执行权限**
 
