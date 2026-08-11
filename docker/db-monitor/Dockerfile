@@ -1,4 +1,4 @@
-FROM kwdb/kwdb:3.2.1
+FROM kwdb/kwdb:3.2.2
 
 ARG PROM_VERSION=2.53.0
 ARG GRAFANA_VERSION=11.1.0

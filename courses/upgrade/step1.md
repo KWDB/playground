@@ -1,6 +1,6 @@
-## 步骤 1：安装 3.2.0 单机实例
+## 步骤 1：安装 3.2.1 单机实例
 
-升级课程需要一个已经运行的旧版本节点，因此我们先在当前环境中安装并启动 `3.2.0`。
+升级课程需要一个已经运行的旧版本节点，因此我们先在当前环境中安装并启动 `3.2.1`。
 
 1. **更新软件包并安装依赖**
 
@@ -8,7 +8,7 @@
 
    `apt install -y squashfs-tools libgflags2.2 libgomp1 tzdata`{{exec}}
 
-2. **下载并解压 3.2.0 安装包**
+2. **下载并解压 3.2.1 安装包**
 
    `wget -O KWDB-${OLD_KW_VERSION}.run https://www.kaiwudb.com/api/download/direct-download/KWDB/v${OLD_KW_VERSION}/Linux/$(arch)`{{exec}}
 

@@ -19,7 +19,7 @@ backend:
   cmd: ["/sbin/init"]
   privileged: true
   env:
-    - "KW_VERSION=3.2.1"
+    - "KW_VERSION=3.2.2"
 estimatedMinutes: 10
 difficulty: intermediate
 tags:
