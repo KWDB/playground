@@ -69,7 +69,7 @@ importers:
         specifier: ^1.2.10
         version: 1.2.10
       react:
-        specifier: ^19.2.8
+        specifier: ^19.2.7
         version: 19.2.8
       react-dom:
         specifier: ^19.2.7
@@ -136,7 +136,7 @@ importers:
         specifier: ^26.1.2
         version: 26.1.2
       '@types/react':
-        specifier: ^19.2.18
+        specifier: ^19.2.17
         version: 19.2.18
       '@types/react-dom':
         specifier: ^19.2.0
