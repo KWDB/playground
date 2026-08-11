@@ -4,8 +4,8 @@
 
 每次升级前先确认以下信息：
 
-1. 新版本号，例如 `3.2.0`
-2. 旧版本号，例如 `3.1.0`
+1. 新版本号，例如 `3.2.2`
+2. 旧版本号，例如 `3.2.1`
 3. 新版本官方安装包命名规则
 4. 新版本支持的 Ubuntu 基础环境
 5. 运行依赖包在目标 Ubuntu 版本中的包名是否变化
@@ -25,7 +25,7 @@
 示例：
 
 ```dockerfile
-FROM kwdb/kwdb:3.2.0
+FROM kwdb/kwdb:3.2.2
 ```
 
 如果新版本升级到 `3.3.0`，则改为：
@@ -38,8 +38,8 @@ FROM kwdb/kwdb:3.3.0
 
 当前版本引入了：
 
-- `docker/ubuntu-24.04`：用于新版本安装课程
-- `docker/ubuntu-22.04`：用于旧版本到新版本升级课程
+- `docker/ubuntu-24.04`：用于新版本安装课程和 3.2.1→3.2.2 升级课程
+- `docker/ubuntu-22.04`：保留的兼容/历史环境，不再用于当前升级课程
 
 后续升级时，如果 KWDB 安装包支持的 Ubuntu 版本变化，需要同步：
 
@@ -65,7 +65,7 @@ FROM kwdb/kwdb:3.3.0
 ```bash
 ./docker/build_all.sh --build-only ubuntu-24.04
 ./docker/build_all.sh --build-only ubuntu-22.04
-./docker/build_all.sh --build-only --all -t 3.2.0
+./docker/build_all.sh --build-only --all -t 3.2.2
 ```
 
 Ubuntu 系列最终镜像名应为：
@@ -105,7 +105,7 @@ kwdb/ubuntu-22.04:22.04
 - `backend.env.KW_VERSION`
 - 步骤标题和步骤数量
 
-当前 3.2.0 示例：
+当前 3.2.2 示例：
 
 ```yaml
 backend:
@@ -113,7 +113,7 @@ backend:
   cmd: ["/sbin/init"]
   privileged: true
   env:
-    - "KW_VERSION=3.2.0"
+    - "KW_VERSION=3.2.2"
 ```
 
 步骤文档需要重点检查：
@@ -144,16 +144,16 @@ courses/upgrade
 - `NEW_KW_VERSION`
 - 步骤标题
 
-当前 3.1.0 到 3.2.0 示例：
+当前 3.2.1 到 3.2.2 示例：
 
 ```yaml
 backend:
-  imageid: kwdb/ubuntu:22.04
+  imageid: kwdb/ubuntu:24.04
   cmd: ["/sbin/init"]
   privileged: true
   env:
-    - "OLD_KW_VERSION=3.1.0"
-    - "NEW_KW_VERSION=3.2.0"
+    - "OLD_KW_VERSION=3.2.1"
+    - "NEW_KW_VERSION=3.2.2"
 ```
 
 步骤文档需要重点检查：
@@ -177,9 +177,9 @@ backend:
 当前示例：
 
 ```yaml
-imageid: kwdb/kwdb-monitor:3.2.0
-imageid: kwdb/kwdb-java:3.2.0
-imageid: kwdb/kwdb-python:3.2.0
+imageid: kwdb/kwdb-monitor:3.2.2
+imageid: kwdb/kwdb-java:3.2.2
+imageid: kwdb/kwdb-python:3.2.2
 ```
 
 ## 依赖包与安装包规则
@@ -233,13 +233,13 @@ go test ./...
 2. 构建 KWDB 派生镜像
 
 ```bash
-./docker/build_all.sh --build-only kwdb-monitor kwdb-java kwdb-python -t 3.2.0
+./docker/build_all.sh --build-only kwdb-monitor kwdb-java kwdb-python -t 3.2.2
 ```
 
 3. 检查远端镜像是否齐全
 
 ```bash
-./docker/build_all.sh -c --all -t 3.2.0
+./docker/build_all.sh -c --all -t 3.2.2
 ```
 
 4. 验证安装课程
@@ -270,7 +270,9 @@ go test ./...
 - 更新了升级课程目录名，但没有确认课程加载器是否还能发现该课程
 - `docker/README.md` 与脚本默认值不一致
 
-## 本次 3.2.0 升级的关键结论
+## 3.2.0 升级的关键结论（历史记录）
+
+> 以下记录的是 3.2.0 升级当时的真实历史，升级到 3.2.2 时无需改动。
 
 - KWDB 派生镜像统一升级为 `kwdb/kwdb:3.2.0`
 - 默认构建版本更新为 `3.2.0`

@@ -5,7 +5,7 @@ set -e
 
 # 全局配置
 NAMESPACE="kwdb"
-IMAGE_TAG="3.2.1"
+IMAGE_TAG="3.2.2"
 ARCHITECTURES=("amd64" "arm64")
 REGISTRIES=("docker.io" "ghcr.io" "registry.cn-hangzhou.aliyuncs.com")
 BUILDER_NAME="multiarch-builder"
@@ -62,7 +62,7 @@ build_all.sh - KWDB Playground Docker 镜像全量构建与管理工具
   -c, --check              仅检查目标镜像在远端仓库中是否存在，不执行任何构建或推送
       --build-only         仅执行构建，并尝试将产物加载到本地 Docker daemon，不推送到远端
       --push-only          仅推送本地已存在的镜像到远端仓库，跳过构建过程
-  -t, --tag <string>       指定构建/推送时使用的镜像标签 (默认: 3.2.0)
+  -t, --tag <string>       指定构建/推送时使用的镜像标签 (默认: 3.2.2)
   -n, --namespace <string> 指定 Docker 命名空间 (默认: kwdb)
 
 支持的镜像 (SUPPORTED IMAGES):
@@ -92,7 +92,7 @@ build_all.sh - KWDB Playground Docker 镜像全量构建与管理工具
   $ ./build_all.sh --all
 
   # 高阶用法：指定自定义标签并仅在本地构建所有镜像
-  $ ./build_all.sh --build-only --all -t 3.2.0
+  $ ./build_all.sh --build-only --all -t 3.2.2
 
   # 检查远端：检查默认版本的所有镜像是否已发布
   $ ./build_all.sh -c --all

@@ -29,9 +29,9 @@ chmod +x docker/build_all.sh
 
 | 镜像名称 | 对应 Dockerfile 所在目录 | 默认标签 (Tag) | 说明 |
 | :--- | :--- | :--- | :--- |
-| `kwdb-monitor` | `docker/db-monitor` | `3.2.0` | 包含 Prometheus 和 Grafana 及相关大屏面板配置 |
-| `kwdb-java` | `docker/java-kwdb` | `3.2.0` | 基于 KWDB 并预装 Java 环境与 JDBC 驱动 |
-| `kwdb-python` | `docker/python-kwdb` | `3.2.0` | 基于 KWDB 并预装 Python 3 与 psycopg2 驱动 |
+| `kwdb-monitor` | `docker/db-monitor` | `3.2.2` | 包含 Prometheus 和 Grafana 及相关大屏面板配置 |
+| `kwdb-java` | `docker/java-kwdb` | `3.2.2` | 基于 KWDB 并预装 Java 环境与 JDBC 驱动 |
+| `kwdb-python` | `docker/python-kwdb` | `3.2.2` | 基于 KWDB 并预装 Python 3 与 psycopg2 驱动 |
 | `ubuntu` / `ubuntu-24.04` | `docker/ubuntu-24.04` | `24.04` (固定) | 用于 Systemd 环境测试的底层镜像，使用阿里云国内源 |
 | `ubuntu-22.04` | `docker/ubuntu-22.04` | `22.04` (固定) | 与 24.04 镜像功能一致的 Ubuntu 22.04 底层镜像，使用阿里云国内源 |
 
@@ -56,7 +56,7 @@ chmod +x docker/build_all.sh
 ### 3. 指定标签 (Tag) 进行构建
 为新版本打 Tag 发布时使用（注意：Ubuntu 系列镜像仍会保持对应 Ubuntu 版本标签）：
 ```bash
-./docker/build_all.sh -t 3.2.0 --all
+./docker/build_all.sh -t 3.2.2 --all
 ```
 
 ### 4. 检查远端镜像是否已存在
@@ -66,7 +66,7 @@ chmod +x docker/build_all.sh
 ./docker/build_all.sh -c --all
 
 # 检查特定版本的 Python 镜像
-./docker/build_all.sh -c -t 3.2.0 kwdb-python
+./docker/build_all.sh -c -t 3.2.2 kwdb-python
 ```
 *说明：此模式不会执行任何真实的构建或推送动作。*
 
@@ -92,7 +92,7 @@ chmod +x docker/build_all.sh
 ```bash
 # 全局配置
 NAMESPACE="kwdb"                                      # 默认命名空间
-IMAGE_TAG="3.2.0"                                     # 默认镜像标签
+IMAGE_TAG="3.2.2"                                     # 默认镜像标签
 ARCHITECTURES=("amd64" "arm64")                       # 默认多架构目标
 REGISTRIES=("docker.io" "ghcr.io" "registry.cn-hangzhou.aliyuncs.com") # 默认 Registry
 BUILDER_NAME="multiarch-builder"                      # Buildx 实例名

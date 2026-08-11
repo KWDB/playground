@@ -1,13 +1,5 @@
 首先，我们需要使用 Python 的 `psycopg2` 库连接到 KWDB 数据库。
 
-## 安装依赖
-
-在运行代码前，确保已安装 `psycopg2-binary`：
-
-```bash
-pip install psycopg2-binary -q
-```
-
 ## 连接 KWDB
 
 使用以下 Python 代码连接到 KWDB：

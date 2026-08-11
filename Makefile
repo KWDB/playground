@@ -263,9 +263,9 @@ docker-build-java-kwdb:
 		$(if $(DOCKER_PLATFORM),--platform $(DOCKER_PLATFORM),) \
 		-f docker/java-kwdb/Dockerfile \
 		-t kwdb/kwdb-java:latest \
-		-t kwdb/kwdb-java:3.1.0 \
+		-t kwdb/kwdb-java:3.2.2 \
 		docker/java-kwdb
-	@echo "✅ Docker image built: kwdb/kwdb-java:3.1.0"
+	@echo "✅ Docker image built: kwdb/kwdb-java:3.2.2"
 
 docker-up:
 	@echo "🐳 Starting Docker deployment..."
