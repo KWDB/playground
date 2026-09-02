@@ -7,7 +7,9 @@ set -e
 NAMESPACE="kwdb"
 IMAGE_TAG="3.2.2"
 ARCHITECTURES=("amd64" "arm64")
-REGISTRIES=("docker.io" "ghcr.io" "registry.cn-hangzhou.aliyuncs.com")
+ALIYUN_REGISTRY="crpi-9ix5pwqh4t79xf4r.cn-shanghai.personal.cr.aliyuncs.com"
+ALIYUN_NAMESPACE="kaiwudb"
+REGISTRIES=("docker.io" "ghcr.io" "$ALIYUN_REGISTRY")
 BUILDER_NAME="multiarch-builder"
 
 # 支持构建的镜像列表及其对应的目录
@@ -44,6 +46,18 @@ get_image_tag() {
     esac
 }
 
+# 拼接完整镜像名；阿里云个人版实例使用独立的命名空间 (ALIYUN_NAMESPACE)
+get_full_image_name() {
+    local REGISTRY=$1
+    if [ "$REGISTRY" == "docker.io" ]; then
+        echo "${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
+    elif [ "$REGISTRY" == "$ALIYUN_REGISTRY" ]; then
+        echo "${REGISTRY}/${ALIYUN_NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
+    else
+        echo "${REGISTRY}/${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
+    fi
+}
+
 # 打印帮助信息
 show_help() {
     cat << 'EOF'
@@ -78,11 +92,12 @@ build_all.sh - KWDB Playground Docker 镜像全量构建与管理工具
   推送相关操作会优先使用本地环境变量进行登录认证：
     - DOCKERHUB_TOKEN       用于 docker.io
     - GHCR_TOKEN            用于 ghcr.io
-    - ALIYUN_ACR_PASSWORD   用于 registry.cn-hangzhou.aliyuncs.com
+    - ALIYUN_ACR_PASSWORD   用于阿里云个人版实例 ($ALIYUN_REGISTRY)
   登录用户名：
     - Docker Hub 默认使用 -n/--namespace，也可设置 DOCKERHUB_USERNAME
     - GHCR 默认使用 GHCR_USERNAME、GITHUB_ACTOR 或 -n/--namespace
     - 阿里云 ACR 需设置 ALIYUN_ACR_USERNAME 或 ACR_USERNAME
+    - 阿里云个人版实例的推送命名空间固定为 kaiwudb (ALIYUN_NAMESPACE)
 
 示例 (EXAMPLES):
   # 基础用法：构建并推送特定镜像
@@ -150,7 +165,7 @@ resolve_login_username() {
         "ghcr.io")
             first_non_empty_env "GHCR_USERNAME" "GITHUB_ACTOR" || echo "$NAMESPACE"
             ;;
-        "registry.cn-hangzhou.aliyuncs.com")
+        "$ALIYUN_REGISTRY")
             if ! first_non_empty_env "ALIYUN_ACR_USERNAME" "ACR_USERNAME"; then
                 echo "错误：登录 ${REGISTRY} 需要设置 ALIYUN_ACR_USERNAME 或 ACR_USERNAME。" >&2
                 return 1
@@ -204,7 +219,7 @@ check_login() {
                 USERNAME=$(resolve_login_username "$REGISTRY") || exit 1
                 login_registry_with_env "$REGISTRY" "GHCR_TOKEN" "$USERNAME"
                 ;;
-            "registry.cn-hangzhou.aliyuncs.com")
+            "$ALIYUN_REGISTRY")
                 USERNAME=$(resolve_login_username "$REGISTRY") || exit 1
                 login_registry_with_env "$REGISTRY" "ALIYUN_ACR_PASSWORD" "$USERNAME"
                 ;;
@@ -328,11 +343,7 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
         echo "=================================================="
         echo "🔍 检查镜像: ${REPO_NAME}"
         for REGISTRY in "${REGISTRIES[@]}"; do
-            if [ "$REGISTRY" == "docker.io" ]; then
-                FULL_IMAGE_NAME="${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
-            else
-                FULL_IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
-            fi
+            FULL_IMAGE_NAME=$(get_full_image_name "$REGISTRY")
             CHECK_TOTAL=$((CHECK_TOTAL + 1))
             if ! check_remote_image "$FULL_IMAGE_NAME"; then
                 CHECK_MISSING=$((CHECK_MISSING + 1))
@@ -364,11 +375,7 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
     echo "目标镜像:"
 
     for REGISTRY in "${REGISTRIES[@]}"; do
-        if [ "$REGISTRY" == "docker.io" ]; then
-            FULL_IMAGE_NAME="${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
-        else
-            FULL_IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
-        fi
+        FULL_IMAGE_NAME=$(get_full_image_name "$REGISTRY")
         TAG_ARGS+=("-t" "${FULL_IMAGE_NAME}")
         echo " - ${FULL_IMAGE_NAME}"
     done
@@ -383,10 +390,8 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
         fi
 
         for REGISTRY in "${REGISTRIES[@]}"; do
-            if [ "$REGISTRY" == "docker.io" ]; then
-                FULL_IMAGE_NAME="${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
-            else
-                FULL_IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${IMAGE_REPO}:${CURRENT_TAG}"
+            FULL_IMAGE_NAME=$(get_full_image_name "$REGISTRY")
+            if [ "$REGISTRY" != "docker.io" ]; then
                 echo "正在打标签: $FULL_IMAGE_NAME"
                 docker tag "$LOCAL_IMAGE" "$FULL_IMAGE_NAME"
             fi

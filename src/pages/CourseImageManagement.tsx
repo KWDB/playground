@@ -88,9 +88,22 @@ function buildImageWithSource(originImageName: string, sourcePrefix: string) {
   const hasRegistryPrefix =
     imageName.includes('/') && (firstSegment.includes('.') || firstSegment.includes(':') || firstSegment === 'localhost')
   const normalizedPrefix = sourcePrefix.endsWith('/') ? sourcePrefix : `${sourcePrefix}/`
+  // 前缀包含命名空间（如 host/namespace/）时，仅保留镜像的仓库名部分，
+  // 由前缀中的命名空间替换镜像自带的命名空间（如阿里云个人版实例 kaiwudb）
+  const prefixHasNamespace = normalizedPrefix.replace(/\/+$/, '').includes('/')
   if (hasRegistryPrefix) {
-    const [, ...rest] = imageName.split('/')
+    const segments = imageName.split('/')
+    if (prefixHasNamespace) {
+      return `${normalizedPrefix}${segments[segments.length - 1]}`
+    }
+    const [, ...rest] = segments
     return `${normalizedPrefix}${rest.join('/')}`
+  }
+  if (prefixHasNamespace) {
+    const lastSlashIndex = imageName.lastIndexOf('/')
+    if (lastSlashIndex >= 0) {
+      return `${normalizedPrefix}${imageName.substring(lastSlashIndex + 1)}`
+    }
   }
   return `${normalizedPrefix}${imageName}`
 }

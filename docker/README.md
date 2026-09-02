@@ -94,7 +94,9 @@ chmod +x docker/build_all.sh
 NAMESPACE="kwdb"                                      # 默认命名空间
 IMAGE_TAG="3.2.2"                                     # 默认镜像标签
 ARCHITECTURES=("amd64" "arm64")                       # 默认多架构目标
-REGISTRIES=("docker.io" "ghcr.io" "registry.cn-hangzhou.aliyuncs.com") # 默认 Registry
+ALIYUN_REGISTRY="crpi-9ix5pwqh4t79xf4r.cn-shanghai.personal.cr.aliyuncs.com" # 阿里云个人版实例
+ALIYUN_NAMESPACE="kaiwudb"                            # 阿里云实例命名空间
+REGISTRIES=("docker.io" "ghcr.io" "$ALIYUN_REGISTRY") # 默认 Registry
 BUILDER_NAME="multiarch-builder"                      # Buildx 实例名
 ```
 

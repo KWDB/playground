@@ -59,13 +59,17 @@ export function ImageSelector({ defaultImage, onImageSelect, isOpen, onClose }: 
     const selectedSource = sources.find(s => s.id === selectedSourceId);
     if (!selectedSource) return defaultImage;
     if (selectedSourceId === 'custom') return customImage || defaultImage;
+    const prefix = selectedSource.prefix;
     const hasRegistryPrefix = /^[a-zA-Z0-9.-]+[.:][0-9]+\//.test(defaultImage) || /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\//.test(defaultImage);
-    if (hasRegistryPrefix) {
+    // 前缀包含命名空间（如 host/namespace/）时，仅保留镜像的仓库名部分，
+    // 由前缀中的命名空间替换镜像自带的命名空间（如阿里云个人版实例 kaiwudb）
+    const prefixHasNamespace = prefix.replace(/\/+$/, '').includes('/');
+    if (hasRegistryPrefix || prefixHasNamespace) {
       const lastSlashIndex = defaultImage.lastIndexOf('/');
       const imageName = lastSlashIndex >= 0 ? defaultImage.substring(lastSlashIndex + 1) : defaultImage;
-      return selectedSource.prefix ? `${selectedSource.prefix}${imageName}` : imageName;
+      return prefix ? `${prefix}${imageName}` : imageName;
     }
-    return selectedSource.prefix ? `${selectedSource.prefix}${defaultImage}` : defaultImage;
+    return prefix ? `${prefix}${defaultImage}` : defaultImage;
   };
 
   const checkAvailability = async () => {
