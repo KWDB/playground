@@ -740,7 +740,7 @@ func ImageSourcesAvailability() (bool, string, string) {
 	registries := []registry{
 		{label: "Docker Hub", url: "https://registry-1.docker.io/v2/"},
 		{label: "ghcr.io", url: "https://ghcr.io/v2/"},
-		{label: "Aliyun ACR", url: "https://registry.cn-hangzhou.aliyuncs.com/v2/"},
+		{label: "Aliyun ACR", url: "https://crpi-9ix5pwqh4t79xf4r.cn-shanghai.personal.cr.aliyuncs.com/v2/"},
 	}
 
 	type probeResult struct {

@@ -56,12 +56,23 @@ func buildImageWithSource(originImageName string, sourcePrefix string) string {
 	if !strings.HasSuffix(normalizedPrefix, "/") {
 		normalizedPrefix += "/"
 	}
+	// 前缀包含命名空间（如 host/namespace/）时，仅保留镜像的仓库名部分，
+	// 由前缀中的命名空间替换镜像自带的命名空间（如阿里云个人版实例 kaiwudb）
+	prefixHasNamespace := strings.Contains(strings.TrimSuffix(normalizedPrefix, "/"), "/")
 	if hasRegistryPrefix {
 		segments := strings.Split(imageName, "/")
 		if len(segments) <= 1 {
 			return normalizedPrefix + imageName
 		}
+		if prefixHasNamespace {
+			return normalizedPrefix + segments[len(segments)-1]
+		}
 		return normalizedPrefix + strings.Join(segments[1:], "/")
+	}
+	if prefixHasNamespace {
+		if idx := strings.LastIndex(imageName, "/"); idx >= 0 {
+			return normalizedPrefix + imageName[idx+1:]
+		}
 	}
 	return normalizedPrefix + imageName
 }
@@ -550,9 +561,9 @@ func (h *Handler) getImageSources(c *gin.Context) {
 		{
 			"id":          "aliyun",
 			"name":        "阿里云 ACR",
-			"prefix":      "registry.cn-hangzhou.aliyuncs.com/",
-			"description": "阿里云容器镜像服务",
-			"example":     "registry.cn-hangzhou.aliyuncs.com/kwdb/kwdb:latest",
+			"prefix":      "crpi-9ix5pwqh4t79xf4r.cn-shanghai.personal.cr.aliyuncs.com/kaiwudb/",
+			"description": "阿里云容器镜像服务（个人版实例）",
+			"example":     "crpi-9ix5pwqh4t79xf4r.cn-shanghai.personal.cr.aliyuncs.com/kaiwudb/kwdb:latest",
 		},
 	}
 

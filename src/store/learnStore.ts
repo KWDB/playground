@@ -382,7 +382,7 @@ export const imageSourceLabelSelector = (state: LearnState) => {
   const hasRegistry = first === 'localhost' || first.includes('.') || first.includes(':');
 
   if (first === 'ghcr.io') return 'ghcr.io';
-  if (first === 'registry.cn-hangzhou.aliyuncs.com') return 'Aliyun ACR';
+  if (first === 'crpi-9ix5pwqh4t79xf4r.cn-shanghai.personal.cr.aliyuncs.com') return 'Aliyun ACR';
   if (hasRegistry) return 'Custom';
   return 'Docker Hub';
 };
