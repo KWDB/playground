@@ -74,6 +74,8 @@ jobs:
           file: docker/playground/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/playground:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/playground:${{ steps.version.outputs.VERSION }}
