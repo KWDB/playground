@@ -1,16 +1,16 @@
-title: 单机升级：3.2.1 到 3.2.2
-description: 在 Ubuntu 24.04 环境中演练将单机部署的 KWDB 从 3.2.1 离线升级到 3.2.2。
+title: 单机升级：3.2.2 到 3.3.0
+description: 在 Ubuntu 24.04 环境中演练将单机部署的 KWDB 从 3.2.2 离线升级到 3.3.0。
 details:
   intro:
     text: intro.md
   steps:
-    - title: 安装 3.2.1
+    - title: 安装 3.2.2
       text: step1.md
     - title: 升级前检查与备份
       text: step2.md
-    - title: 执行 3.2.2 升级
+    - title: 执行 3.3.0 升级
       text: step3.md
-    - title: 验证 3.2.2
+    - title: 验证 3.3.0
       text: step4.md
   finish:
     text: finish.md
@@ -19,8 +19,8 @@ backend:
   cmd: ["/sbin/init"]
   privileged: true
   env:
-    - "OLD_KW_VERSION=3.2.1"
-    - "NEW_KW_VERSION=3.2.2"
+    - "OLD_KW_VERSION=3.2.2"
+    - "NEW_KW_VERSION=3.3.0"
 estimatedMinutes: 20
 difficulty: intermediate
 tags:

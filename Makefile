@@ -65,7 +65,7 @@ dev: install-tools
 	@echo "🚀 Starting playground development server..."
 	@echo "Server will be available at http://localhost:$(SERVER_PORT)"
 	@echo "Press Ctrl+C to stop the service"
-	@trap 'echo "Stopping services..."; pkill -f "vite" 2>/dev/null; pkill -f "air" 2>/dev/null; killall -9 node go 2>/dev/null; exit 0' INT TERM
+	@trap 'echo "Stopping services..."; pkill -f "[v]ite" 2>/dev/null; pkill -f "[a]ir" 2>/dev/null; pkill -f "[k]wdb-playground" 2>/dev/null; exit 0' INT TERM
 	SERVER_PORT=$(SERVER_PORT) air -c .air.toml
 
 # Playwright 专用服务器启动
@@ -167,21 +167,19 @@ run: build
 # 停止守护进程
 	@./bin/$(APP_NAME) stop 2>/dev/null || true
 	@# 停止 Vite 和 Air 进程
-	@pkill -f "vite" 2>/dev/null || true
-	@pkill -f "air" 2>/dev/null || true
+	@pkill -f "[v]ite" 2>/dev/null || true
+	@pkill -f "[a]ir" 2>/dev/null || true
 	@# 停止 Go 进程
-	@pkill -f "kwdb-playground" 2>/dev/null || true
-	@killall -9 node go 2>/dev/null || true
+	@pkill -f "[k]wdb-playground" 2>/dev/null || true
 	@# 清理 tmp 目录中的残留进程
 	@rm -f tmp/*.pid 2>/dev/null || true
 	@echo "✅ All services stopped!"
 	@echo "🛑 Stopping all services..."
 	@# 停止 Vite 和 Air 进程
-	@pkill -f "vite" 2>/dev/null || true
-	@pkill -f "air" 2>/dev/null || true
+	@pkill -f "[v]ite" 2>/dev/null || true
+	@pkill -f "[a]ir" 2>/dev/null || true
 	@# 停止 Go 进程
-	@pkill -f "kwdb-playground" 2>/dev/null || true
-	@killall -9 node go 2>/dev/null || true
+	@pkill -f "[k]wdb-playground" 2>/dev/null || true
 	@# 清理 tmp 目录中的残留进程
 	@rm -f tmp/*.pid 2>/dev/null || true
 	@echo "✅ All services stopped!"
@@ -204,9 +202,9 @@ status:
 clean:
 	@echo "🧹 Cleaning build files..."
 	@# 停止所有开发服务
-	@pkill -f "vite" 2>/dev/null || true
-	@pkill -f "air" 2>/dev/null || true
-	@killall node go 2>/dev/null || true
+	@pkill -f "[v]ite" 2>/dev/null || true
+	@pkill -f "[a]ir" 2>/dev/null || true
+	@pkill -f "[k]wdb-playground" 2>/dev/null || true
 	@# 清理构建产物
 	rm -rf dist/
 	rm -rf bin/
@@ -263,9 +261,9 @@ docker-build-java-kwdb:
 		$(if $(DOCKER_PLATFORM),--platform $(DOCKER_PLATFORM),) \
 		-f docker/java-kwdb/Dockerfile \
 		-t kwdb/kwdb-java:latest \
-		-t kwdb/kwdb-java:3.2.2 \
+		-t kwdb/kwdb-java:3.3.0 \
 		docker/java-kwdb
-	@echo "✅ Docker image built: kwdb/kwdb-java:3.2.2"
+	@echo "✅ Docker image built: kwdb/kwdb-java:3.3.0"
 
 docker-up:
 	@echo "🐳 Starting Docker deployment..."
