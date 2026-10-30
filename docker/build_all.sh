@@ -409,7 +409,10 @@ for REPO_NAME in "${TARGET_IMAGES[@]}"; do
             echo "提示: --build-only 使用 --load 参数。多架构构建可能无法同时 load 到本地 Docker daemon。"
             BUILD_ARGS+=(--load)
         else
-            BUILD_ARGS+=(--push)
+            # 关闭 provenance/sbom attestation：ACR 个人版不支持 OCI attestation 清单
+            # (application/vnd.oci.empty.v1+json)，会报 "unknown manifest class" 拒绝推送
+            # （与 .github/workflows/docker-publish.yml 保持一致）
+            BUILD_ARGS+=(--push --provenance=false --sbom=false)
         fi
 
         docker buildx build "${BUILD_ARGS[@]}"
