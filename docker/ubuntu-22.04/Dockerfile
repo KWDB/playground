@@ -5,8 +5,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-# 根据构建架构动态配置阿里云镜像源
+# 根据构建架构动态配置清华 TUNA 镜像源
 # amd64 使用 'ubuntu', arm64 等其他架构使用 'ubuntu-ports'
+# 注：不使用阿里云源，其 CDN 对部分网络路径限速严重且间歇断连
 RUN set -e && \
     ARCH_SUFFIX="" && \
     if [ "$(dpkg --print-architecture)" != "amd64" ]; then \
@@ -14,10 +15,10 @@ RUN set -e && \
     fi && \
     rm -f /etc/apt/sources.list.d/ubuntu.sources && \
     cat <<EOF > /etc/apt/sources.list
-deb http://mirrors.aliyun.com/ubuntu${ARCH_SUFFIX}/ jammy main restricted universe multiverse
-deb http://mirrors.aliyun.com/ubuntu${ARCH_SUFFIX}/ jammy-security main restricted universe multiverse
-deb http://mirrors.aliyun.com/ubuntu${ARCH_SUFFIX}/ jammy-updates main restricted universe multiverse
-deb http://mirrors.aliyun.com/ubuntu${ARCH_SUFFIX}/ jammy-backports main restricted universe multiverse
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu${ARCH_SUFFIX}/ jammy main restricted universe multiverse
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu${ARCH_SUFFIX}/ jammy-security main restricted universe multiverse
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu${ARCH_SUFFIX}/ jammy-updates main restricted universe multiverse
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu${ARCH_SUFFIX}/ jammy-backports main restricted universe multiverse
 EOF
 
 # 安装 systemd、SSH 与课程常用工具，并保留 root SSH 登录能力

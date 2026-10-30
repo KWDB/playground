@@ -32,8 +32,8 @@ chmod +x docker/build_all.sh
 | `kwdb-monitor` | `docker/db-monitor` | `3.3.0` | 包含 Prometheus 和 Grafana 及相关大屏面板配置 |
 | `kwdb-java` | `docker/java-kwdb` | `3.3.0` | 基于 KWDB 并预装 Java 环境与 JDBC 驱动 |
 | `kwdb-python` | `docker/python-kwdb` | `3.3.0` | 基于 KWDB 并预装 Python 3 与 psycopg2 驱动 |
-| `ubuntu` / `ubuntu-24.04` | `docker/ubuntu-24.04` | `24.04` (固定) | 用于 Systemd 环境测试的底层镜像，使用阿里云国内源 |
-| `ubuntu-22.04` | `docker/ubuntu-22.04` | `22.04` (固定) | 与 24.04 镜像功能一致的 Ubuntu 22.04 底层镜像，使用阿里云国内源 |
+| `ubuntu` / `ubuntu-24.04` | `docker/ubuntu-24.04` | `24.04` (固定) | 用于 Systemd 环境测试的底层镜像，使用清华 TUNA 国内源 |
+| `ubuntu-22.04` | `docker/ubuntu-22.04` | `22.04` (固定) | 与 24.04 镜像功能一致的 Ubuntu 22.04 底层镜像，使用清华 TUNA 国内源 |
 
 > **提示**：Ubuntu 系列镜像标签强制固定为对应 Ubuntu 版本，其余镜像的默认标签受 `-t` 参数控制。
 
